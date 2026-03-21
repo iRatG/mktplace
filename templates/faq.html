@@ -1,164 +1,192 @@
 {% extends "base.html" %}
 
-{% block title %}FAQ — Помощь и часто задаваемые вопросы | Mktplace{% endblock %}
+{% block title %}FAQ — Помощь | Mktplace{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
+
+    <!-- Header -->
     <div class="mb-10">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Помощь и FAQ</h1>
-        <p class="text-gray-500">Подробное руководство по работе с платформой. Выберите раздел или найдите ответ на свой вопрос.</p>
+        <div class="text-xs font-semibold text-orange-500 uppercase tracking-[0.15em] mb-3">Помощь</div>
+        <h1 class="text-3xl font-bold text-white mb-2">Часто задаваемые вопросы</h1>
+        <p class="text-slate-400">Подробное руководство по работе с платформой.</p>
     </div>
 
-    <!-- Navigation tabs -->
-    <div class="flex flex-wrap gap-2 mb-8" id="faq-tabs">
-        <button onclick="showSection('general')" class="faq-tab active px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white">Общие вопросы</button>
-        <button onclick="showSection('advertiser')" class="faq-tab px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Рекламодателям</button>
-        <button onclick="showSection('blogger')" class="faq-tab px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Блогерам</button>
-        <button onclick="showSection('billing')" class="faq-tab px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Финансы и оплата</button>
-        <button onclick="showSection('deals')" class="faq-tab px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Сделки</button>
+    <!-- Tabs -->
+    <div class="flex flex-wrap gap-2 mb-8">
+        <button onclick="showSection('general', this)"
+            class="faq-tab px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white">
+            Общие вопросы
+        </button>
+        <button onclick="showSection('advertiser', this)"
+            class="faq-tab px-4 py-2 rounded-lg text-sm font-medium card-dark text-slate-400 hover:text-white">
+            Рекламодателям
+        </button>
+        <button onclick="showSection('blogger', this)"
+            class="faq-tab px-4 py-2 rounded-lg text-sm font-medium card-dark text-slate-400 hover:text-white">
+            Блогерам
+        </button>
+        <button onclick="showSection('billing', this)"
+            class="faq-tab px-4 py-2 rounded-lg text-sm font-medium card-dark text-slate-400 hover:text-white">
+            Финансы и оплата
+        </button>
+        <button onclick="showSection('deals', this)"
+            class="faq-tab px-4 py-2 rounded-lg text-sm font-medium card-dark text-slate-400 hover:text-white">
+            Сделки
+        </button>
     </div>
 
     <!-- GENERAL -->
-    <div id="section-general" class="faq-section space-y-4">
-        <h2 class="text-xl font-bold text-gray-900 mb-5">Общие вопросы</h2>
-        {% include "partials/faq_item.html" with question="Что такое Mktplace?" answer="Mktplace — это двусторонний маркетплейс, соединяющий рекламодателей и блогеров. Рекламодатели создают кампании с описанием задачи и бюджетом. Блогеры откликаются на подходящие кампании. Платформа обеспечивает безопасные расчёты через эскроу-систему: деньги рекламодателя замораживаются в начале сделки и поступают блогеру только после подтверждения публикации." %}
-        {% include "partials/faq_item.html" with question="Сколько стоит использование платформы?" answer="Регистрация и использование платформы бесплатны. Платформа берёт комиссию 15% только с успешно завершённых сделок — она вычитается из суммы выплаты блогеру. Для рекламодателя сумма сделки не увеличивается: он платит ровно столько, сколько указал в кампании." %}
-        {% include "partials/faq_item.html" with question="Кто может зарегистрироваться?" answer="На платформе два типа пользователей: рекламодатели (компании и физические лица, которые хотят разместить рекламу) и блогеры (владельцы аккаунтов в социальных сетях, которые размещают рекламный контент). При регистрации нужно выбрать роль — поменять её после регистрации нельзя." %}
-        {% include "partials/faq_item.html" with question="Как подтвердить email?" answer="После регистрации на ваш email придёт письмо со ссылкой подтверждения. Ссылка действительна 24 часа. Перейдите по ней — аккаунт активируется. Без подтверждения email войти в систему нельзя. Если письмо не пришло — проверьте папку «Спам»." %}
-        {% include "partials/faq_item.html" with question="Что делать если я забыл пароль?" answer="На странице входа нажмите «Забыли пароль?». Введите email — на него придёт письмо со ссылкой для сброса пароля. Ссылка действительна 1 час и одноразовая." %}
-        {% include "partials/faq_item.html" with question="Какие соцсети поддерживаются?" answer="ВКонтакте (группы, паблики, страницы), Telegram (каналы), YouTube (каналы), Instagram, TikTok, Яндекс.Дзен." %}
+    <div id="section-general" class="faq-section space-y-2">
+        <h2 class="text-base font-semibold text-slate-400 mb-4">Общие вопросы</h2>
+        {% include "partials/faq_item.html" with question="Что такое Mktplace?" answer="Mktplace — двусторонний маркетплейс, соединяющий рекламодателей и блогеров. Рекламодатели создают кампании, блогеры откликаются. Платформа обеспечивает безопасные расчёты через эскроу: деньги замораживаются в начале сделки и поступают блогеру только после подтверждения публикации." %}
+        {% include "partials/faq_item.html" with question="Сколько стоит использование платформы?" answer="Регистрация и использование бесплатны. Платформа берёт 15% только с успешно завершённых сделок — комиссия вычитается из выплаты блогеру. Рекламодатель платит ровно столько, сколько указал в кампании." %}
+        {% include "partials/faq_item.html" with question="Кто может зарегистрироваться?" answer="Два типа пользователей: рекламодатели (размещают рекламу) и блогеры (принимают рекламу на своих площадках). Роль выбирается при регистрации и не меняется." %}
+        {% include "partials/faq_item.html" with question="Как подтвердить email?" answer="После регистрации придёт письмо со ссылкой подтверждения (действительна 24 часа). Перейдите по ней — аккаунт активируется. Без подтверждения войти в систему нельзя." %}
+        {% include "partials/faq_item.html" with question="Что делать если забыл пароль?" answer='На странице входа нажмите "Забыли пароль?". Введите email — придёт письмо со ссылкой для сброса. Ссылка действительна 1 час и одноразовая.' %}
+        {% include "partials/faq_item.html" with question="Какие соцсети поддерживаются?" answer="ВКонтакте (группы, паблики), Telegram (каналы), YouTube (каналы), Instagram, TikTok, Яндекс.Дзен." %}
     </div>
 
     <!-- ADVERTISER -->
-    <div id="section-advertiser" class="faq-section hidden space-y-4">
-        <h2 class="text-xl font-bold text-gray-900 mb-5">Руководство для рекламодателя</h2>
+    <div id="section-advertiser" class="faq-section hidden space-y-2">
+        <h2 class="text-base font-semibold text-slate-400 mb-4">Рекламодателям</h2>
 
-        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-5 mb-6">
-            <h3 class="font-semibold text-indigo-900 mb-3">Алгоритм работы рекламодателя</h3>
-            <ol class="space-y-2 text-sm text-indigo-800">
-                <li class="flex gap-2"><span class="font-bold">1.</span> Зарегистрируйтесь и подтвердите email</li>
-                <li class="flex gap-2"><span class="font-bold">2.</span> Пополните баланс (минимум 1000 ₽)</li>
-                <li class="flex gap-2"><span class="font-bold">3.</span> Создайте кампанию — заполните описание, требования и бюджет</li>
-                <li class="flex gap-2"><span class="font-bold">4.</span> Отправьте кампанию на модерацию (кнопка «Отправить на проверку»)</li>
-                <li class="flex gap-2"><span class="font-bold">5.</span> После одобрения — кампания появится в ленте для блогеров</li>
-                <li class="flex gap-2"><span class="font-bold">6.</span> Принимайте или отклоняйте отклики от блогеров</li>
-                <li class="flex gap-2"><span class="font-bold">7.</span> При необходимости — согласуйте креатив (текст и медиа до публикации)</li>
-                <li class="flex gap-2"><span class="font-bold">8.</span> После публикации — проверьте и подтвердите. Деньги поступят блогеру.</li>
+        <div class="card-dark rounded-xl p-5 mb-4">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-7 h-7 gradient-orange rounded-lg flex items-center justify-center text-sm">📣</div>
+                <h3 class="font-semibold text-white text-sm">Алгоритм работы рекламодателя</h3>
+            </div>
+            <ol class="space-y-2">
+                {% for step in "12345678" %}
+                {% if forloop.counter == 1 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">1.</span><span class="text-slate-300">Зарегистрируйтесь и подтвердите email</span></li>
+                {% elif forloop.counter == 2 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">2.</span><span class="text-slate-300">Пополните баланс (минимум 1 000 ₽)</span></li>
+                {% elif forloop.counter == 3 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">3.</span><span class="text-slate-300">Создайте кампанию — описание, требования, бюджет</span></li>
+                {% elif forloop.counter == 4 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">4.</span><span class="text-slate-300">Отправьте кампанию на модерацию</span></li>
+                {% elif forloop.counter == 5 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">5.</span><span class="text-slate-300">После одобрения кампания появится в ленте блогеров</span></li>
+                {% elif forloop.counter == 6 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">6.</span><span class="text-slate-300">Принимайте или отклоняйте отклики</span></li>
+                {% elif forloop.counter == 7 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">7.</span><span class="text-slate-300">При необходимости согласуйте креатив до публикации</span></li>
+                {% elif forloop.counter == 8 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">8.</span><span class="text-slate-300">Подтвердите публикацию — деньги поступят блогеру</span></li>
+                {% endif %}
+                {% endfor %}
             </ol>
         </div>
 
-        {% include "partials/faq_item.html" with question="Как создать рекламную кампанию?" answer="Перейдите в раздел «Кампании» → «Создать кампанию». Заполните: название, описание рекламируемого продукта, требования к контенту (тип: пост/сторис/видео), допустимые соцсети, минимальные требования к блогеру (подписчики, ER%). Укажите тип оплаты: фиксированная цена за размещение (Fixed) или оплата за результат (CPA). Кампания сохраняется как черновик — можно редактировать до отправки на модерацию." %}
-        {% include "partials/faq_item.html" with question="Что такое модерация кампании и сколько она занимает?" answer="Перед публикацией кампании администраторы платформы проверяют её на соответствие правилам: отсутствие запрещённых товаров и услуг, корректность описания, наличие реального продукта. Срок проверки — обычно до 24 часов в рабочие дни. После одобрения кампания автоматически становится видна блогерам." %}
-        {% include "partials/faq_item.html" with question="Как обработать отклик от блогера?" answer="В разделе кампании перейдите во вкладку «Отклики». Для каждого отклика вы видите профиль блогера, метрики площадки, предложенную цену и сопроводительное сообщение. Нажмите «Принять» — создаётся сделка, средства резервируются. Нажмите «Отклонить» — блогер получает уведомление." %}
-        {% include "partials/faq_item.html" with question="Нужно ли мне согласовывать контент до публикации?" answer="Это опционально — настраивается при создании кампании. Если вы включили «Согласование креатива»: блогер загружает черновик публикации (текст + медиа), вы получаете уведомление и должны ответить в течение 48 часов. Можно одобрить или отправить на доработку с комментарием. Максимум 3 итерации. Если вы не ответили за 48 часов — креатив считается одобренным автоматически." %}
-        {% include "partials/faq_item.html" with question="Как подтвердить публикацию?" answer="Блогер прикрепляет ссылку на опубликованный материал. Вы получаете уведомление. Перейдите в сделку → проверьте публикацию → нажмите «Подтвердить». Деньги поступают блогеру. Если публикация не соответствует заданию — нажмите «Оспорить» и укажите причину." %}
-        {% include "partials/faq_item.html" with question="Что если я не отреагировал в течение 72 часов после публикации?" answer="Если вы не подтвердили и не оспорили публикацию в течение 72 часов — сделка завершается автоматически и деньги поступают блогеру. Это правило защищает блогеров от недобросовестных рекламодателей." %}
-        {% include "partials/faq_item.html" with question="Как отменить кампанию или сделку?" answer="Кампанию в статусе «Черновик», «Приостановлена» или «Активна» можно отменить через кнопку «Отменить». Сделку в статусе «В работе» — нельзя отменить в одностороннем порядке без согласия блогера. Запросите отмену — блогер должен подтвердить." %}
-        {% include "partials/faq_item.html" with question="Что такое CPA-кампания?" answer="CPA (Cost Per Action) — оплата за результат. Вы платите не за факт публикации, а за каждую конверсию: установку приложения, регистрацию, покупку. Для каждой сделки система генерирует уникальную трекинговую ссылку для блогера. Конверсии фиксируются автоматически (через postback) или вносятся вручную." %}
+        {% include "partials/faq_item.html" with question="Как создать рекламную кампанию?" answer="Перейдите в «Кампании» → «Создать кампанию». Заполните название, описание продукта, требования к контенту, допустимые соцсети, тип оплаты (Fixed или CPA). Кампания сохраняется как черновик — можно редактировать до отправки на модерацию." %}
+        {% include "partials/faq_item.html" with question="Что такое модерация и сколько занимает?" answer="Перед публикацией администраторы проверяют кампанию: отсутствие запрещённых товаров, корректность описания. Срок — до 24 часов. После одобрения кампания становится видна блогерам." %}
+        {% include "partials/faq_item.html" with question="Как обработать отклик от блогера?" answer="На странице кампании во вкладке «Отклики» для каждого отклика видны профиль блогера, площадка, предложенная цена. «Принять» — создаётся сделка, деньги резервируются. «Отклонить» — блогер получает уведомление." %}
+        {% include "partials/faq_item.html" with question="Как работает согласование контента?" answer="Если включено при создании кампании: блогер загружает черновик (текст + медиа), вы получаете уведомление и должны ответить за 48 часов. Одобрить или отправить на доработку с комментарием. Максимум 3 итерации. Без ответа за 48ч — авто-одобрение." %}
+        {% include "partials/faq_item.html" with question="Как подтвердить публикацию?" answer="Блогер прикрепляет ссылку на опубликованный материал. Вы получаете уведомление. Перейдите в сделку → проверьте → «Подтвердить». Деньги поступают блогеру. Если публикация не соответствует заданию — «Оспорить»." %}
+        {% include "partials/faq_item.html" with question="Что если не отреагировал за 72ч после публикации?" answer="Если не подтвердили и не оспорили публикацию в течение 72 часов — сделка завершается автоматически и деньги поступают блогеру." %}
+        {% include "partials/faq_item.html" with question="Что такое CPA-кампания?" answer="Оплата за результат: установку приложения, регистрацию, покупку. Система генерирует уникальную трекинговую ссылку для каждого блогера. Конверсии фиксируются автоматически (postback) или вручную." %}
     </div>
 
     <!-- BLOGGER -->
-    <div id="section-blogger" class="faq-section hidden space-y-4">
-        <h2 class="text-xl font-bold text-gray-900 mb-5">Руководство для блогера</h2>
+    <div id="section-blogger" class="faq-section hidden space-y-2">
+        <h2 class="text-base font-semibold text-slate-400 mb-4">Блогерам</h2>
 
-        <div class="bg-purple-50 border border-purple-100 rounded-xl p-5 mb-6">
-            <h3 class="font-semibold text-purple-900 mb-3">Алгоритм работы блогера</h3>
-            <ol class="space-y-2 text-sm text-purple-800">
-                <li class="flex gap-2"><span class="font-bold">1.</span> Зарегистрируйтесь и подтвердите email</li>
-                <li class="flex gap-2"><span class="font-bold">2.</span> Добавьте площадку (соцсеть) с метриками</li>
-                <li class="flex gap-2"><span class="font-bold">3.</span> Дождитесь проверки площадки администратором</li>
-                <li class="flex gap-2"><span class="font-bold">4.</span> Откройте каталог кампаний, найдите подходящую</li>
-                <li class="flex gap-2"><span class="font-bold">5.</span> Откликнитесь: выберите площадку, тип контента, укажите цену</li>
-                <li class="flex gap-2"><span class="font-bold">6.</span> Если отклик принят — средства зарезервированы, начинайте работу</li>
-                <li class="flex gap-2"><span class="font-bold">7.</span> Если требуется согласование — загрузите черновик, дождитесь одобрения</li>
-                <li class="flex gap-2"><span class="font-bold">8.</span> Опубликуйте материал и прикрепите ссылку в сделке</li>
-                <li class="flex gap-2"><span class="font-bold">9.</span> После подтверждения рекламодателем — деньги на вашем балансе</li>
-                <li class="flex gap-2"><span class="font-bold">10.</span> Подайте заявку на вывод средств</li>
+        <div class="card-dark rounded-xl p-5 mb-4">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center text-sm">✍️</div>
+                <h3 class="font-semibold text-white text-sm">Алгоритм работы блогера</h3>
+            </div>
+            <ol class="space-y-2">
+                {% for i in "1234567890" %}
+                {% if forloop.counter == 1 %}<li class="flex gap-3 text-sm"><span class="text-indigo-400 font-bold w-4 flex-shrink-0">1.</span><span class="text-slate-300">Зарегистрируйтесь и подтвердите email</span></li>
+                {% elif forloop.counter == 2 %}<li class="flex gap-3 text-sm"><span class="text-indigo-400 font-bold w-4 flex-shrink-0">2.</span><span class="text-slate-300">Добавьте площадку с метриками</span></li>
+                {% elif forloop.counter == 3 %}<li class="flex gap-3 text-sm"><span class="text-indigo-400 font-bold w-4 flex-shrink-0">3.</span><span class="text-slate-300">Дождитесь проверки площадки администратором (до 48ч)</span></li>
+                {% elif forloop.counter == 4 %}<li class="flex gap-3 text-sm"><span class="text-indigo-400 font-bold w-4 flex-shrink-0">4.</span><span class="text-slate-300">Откройте каталог кампаний, найдите подходящую</span></li>
+                {% elif forloop.counter == 5 %}<li class="flex gap-3 text-sm"><span class="text-indigo-400 font-bold w-4 flex-shrink-0">5.</span><span class="text-slate-300">Откликнитесь: площадка, тип контента, цена</span></li>
+                {% elif forloop.counter == 6 %}<li class="flex gap-3 text-sm"><span class="text-indigo-400 font-bold w-4 flex-shrink-0">6.</span><span class="text-slate-300">Если отклик принят — деньги заморожены, начинайте работу</span></li>
+                {% elif forloop.counter == 7 %}<li class="flex gap-3 text-sm"><span class="text-indigo-400 font-bold w-4 flex-shrink-0">7.</span><span class="text-slate-300">При необходимости загрузите черновик на согласование</span></li>
+                {% elif forloop.counter == 8 %}<li class="flex gap-3 text-sm"><span class="text-indigo-400 font-bold w-4 flex-shrink-0">8.</span><span class="text-slate-300">Опубликуйте и прикрепите ссылку в сделке</span></li>
+                {% elif forloop.counter == 9 %}<li class="flex gap-3 text-sm"><span class="text-indigo-400 font-bold w-4 flex-shrink-0">9.</span><span class="text-slate-300">После подтверждения деньги на вашем балансе</span></li>
+                {% elif forloop.counter == 10 %}<li class="flex gap-3 text-sm"><span class="text-indigo-400 font-bold w-4 flex-shrink-0">10.</span><span class="text-slate-300">Подайте заявку на вывод средств</span></li>
+                {% endif %}
+                {% endfor %}
             </ol>
         </div>
 
-        {% include "partials/faq_item.html" with question="Как добавить площадку?" answer="После входа перейдите в «Мои площадки» → «Добавить площадку». Укажите тип соцсети (ВКонтакте, Telegram и др.), ссылку на аккаунт/канал, тематику. Вручную введите актуальные метрики: количество подписчиков, средние просмотры, ER%. При желании укажите прайс-лист форматов. После добавления площадка отправляется на проверку." %}
-        {% include "partials/faq_item.html" with question="Сколько ждать проверки площадки?" answer="Обычно 24–48 часов в рабочие дни. Администратор проверяет что ссылка ведёт на реальный аккаунт и метрики примерно соответствуют реальности. После одобрения площадка становится видна рекламодателям и вы можете откликаться на кампании." %}
-        {% include "partials/faq_item.html" with question="Как найти подходящую кампанию?" answer="Перейдите в «Каталог кампаний». Используйте фильтры: тип соцсети, категория, тип оплаты (фиксированная/CPA), ценовой диапазон. По умолчанию отображаются только кампании, требованиям которых соответствует ваша площадка. Можно отключить этот фильтр и посмотреть все активные кампании." %}
-        {% include "partials/faq_item.html" with question="Как правильно заполнить отклик?" answer="В карточке кампании нажмите «Откликнуться». Выберите площадку (если у вас несколько). Выберите тип контента из допустимых по кампании. Если в кампании задан диапазон цены — предложите свою. Напишите сопроводительное сообщение: почему ваша аудитория подходит для этого продукта — это повышает шанс принятия." %}
-        {% include "partials/faq_item.html" with question="Что делать после принятия отклика?" answer="Когда рекламодатель принял отклик, создаётся сделка. Если требуется согласование — загрузите черновик публикации (текст, изображения/видео) через форму в сделке. Рекламодатель одобрит или запросит правки. После одобрения — публикуйте контент. Прикрепите ссылку на публикацию в разделе сделки." %}
-        {% include "partials/faq_item.html" with question="Что если рекламодатель долго не отвечает?" answer="Если рекламодатель не реагирует на загруженный креатив в течение 48 часов — он считается одобренным автоматически. Если рекламодатель не подтверждает публикацию в течение 72 часов — сделка завершается автоматически и деньги поступают на ваш баланс." %}
-        {% include "partials/faq_item.html" with question="Могу ли я работать сразу с несколькими кампаниями?" answer="Да. Вы можете иметь неограниченное количество активных сделок. Один отклик — одна площадка на одну кампанию." %}
-        {% include "partials/faq_item.html" with question="Как обновить метрики площадки?" answer="Перейдите в «Мои площадки» → выберите площадку → «Обновить метрики». Вводите актуальные данные: подписчики, просмотры, ER%. Сохраняется история изменений. Рекламодатели видят дату последнего обновления — актуализируйте данные раз в 1–2 месяца." %}
+        {% include "partials/faq_item.html" with question="Как добавить площадку?" answer="После входа перейдите в «Мои площадки» → «Добавить площадку». Укажите тип соцсети, ссылку, тематику. Вручную введите метрики: подписчики, просмотры, ER%. При желании — прайс-лист форматов. После добавления площадка отправляется на проверку." %}
+        {% include "partials/faq_item.html" with question="Сколько ждать проверки площадки?" answer="24–48 часов. Администратор проверяет что ссылка ведёт на реальный аккаунт и метрики примерно соответствуют действительности. После одобрения вы можете откликаться на кампании." %}
+        {% include "partials/faq_item.html" with question="Как найти подходящую кампанию?" answer="Перейдите в «Каталог кампаний». Используйте фильтры: тип соцсети, категория, тип оплаты, ценовой диапазон. По умолчанию показываются только кампании под ваши площадки." %}
+        {% include "partials/faq_item.html" with question="Что делать после принятия отклика?" answer="Создаётся сделка. Если требуется согласование — загрузите черновик (текст, изображения/видео). После одобрения публикуйте контент и прикрепите ссылку в разделе сделки." %}
+        {% include "partials/faq_item.html" with question="Что если рекламодатель долго не отвечает?" answer="На согласование креатива — 48 часов, иначе авто-одобрение. На подтверждение публикации — 72 часа, иначе сделка завершается автоматически и деньги поступают вам." %}
+        {% include "partials/faq_item.html" with question="Как обновить метрики площадки?" answer='В "Мои площадки" выберите площадку → "Обновить метрики". Вводите актуальные данные. Рекламодатели видят дату обновления — обновляйте раз в 1–2 месяца.' %}
     </div>
 
     <!-- BILLING -->
-    <div id="section-billing" class="faq-section hidden space-y-4">
-        <h2 class="text-xl font-bold text-gray-900 mb-5">Финансы и оплата</h2>
+    <div id="section-billing" class="faq-section hidden space-y-2">
+        <h2 class="text-base font-semibold text-slate-400 mb-4">Финансы и оплата</h2>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div class="bg-white border border-gray-200 rounded-xl p-4 text-center">
-                <div class="text-2xl font-bold text-indigo-600 mb-1">15%</div>
-                <div class="text-xs text-gray-500">Комиссия платформы<br>(от суммы сделки)</div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div class="card-dark rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-orange-400 mb-1">15%</div>
+                <div class="text-xs text-slate-500">Комиссия платформы<br>от суммы сделки</div>
             </div>
-            <div class="bg-white border border-gray-200 rounded-xl p-4 text-center">
-                <div class="text-2xl font-bold text-indigo-600 mb-1">1 000 ₽</div>
-                <div class="text-xs text-gray-500">Минимальное пополнение<br>баланса</div>
+            <div class="card-dark rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-orange-400 mb-1">1 000 ₽</div>
+                <div class="text-xs text-slate-500">Минимальное пополнение<br>баланса</div>
             </div>
-            <div class="bg-white border border-gray-200 rounded-xl p-4 text-center">
-                <div class="text-2xl font-bold text-indigo-600 mb-1">500 ₽</div>
-                <div class="text-xs text-gray-500">Минимальный вывод<br>для блогера</div>
+            <div class="card-dark rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-orange-400 mb-1">500 ₽</div>
+                <div class="text-xs text-slate-500">Минимальный вывод<br>для блогера</div>
             </div>
         </div>
 
-        {% include "partials/faq_item.html" with question="Как пополнить баланс (рекламодатель)?" answer="Перейдите в раздел «Кошелёк» → «Пополнить». Выберите удобный способ оплаты. После успешного платежа средства зачисляются на доступный баланс. Минимальная сумма пополнения — 1 000 ₽." %}
-        {% include "partials/faq_item.html" with question="Что такое зарезервированный баланс?" answer="При создании сделки нужная сумма перемещается из «доступного баланса» в «зарезервированный». Это деньги, которые уже отложены для блогера. Их нельзя потратить на другие цели. При завершении сделки — переходят блогеру. При отмене — возвращаются в доступный баланс рекламодателя." %}
-        {% include "partials/faq_item.html" with question="Как работает комиссия платформы?" answer="Комиссия 15% удерживается автоматически при завершении сделки. Пример: сделка на 1 000 ₽ — рекламодатель заплатил 1 000 ₽, блогер получил 850 ₽, 150 ₽ — комиссия платформы. Рекламодатель платит ровно столько, сколько указал — комиссия вычитается из выплаты блогеру." %}
-        {% include "partials/faq_item.html" with question="Как вывести деньги (блогер)?" answer="Перейдите в «Кошелёк» → «Вывод средств». Укажите сумму (не более доступного баланса, минимум 500 ₽) и реквизиты (банковская карта, электронный кошелёк). Заявка обрабатывается администратором в течение 3 рабочих дней. Вы получите уведомление о результате." %}
-        {% include "partials/faq_item.html" with question="Что происходит с деньгами при отмене сделки?" answer="При отмене сделки зарезервированная сумма полностью возвращается на доступный баланс рекламодателя. Никаких штрафов за отмену нет (если обе стороны согласились)." %}
-        {% include "partials/faq_item.html" with question="Где посмотреть историю транзакций?" answer="В разделе «Кошелёк» → «История операций». Показывается: дата, тип операции, сумма, баланс после операции, привязка к сделке. Доступна фильтрация по типу и дате." %}
+        {% include "partials/faq_item.html" with question="Как пополнить баланс (рекламодатель)?" answer="Перейдите в раздел «Кошелёк» → «Пополнить». После успешного платежа средства зачисляются на доступный баланс. Минимум — 1 000 ₽." %}
+        {% include "partials/faq_item.html" with question="Что такое зарезервированный баланс?" answer="При создании сделки сумма перемещается из «доступного» в «зарезервированный». Эти деньги нельзя потратить на другое. При завершении — переходят блогеру. При отмене — возвращаются рекламодателю." %}
+        {% include "partials/faq_item.html" with question="Как работает комиссия 15%?" answer="При завершении сделки на 1 000 ₽: рекламодатель заплатил 1 000 ₽, блогер получил 850 ₽, 150 ₽ — комиссия платформы. Рекламодатель платит ровно столько, сколько указал." %}
+        {% include "partials/faq_item.html" with question="Как вывести деньги (блогер)?" answer="«Кошелёк» → «Вывод средств». Укажите сумму (от 500 ₽, не более доступного баланса) и реквизиты. Обработка — до 3 рабочих дней." %}
+        {% include "partials/faq_item.html" with question="Что происходит с деньгами при отмене сделки?" answer="Зарезервированная сумма полностью возвращается на доступный баланс рекламодателя. Штрафов нет." %}
+        {% include "partials/faq_item.html" with question="Где посмотреть историю транзакций?" answer="«Кошелёк» → «История операций». Дата, тип, сумма, баланс после, привязка к сделке. Фильтрация по типу и дате." %}
     </div>
 
     <!-- DEALS -->
-    <div id="section-deals" class="faq-section hidden space-y-4">
-        <h2 class="text-xl font-bold text-gray-900 mb-5">Жизненный цикл сделки</h2>
+    <div id="section-deals" class="faq-section hidden space-y-2">
+        <h2 class="text-base font-semibold text-slate-400 mb-4">Жизненный цикл сделки</h2>
 
-        <div class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
-            <h3 class="font-semibold text-gray-800 mb-4">Статусы сделки</h3>
+        <div class="card-dark rounded-xl p-5 mb-4">
+            <h3 class="font-semibold text-white text-sm mb-4">Статусы сделки</h3>
             <div class="space-y-2">
                 {% for status, color, desc in deal_statuses %}
                 <div class="flex items-start gap-3">
-                    <span class="text-xs px-2 py-1 rounded-full font-medium {{ color }} flex-shrink-0 mt-0.5">{{ status }}</span>
-                    <span class="text-sm text-gray-600">{{ desc }}</span>
+                    <span class="text-xs px-2 py-1 rounded-full font-medium {{ color }} flex-shrink-0 mt-0.5 whitespace-nowrap">{{ status }}</span>
+                    <span class="text-xs text-slate-400 leading-relaxed">{{ desc }}</span>
                 </div>
                 {% endfor %}
             </div>
         </div>
 
-        {% include "partials/faq_item.html" with question="Когда создаётся сделка?" answer="Сделка создаётся автоматически в момент когда рекламодатель принимает отклик блогера. При этом сразу же резервируется сумма сделки на балансе рекламодателя. Если средств недостаточно — сделка переходит в статус «Ожидает оплаты» и остаётся там до пополнения баланса (максимум 48 часов)." %}
-        {% include "partials/faq_item.html" with question="Как происходит согласование креатива?" answer="Если в кампании включено требование согласования: блогер загружает текст и медиафайлы публикации. Рекламодатель получает уведомление и должен ответить в течение 48 часов: одобрить или отправить на доработку с комментарием. После одобрения — блогер публикует и прикрепляет ссылку. Максимум 3 итерации. Если рекламодатель не ответил за 48ч — автоматическое одобрение." %}
-        {% include "partials/faq_item.html" with question="Как открыть спор?" answer="Если вы рекламодатель и публикация не соответствует заданию — перейдите в сделку → «Оспорить». Укажите причину. Создаётся тикет для администратора. Обе стороны излагают свою позицию. Администратор изучает чат, материалы и задание — выносит решение: засчитать выполнение или вернуть средства рекламодателю." %}
-        {% include "partials/faq_item.html" with question="Что такое чат в сделке?" answer="Каждая сделка имеет встроенный чат. В нём блогер и рекламодатель общаются: уточняют детали, обсуждают правки. Можно отправлять текст и файлы до 10 МБ. Все сообщения сохраняются. После завершения или отмены сделки чат переходит в режим «только чтение»." %}
-        {% include "partials/faq_item.html" with question="Можно ли отменить сделку?" answer="До статуса «Опубликовано» — любая сторона может запросить отмену, указав причину. Требуется согласие второй стороны. При подтверждении: зарезервированные деньги возвращаются рекламодателю, сделка отменяется. Если вторая сторона не согласна — можно эскалировать администратору." %}
-        {% include "partials/faq_item.html" with question="Как оставить отзыв после сделки?" answer="В течение 7 дней после завершения сделки доступна кнопка «Оставить отзыв» в разделе сделки. Оценка по шкале 1–5 и текстовый комментарий до 500 символов. Оценки публичны: рейтинг блогера формируется из оценок рекламодателей. После 7 дней возможность оставить отзыв пропадает." %}
+        {% include "partials/faq_item.html" with question="Когда создаётся сделка?" answer="Автоматически при принятии отклика рекламодателем. Одновременно резервируется сумма. Если средств недостаточно — сделка висит в «Ожидает оплаты» до 48 часов, затем отменяется." %}
+        {% include "partials/faq_item.html" with question="Как происходит согласование креатива?" answer="Блогер загружает текст и медиафайлы. Рекламодатель должен ответить за 48ч: одобрить или отправить на доработку. Максимум 3 итерации. Без ответа — авто-одобрение." %}
+        {% include "partials/faq_item.html" with question="Как открыть спор?" answer="Рекламодатель: перейдите в сделку → «Оспорить» → укажите причину. Создаётся тикет для администратора. Обе стороны излагают позицию. Администратор выносит решение: засчитать выполнение или вернуть средства." %}
+        {% include "partials/faq_item.html" with question="Что такое чат в сделке?" answer="Встроенный чат блогера и рекламодателя. Текст и файлы до 10 МБ. История сохраняется. После завершения или отмены — только чтение." %}
+        {% include "partials/faq_item.html" with question="Можно ли отменить сделку?" answer="До статуса «Опубликовано» — любая сторона может запросить отмену. Нужно согласие второй стороны. При подтверждении — деньги возвращаются рекламодателю." %}
+        {% include "partials/faq_item.html" with question="Как оставить отзыв?" answer="В течение 7 дней после завершения сделки — кнопка «Оставить отзыв». Оценка 1–5 и комментарий до 500 символов. Формирует рейтинг блогера." %}
     </div>
 
-    <!-- Still need help -->
-    <div class="bg-gray-50 border border-gray-200 rounded-2xl p-8 mt-10 text-center">
-        <div class="text-2xl mb-3">💬</div>
-        <h3 class="font-bold text-gray-800 mb-2">Не нашли ответ?</h3>
-        <p class="text-sm text-gray-500 mb-4">Напишите нам — мы отвечаем в течение рабочего дня</p>
-        <a href="mailto:support@mktplace.com" class="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+    <!-- Support -->
+    <div class="card-dark rounded-2xl p-8 mt-10 text-center">
+        <div class="text-3xl mb-3">💬</div>
+        <h3 class="font-bold text-white mb-2">Не нашли ответ?</h3>
+        <p class="text-sm text-slate-500 mb-5">Напишите нам — отвечаем в течение рабочего дня</p>
+        <a href="mailto:support@mktplace.com"
+            class="btn-orange inline-block px-6 py-2.5 rounded-xl text-sm">
             Написать в поддержку
         </a>
     </div>
 </div>
 
 <script>
-function showSection(name) {
+function showSection(name, btn) {
     document.querySelectorAll('.faq-section').forEach(s => s.classList.add('hidden'));
     document.getElementById('section-' + name).classList.remove('hidden');
     document.querySelectorAll('.faq-tab').forEach(t => {
-        t.classList.remove('bg-indigo-600', 'text-white');
-        t.classList.add('bg-gray-100', 'text-gray-600');
+        t.classList.remove('bg-orange-500', 'text-white');
+        t.classList.add('text-slate-400');
     });
-    event.target.classList.add('bg-indigo-600', 'text-white');
-    event.target.classList.remove('bg-gray-100', 'text-gray-600');
+    btn.classList.add('bg-orange-500', 'text-white');
+    btn.classList.remove('text-slate-400');
 }
 
 function toggleFaq(el) {
