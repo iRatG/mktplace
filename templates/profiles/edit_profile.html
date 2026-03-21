@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Редактировать профиль | Mktplace{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'web:profile' %}" class="text-slate-400 hover:text-white transition-colors text-sm">← Профиль</a>
+        <span class="text-slate-600">/</span>
+        <h1 class="text-xl font-bold">Редактировать профиль</h1>
+    </div>
+
+    <div class="card-dark rounded-xl p-6">
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert-error">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            {% if user.role == 'blogger' %}
+
+            <div class="bg-indigo-950/40 border border-indigo-500/20 rounded-lg px-4 py-3 text-xs text-slate-400 leading-relaxed">
+                Заполните профиль — рекламодатели видят его до принятия вашего отклика. Никнейм и биография обязательны для статуса «Профиль заполнен».
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Имя / никнейм</label>
+                <input type="text" name="nickname" value="{{ form.nickname.value|default:'' }}" placeholder="Как вас называть?" class="input-dark">
+                <p class="text-xs text-slate-500 mt-1">Отображается на публичной странице вашего профиля. Используйте имя, под которым вас знает аудитория.</p>
+                {% if form.nickname.errors %}<p class="text-red-400 text-xs mt-1">{{ form.nickname.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">О себе</label>
+                <textarea name="bio" rows="4" placeholder="Расскажите о себе, своей аудитории, форматах работы..." class="input-dark">{{ form.bio.value|default:'' }}</textarea>
+                <p class="text-xs text-slate-500 mt-1">Опишите свою аудиторию, тематики контента и форматы работы с рекламодателями. Хорошее описание повышает конверсию откликов.</p>
+                {% if form.bio.errors %}<p class="text-red-400 text-xs mt-1">{{ form.bio.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            {% else %}
+
+            <div class="bg-orange-950/30 border border-orange-500/20 rounded-lg px-4 py-3 text-xs text-slate-400 leading-relaxed">
+                Заполните профиль компании — блогеры видят его при просмотре вашей кампании. Чем подробнее описание, тем больше доверия со стороны блогеров.
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Название компании</label>
+                <input type="text" name="company_name" value="{{ form.company_name.value|default:'' }}" placeholder="ООО «Компания»" class="input-dark">
+                <p class="text-xs text-slate-500 mt-1">Официальное или торговое название вашей компании или бренда.</p>
+                {% if form.company_name.errors %}<p class="text-red-400 text-xs mt-1">{{ form.company_name.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Отрасль</label>
+                <input type="text" name="industry" value="{{ form.industry.value|default:'' }}" placeholder="Электроника, Косметика, IT..." class="input-dark">
+                <p class="text-xs text-slate-500 mt-1">Укажите сферу деятельности — блогер поймёт, насколько ваш продукт подходит его аудитории.</p>
+                {% if form.industry.errors %}<p class="text-red-400 text-xs mt-1">{{ form.industry.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1">Контактное лицо</label>
+                    <input type="text" name="contact_name" value="{{ form.contact_name.value|default:'' }}" placeholder="Имя Фамилия" class="input-dark">
+                    <p class="text-xs text-slate-500 mt-1">Имя менеджера, с которым ведётся работа.</p>
+                    {% if form.contact_name.errors %}<p class="text-red-400 text-xs mt-1">{{ form.contact_name.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1">Телефон</label>
+                    <input type="text" name="phone" value="{{ form.phone.value|default:'' }}" placeholder="+998 90 000 00 00" class="input-dark">
+                    <p class="text-xs text-slate-500 mt-1">Для оперативной связи при необходимости.</p>
+                    {% if form.phone.errors %}<p class="text-red-400 text-xs mt-1">{{ form.phone.errors|join:", " }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Сайт</label>
+                <input type="url" name="website" value="{{ form.website.value|default:'' }}" placeholder="https://company.com" class="input-dark">
+                <p class="text-xs text-slate-500 mt-1">Блогер может перейти на сайт и лучше понять ваш продукт перед откликом.</p>
+                {% if form.website.errors %}<p class="text-red-400 text-xs mt-1">{{ form.website.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">О компании</label>
+                <textarea name="description" rows="4" placeholder="Расскажите о компании, продуктах, целевой аудитории..." class="input-dark">{{ form.description.value|default:'' }}</textarea>
+                <p class="text-xs text-slate-500 mt-1">Опишите продукт, целевую аудиторию и что вы ожидаете от рекламного контента. Чёткое описание снижает количество нецелевых откликов.</p>
+                {% if form.description.errors %}<p class="text-red-400 text-xs mt-1">{{ form.description.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            {% endif %}
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="btn-orange px-6 py-2.5 rounded-lg text-sm">Сохранить</button>
+                <a href="{% url 'web:profile' %}" class="px-6 py-2.5 rounded-lg text-sm text-slate-400 border border-white/10 hover:border-white/20 transition-colors">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

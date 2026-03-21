@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.nickname|default:blogger.email }} | Mktplace{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+
+    <!-- Шапка -->
+    <div class="card-dark rounded-xl p-6">
+        <div class="flex items-start gap-5">
+            <div class="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-3xl font-bold flex-shrink-0">
+                {{ profile.nickname|first|upper|default:blogger.email|first|upper }}
+            </div>
+            <div class="flex-1 min-w-0">
+                <h1 class="text-xl font-bold">{{ profile.nickname|default:"Блогер" }}</h1>
+                <p class="text-sm text-slate-500 mt-0.5">Зарегистрирован {{ blogger.date_joined|date:"N Y" }}</p>
+                {% if profile.bio %}
+                <p class="text-sm text-slate-300 mt-3 leading-relaxed">{{ profile.bio }}</p>
+                {% endif %}
+            </div>
+            <div class="flex-shrink-0 text-right">
+                <div class="text-2xl font-bold text-orange-400">{{ completed_deals }}</div>
+                <div class="text-xs text-slate-500">сделок</div>
+                {% if profile.rating %}
+                <div class="text-sm font-semibold text-yellow-400 mt-1">★ {{ profile.rating }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Площадки -->
+    <div>
+        <h2 class="text-lg font-semibold mb-3">Площадки</h2>
+        {% if platforms %}
+        <div class="space-y-3">
+            {% for p in platforms %}
+            <div class="card-dark rounded-xl p-5">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-lg flex-shrink-0">
+                        {% if p.social_type == 'telegram' %}✈️
+                        {% elif p.social_type == 'youtube' %}▶️
+                        {% elif p.social_type == 'instagram' %}📸
+                        {% elif p.social_type == 'vk' %}🔵
+                        {% elif p.social_type == 'tiktok' %}🎵
+                        {% else %}📡{% endif %}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <span class="font-medium text-sm text-orange-400">{{ p.get_social_type_display }}</span>
+                            <a href="{{ p.url }}" target="_blank" class="text-xs text-slate-400 hover:text-white transition-colors truncate">{{ p.url }}</a>
+                        </div>
+
+                        <!-- Метрики -->
+                        <div class="flex flex-wrap gap-4 mt-2 text-sm">
+                            {% if p.subscribers %}
+                            <div>
+                                <span class="text-slate-500 text-xs">Подписчики</span>
+                                <div class="font-semibold text-white">{{ p.subscribers|floatformat:0 }}</div>
+                            </div>
+                            {% endif %}
+                            {% if p.avg_views %}
+                            <div>
+                                <span class="text-slate-500 text-xs">Ср. просмотры</span>
+                                <div class="font-semibold text-white">{{ p.avg_views|floatformat:0 }}</div>
+                            </div>
+                            {% endif %}
+                            {% if p.engagement_rate %}
+                            <div>
+                                <span class="text-slate-500 text-xs">ER</span>
+                                <div class="font-semibold text-white">{{ p.engagement_rate }}%</div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Тематики -->
+                        {% if p.categories.all %}
+                        <div class="flex flex-wrap gap-1.5 mt-2">
+                            {% for cat in p.categories.all %}
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">{{ cat.name }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Прайс -->
+                        {% if p.price_post or p.price_stories or p.price_video or p.price_review %}
+                        <div class="mt-3 pt-3 border-t border-white/5 flex flex-wrap gap-3 text-xs">
+                            {% if p.price_post %}<span class="text-slate-400">Пост: <strong class="text-white">{{ p.price_post|floatformat:0 }} {{ currency.symbol }}</strong></span>{% endif %}
+                            {% if p.price_stories %}<span class="text-slate-400">Сторис: <strong class="text-white">{{ p.price_stories|floatformat:0 }} {{ currency.symbol }}</strong></span>{% endif %}
+                            {% if p.price_video %}<span class="text-slate-400">Видео: <strong class="text-white">{{ p.price_video|floatformat:0 }} {{ currency.symbol }}</strong></span>{% endif %}
+                            {% if p.price_review %}<span class="text-slate-400">Обзор: <strong class="text-white">{{ p.price_review|floatformat:0 }} {{ currency.symbol }}</strong></span>{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card-dark rounded-xl p-6 text-center text-slate-500">
+            Одобренных площадок пока нет
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Пользователи — Панель администратора{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Пользователи</h1>
+        <p class="text-slate-400 text-sm mt-1">Все зарегистрированные аккаунты</p>
+    </div>
+    <a href="{% url 'web:admin_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">← Панель</a>
+</div>
+
+{% if users %}
+<div class="card-dark rounded-xl overflow-hidden">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-white/5">
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Email</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Роль</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Статус</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Email подтверждён</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Дата регистрации</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-white/5">
+            {% for u in users %}
+            <tr class="hover:bg-white/5 transition-colors">
+                <td class="px-4 py-3 text-slate-300">
+                    {{ u.email }}
+                    {% if u.is_staff %}<span class="ml-2 text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">staff</span>{% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    {% if u.role == 'advertiser' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400">Рекламодатель</span>
+                    {% elif u.role == 'blogger' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400">Блогер</span>
+                    {% else %}
+                    <span class="text-xs text-slate-500">—</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    {% if u.status == 'active' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">Активен</span>
+                    {% elif u.status == 'pending' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-400">Ожидает</span>
+                    {% elif u.status == 'blocked' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">Заблокирован</span>
+                    {% else %}
+                    <span class="text-xs text-slate-500">{{ u.status }}</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    {% if u.is_email_confirmed %}
+                    <span class="text-green-400">✓</span>
+                    {% else %}
+                    <span class="text-slate-500">—</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-slate-500">{{ u.date_joined|date:"d.m.Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card-dark rounded-xl p-8 text-center text-slate-500">Пользователей нет</div>
+{% endif %}
+{% endblock %}

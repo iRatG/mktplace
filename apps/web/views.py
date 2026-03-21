@@ -14,14 +14,18 @@ from apps.campaigns.models import Campaign
 from apps.campaigns.models import Response as CampaignResponse
 from apps.deals.models import Deal, DealStatusLog
 from apps.platforms.models import Platform
+from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.users.models import PasswordResetToken, User
 from apps.users.tasks import send_password_reset_email
 
 from .forms import (
+    AdvertiserProfileForm,
+    BloggerProfileForm,
     CampaignForm,
     LoginForm,
     PasswordResetConfirmForm,
     PasswordResetRequestForm,
+    PlatformForm,
     RegisterForm,
 )
 
@@ -150,6 +154,8 @@ def password_reset_confirm_view(request, token):
 @login_required
 def advertiser_dashboard(request):
     user = request.user
+    if user.is_staff:
+        return redirect("web:admin_dashboard")
     wallet = getattr(user, "wallet", None)
     campaigns_qs = Campaign.objects.filter(advertiser=user)
     recent_campaigns = campaigns_qs.order_by("-created_at")[:5]
@@ -172,11 +178,14 @@ def advertiser_dashboard(request):
 @login_required
 def blogger_dashboard(request):
     user = request.user
+    if user.is_staff:
+        return redirect("web:admin_dashboard")
     wallet = getattr(user, "wallet", None)
     active_deals_qs = Deal.objects.filter(blogger=user).exclude(
         status__in=[Deal.Status.COMPLETED, Deal.Status.CANCELLED]
     )
     active_deals = active_deals_qs.select_related("campaign", "platform")[:10]
+    profile, _ = BloggerProfile.objects.get_or_create(user=user)
 
     context = {
         "wallet": wallet,
@@ -187,6 +196,7 @@ def blogger_dashboard(request):
         ).count(),
         "active_deals": active_deals,
         "has_platforms": Platform.objects.filter(blogger=user).exists(),
+        "profile_complete": profile.is_complete,
     }
     return render(request, "dashboard/blogger.html", context)
 
@@ -329,7 +339,7 @@ def campaign_respond(request, pk):
     proposed_price = request.POST.get("proposed_price") or None
     message = request.POST.get("message", "")
 
-    platform = get_object_or_404(Platform, pk=platform_id, blogger=request.user)
+    platform = get_object_or_404(Platform, pk=platform_id, blogger=request.user, status=Platform.Status.APPROVED)
 
     CampaignResponse.objects.create(
         blogger=request.user,
@@ -436,8 +446,112 @@ def response_reject(request, pk):
 
 @login_required
 def platform_add(request):
-    messages.info(request, "Добавление площадок доступно через API.")
-    return redirect("web:blogger_dashboard")
+    if request.user.role != User.Role.BLOGGER:
+        return _redirect_dashboard(request.user)
+    form = PlatformForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        platform = form.save(commit=False)
+        platform.blogger = request.user
+        platform.save()
+        form.save_m2m()
+        messages.success(request, "Площадка добавлена и отправлена на модерацию.")
+        return redirect("web:profile")
+    return render(request, "platforms/platform_form.html", {"form": form, "editing": False})
+
+
+@login_required
+def platform_edit(request, pk):
+    platform = get_object_or_404(Platform, pk=pk, blogger=request.user)
+    form = PlatformForm(request.POST or None, instance=platform)
+    if request.method == "POST" and form.is_valid():
+        updated = form.save(commit=False)
+        # If URL changed on an approved platform — send back to moderation
+        url_changed = "url" in form.changed_data
+        if url_changed and platform.status == Platform.Status.APPROVED:
+            updated.status = Platform.Status.PENDING
+            updated.rejection_reason = ""
+            messages.warning(request, "URL изменён — площадка отправлена на повторную модерацию.")
+        else:
+            messages.success(request, "Площадка обновлена.")
+        updated.save()
+        form.save_m2m()
+        return redirect("web:profile")
+    return render(request, "platforms/platform_form.html", {"form": form, "editing": True, "platform": platform})
+
+
+@login_required
+@require_POST
+def platform_delete(request, pk):
+    platform = get_object_or_404(Platform, pk=pk, blogger=request.user)
+    if platform.status in (Platform.Status.PENDING, Platform.Status.REJECTED):
+        platform.delete()
+        messages.success(request, "Площадка удалена.")
+    else:
+        messages.error(request, "Нельзя удалить одобренную площадку.")
+    return redirect("web:profile")
+
+
+# ── Profiles ──────────────────────────────────────────────────────────────────
+
+@login_required
+def profile_view(request):
+    user = request.user
+    if user.is_staff:
+        return redirect("web:admin_dashboard")
+    if user.role == User.Role.BLOGGER:
+        profile, _ = BloggerProfile.objects.get_or_create(user=user)
+        platforms = Platform.objects.filter(blogger=user).prefetch_related("categories")
+        completed_deals = Deal.objects.filter(blogger=user, status=Deal.Status.COMPLETED).count()
+        return render(request, "profiles/my_profile.html", {
+            "profile": profile,
+            "platforms": platforms,
+            "completed_deals": completed_deals,
+        })
+    else:
+        profile, _ = AdvertiserProfile.objects.get_or_create(user=user)
+        return render(request, "profiles/my_profile.html", {
+            "profile": profile,
+        })
+
+
+@login_required
+def profile_edit(request):
+    user = request.user
+    if user.is_staff:
+        return redirect("web:admin_dashboard")
+    if user.role == User.Role.BLOGGER:
+        profile, _ = BloggerProfile.objects.get_or_create(user=user)
+        form = BloggerProfileForm(request.POST or None, instance=profile)
+    else:
+        profile, _ = AdvertiserProfile.objects.get_or_create(user=user)
+        form = AdvertiserProfileForm(request.POST or None, instance=profile)
+
+    if request.method == "POST" and form.is_valid():
+        saved = form.save()
+        saved.check_completeness()
+        messages.success(request, "Профиль обновлён.")
+        return redirect("web:profile")
+
+    return render(request, "profiles/edit_profile.html", {"form": form})
+
+
+@login_required
+def blogger_public_profile(request, pk):
+    """Public blogger profile — visible to authenticated users only."""
+    blogger = get_object_or_404(User, pk=pk, role=User.Role.BLOGGER)
+    profile, _ = BloggerProfile.objects.get_or_create(user=blogger)
+    platforms = Platform.objects.filter(
+        blogger=blogger, status=Platform.Status.APPROVED
+    ).prefetch_related("categories")
+    completed_deals = Deal.objects.filter(
+        blogger=blogger, status=Deal.Status.COMPLETED
+    ).count()
+    return render(request, "profiles/blogger_public.html", {
+        "blogger": blogger,
+        "profile": profile,
+        "platforms": platforms,
+        "completed_deals": completed_deals,
+    })
 
 
 # ── Landing & Static pages ────────────────────────────────────────────────────
@@ -458,30 +572,31 @@ def landing(request):
         "advertiser_steps": [
             {"title": "Создайте кампанию", "desc": "Опишите продукт, требования к контенту, форматы и бюджет — черновик можно редактировать до готовности"},
             {"title": "Пройдите модерацию", "desc": "Администраторы проверят кампанию за 24ч и опубликуют в ленте — блогеры начнут откликаться"},
-            {"title": "Выберите блогера", "desc": "Получайте отклики с площадкой, аудиторией и ценой. Принимайте одним кликом — деньги замораживаются мгновенно"},
+            {"title": "Выберите блогера по профилю", "desc": "Откройте профиль блогера — метрики площадок, тематики, аудитория, прайс и история сделок. Принимайте только тех, кто подходит"},
             {"title": "Подтвердите публикацию", "desc": "Блогер пришлёт ссылку. Нажмите «Подтвердить» — деньги поступят блогеру. Не согласны — откройте спор"},
         ],
         "blogger_steps": [
+            {"title": "Заполните профиль", "desc": "Никнейм, описание аудитории, ниша — рекламодатель видит это при проверке вашего отклика. Сильный профиль = больше принятых откликов"},
             {"title": "Добавьте площадку", "desc": "Укажите ссылку, метрики и прайс для ВКонтакте, Telegram, YouTube, Instagram, TikTok или Яндекс.Дзен"},
-            {"title": "Пройдите верификацию", "desc": "Администраторы проверят площадку за 24–48ч — один раз и навсегда"},
+            {"title": "Пройдите верификацию", "desc": "Администраторы проверят площадку за 24–48ч — один раз и навсегда. Одобренная площадка участвует в сделках"},
             {"title": "Откликнитесь на кампанию", "desc": "Найдите подходящую кампанию, предложите свою цену, добавьте сообщение рекламодателю"},
             {"title": "Разместите и получите оплату", "desc": "Деньги заморожены с момента старта. Разместите рекламу, прикрепите ссылку — оплата гарантирована"},
         ],
         "advertiser_features": [
             {"icon": "🔒", "title": "Эскроу-защита", "desc": "Деньги списываются только после того, как вы лично подтвердили публикацию. Никаких авансов и предоплат."},
+            {"icon": "👤", "title": "Профили с реальными метриками", "desc": "Перед принятием отклика — открываете профиль: подписчики, просмотры, ER%, тематики, прайс и история завершённых сделок."},
             {"icon": "⚖️", "title": "Разбор споров", "desc": "Если публикация не соответствует ТЗ — откройте спор. Администратор рассмотрит и вынесет решение."},
-            {"icon": "🎯", "title": "Fixed и CPA", "desc": "Фиксированная оплата за пост и stories или оплата за реальный результат (установки, регистрации)."},
             {"icon": "📋", "title": "Контроль бюджета", "desc": "Все сделки и статусы в реальном времени. Неизрасходованный резерв возвращается при отмене."},
         ],
         "blogger_features": [
             {"icon": "✅", "title": "100% гарантия оплаты", "desc": "Деньги рекламодателя заморожены ещё до старта. Даже если он исчезнет — вы получите оплату."},
             {"icon": "⏱", "title": "Авто-защита 72 часа", "desc": "Разместили публикацию — идёт отсчёт. Рекламодатель не ответил за 72ч — деньги зачисляются автоматически."},
-            {"icon": "💳", "title": "Вывод за 3 рабочих дня", "desc": f"Подайте заявку в кошельке от {getattr(settings, 'CURRENCY_MIN_WITHDRAWAL', 500):,} {getattr(settings, 'CURRENCY_SYMBOL', '₽')}. Администратор обработает в течение 3 рабочих дней."},
+            {"icon": "📊", "title": "Профиль как витрина", "desc": "Ваши площадки, метрики и прайс видны рекламодателю в один клик. Заполненный профиль работает как постоянное портфолио."},
             {"icon": "📱", "title": "Несколько площадок", "desc": "Добавляйте любое количество аккаунтов: ВКонтакте, Telegram, YouTube, Instagram, TikTok, Яндекс.Дзен."},
         ],
         "faq_items": [
             {"q": "Сколько стоит использование платформы?", "a": "Регистрация бесплатна. Платформа берёт 15% комиссию только с завершённых сделок — вычитается из выплаты блогеру. Рекламодатель платит ровно столько, сколько указал в кампании."},
-            {"q": "Как защищены деньги рекламодателя?", "a": "При принятии отклика сумма мгновенно замораживается на счёте рекламодателя. Потратить её на другое невозможно. Блогеру деньги поступают только после вашего подтверждения."},
+            {"q": "Как рекламодатель выбирает блогера?", "a": "При получении отклика — открывает профиль блогера: площадки с подписчиками, просмотрами, ER%, тематики, прайс и история сделок. Принимает решение на основе реальных данных."},
             {"q": "Что если рекламодатель не отвечает после публикации?", "a": "Если в течение 72 часов рекламодатель не подтвердил и не оспорил публикацию — сделка завершается автоматически и деньги поступают блогеру."},
             {"q": "Что делать если возник спор?", "a": "Рекламодатель открывает спор вместо подтверждения. Администратор рассматривает ситуацию и выносит решение: перевести деньги блогеру или вернуть рекламодателю."},
             {"q": "Как вывести заработанные деньги?", "a": f"В разделе «Кошелёк» подайте заявку на вывод (от {getattr(settings, 'CURRENCY_MIN_WITHDRAWAL', 500):,} {getattr(settings, 'CURRENCY_SYMBOL', '₽')}). Укажите реквизиты — обработка в течение 3 рабочих дней."},
@@ -508,6 +623,8 @@ def faq(request):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _redirect_dashboard(user):
+    if user.is_staff:
+        return redirect("web:admin_dashboard")
     if user.role == User.Role.ADVERTISER:
         return redirect("web:advertiser_dashboard")
     return redirect("web:blogger_dashboard")
@@ -889,6 +1006,15 @@ def admin_withdrawals(request):
 
 
 @_staff_required
+def admin_users(request):
+    users = (
+        User.objects.all()
+        .order_by("-date_joined")
+    )
+    return render(request, "admin_panel/users.html", {"users": users})
+
+
+@_staff_required
 @require_POST
 def admin_withdrawal_approve(request, pk):
     from django.db import transaction as db_transaction
@@ -911,10 +1037,13 @@ def admin_withdrawal_approve(request, pk):
 @_staff_required
 @require_POST
 def admin_withdrawal_reject(request, pk):
-    wr = get_object_or_404(WithdrawalRequest, pk=pk, status=WithdrawalRequest.Status.PENDING)
     comment = request.POST.get("comment", "").strip()
     from django.db import transaction as db_transaction
     with db_transaction.atomic():
+        wr = get_object_or_404(
+            WithdrawalRequest.objects.select_for_update(),
+            pk=pk, status=WithdrawalRequest.Status.PENDING,
+        )
         BillingService.refund(wr)
         wr.status = WithdrawalRequest.Status.REJECTED
         wr.processed_at = timezone.now()

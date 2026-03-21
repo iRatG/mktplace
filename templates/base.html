@@ -54,24 +54,32 @@
 <nav class="sticky top-0 z-50 border-b border-white/5" style="background:rgba(15,23,42,0.9);backdrop-filter:blur(16px);">
     <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
         <div class="flex items-center gap-8">
+            {% if user.is_staff %}
+            <a href="{% url 'web:admin_dashboard' %}" class="text-lg font-bold">Mkt<span class="text-gradient">place</span></a>
+            {% else %}
             <a href="/" class="text-lg font-bold">Mkt<span class="text-gradient">place</span></a>
+            {% endif %}
             {% if user.is_authenticated %}
             <div class="hidden sm:flex gap-5">
-                {% if user.role == 'advertiser' %}
+                {% if user.is_staff %}
+                <a href="{% url 'web:admin_dashboard' %}" class="text-sm text-orange-400 hover:text-orange-300 font-medium transition-colors">Панель</a>
+                <a href="{% url 'web:campaign_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кампании</a>
+                <a href="{% url 'web:deal_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Сделки</a>
+                <a href="{% url 'web:admin_platforms' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Площадки</a>
+                {% elif user.role == 'advertiser' %}
                 <a href="{% url 'web:advertiser_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Дашборд</a>
                 <a href="{% url 'web:campaign_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кампании</a>
                 <a href="{% url 'web:deal_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Сделки</a>
                 <a href="{% url 'web:wallet' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кошелёк</a>
+                <a href="{% url 'web:profile' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Профиль</a>
                 {% elif user.role == 'blogger' %}
                 <a href="{% url 'web:blogger_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Дашборд</a>
                 <a href="{% url 'web:catalog' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Каталог</a>
                 <a href="{% url 'web:deal_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Сделки</a>
                 <a href="{% url 'web:wallet' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кошелёк</a>
+                <a href="{% url 'web:profile' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Профиль</a>
                 {% endif %}
                 <a href="{% url 'web:faq' %}" class="text-sm text-slate-400 hover:text-white transition-colors">FAQ</a>
-                {% if user.is_staff %}
-                <a href="{% url 'web:admin_dashboard' %}" class="text-sm text-orange-400 hover:text-orange-300 font-medium transition-colors">Панель</a>
-                {% endif %}
             </div>
             {% endif %}
         </div>

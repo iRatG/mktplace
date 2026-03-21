@@ -59,7 +59,11 @@
                 </div>
                 <div>
                     <div class="text-xs text-slate-500 mb-0.5">Блогер</div>
+                    {% if user.role == 'advertiser' or user.is_staff %}
+                    <a href="{% url 'web:blogger_public_profile' deal.blogger.pk %}" class="text-sm text-white hover:text-orange-400 transition-colors">{{ deal.blogger.email }}</a>
+                    {% else %}
                     <div class="text-sm text-white">{{ deal.blogger.email }}</div>
+                    {% endif %}
                 </div>
                 <div>
                     <div class="text-xs text-slate-500 mb-0.5">Создана</div>

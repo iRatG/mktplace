@@ -40,6 +40,13 @@ urlpatterns = [
 
     # Platforms
     path("platforms/add/", views.platform_add, name="platform_add"),
+    path("platforms/<int:pk>/edit/", views.platform_edit, name="platform_edit"),
+    path("platforms/<int:pk>/delete/", views.platform_delete, name="platform_delete"),
+
+    # Profiles
+    path("profile/", views.profile_view, name="profile"),
+    path("profile/edit/", views.profile_edit, name="profile_edit"),
+    path("bloggers/<int:pk>/", views.blogger_public_profile, name="blogger_public_profile"),
 
     # Deals
     path("deals/", views.deal_list, name="deal_list"),
@@ -64,4 +71,5 @@ urlpatterns = [
     path("panel/withdrawals/", views.admin_withdrawals, name="admin_withdrawals"),
     path("panel/withdrawals/<int:pk>/approve/", views.admin_withdrawal_approve, name="admin_withdrawal_approve"),
     path("panel/withdrawals/<int:pk>/reject/", views.admin_withdrawal_reject, name="admin_withdrawal_reject"),
+    path("panel/users/", views.admin_users, name="admin_users"),
 ]

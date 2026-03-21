@@ -79,7 +79,10 @@ make logs
 | `EMAIL_HOST_PASSWORD` | Пароль SMTP | — |
 | `FRONTEND_URL` | Базовый URL сайта (в письмах) | `http://localhost:8000` |
 | `PLATFORM_COMMISSION_PERCENT` | Комиссия платформы % | `15` |
-| `MIN_WITHDRAWAL_AMOUNT` | Минимальная сумма вывода ₽ | `500` |
+| `CURRENCY_SYMBOL` | Символ / код валюты | `UZS` |
+| `CURRENCY_CODE` | ISO-код валюты | `UZS` |
+| `CURRENCY_MIN_WITHDRAWAL` | Минимальная сумма вывода | `65000` |
+| `CURRENCY_MIN_DEPOSIT` | Минимальное пополнение баланса | `130000` |
 
 ## Структура проекта
 
@@ -105,9 +108,17 @@ mktplace/
 ├── templates/
 │   ├── base.html           # Базовый шаблон сайта
 │   ├── base_email.html     # Базовый шаблон писем
+│   ├── landing.html        # Лендинг (публичная страница)
+│   ├── faq.html            # FAQ / Справка
 │   ├── auth/               # Страницы авторизации
-│   ├── campaigns/          # Страницы кампаний
-│   ├── dashboard/          # Дашборды пользователей
+│   ├── campaigns/          # Страницы кампаний и откликов
+│   ├── dashboard/          # Дашборды (advertiser, blogger)
+│   ├── deals/              # Страницы сделок
+│   ├── profiles/           # Профиль (своя страница, редактирование, публичная)
+│   ├── platforms/          # Форма добавления/редактирования площадки
+│   ├── billing/            # Кошелёк и транзакции
+│   ├── admin_panel/        # Панель администратора (/panel/)
+│   ├── partials/           # Переиспользуемые блоки
 │   └── emails/             # HTML письма
 ├── nginx/                  # Конфиг Nginx (production)
 ├── requirements/
@@ -182,21 +193,53 @@ cd mktplace
 cp .env.example .env.prod
 nano .env.prod  # Заполнить все значения
 
-docker-compose -f docker-compose.prod.yml up -d --build
-docker-compose -f docker-compose.prod.yml exec web python manage.py migrate
-docker-compose -f docker-compose.prod.yml exec web python manage.py createsuperuser
-docker-compose -f docker-compose.prod.yml exec web python manage.py collectstatic --noinput
+docker-compose -f docker-compose.vps.yml up -d --build
+# Миграции и статика применяются автоматически через entrypoint.sh
 ```
 
 ### Обновление
 
 ```bash
-make deploy
-# или вручную:
 git pull
-docker-compose -f docker-compose.prod.yml up -d --build
-docker-compose -f docker-compose.prod.yml exec web python manage.py migrate
+nohup docker-compose -f docker-compose.vps.yml up -d --build > /tmp/deploy.log 2>&1 &
 ```
+
+## Веб-интерфейс (URL-структура)
+
+| Раздел | URL | Роль |
+|---|---|---|
+| Лендинг | `/` | Публичный |
+| Вход / Регистрация | `/login/`, `/register/` | Публичный |
+| Дашборд | `/dashboard/advertiser/`, `/dashboard/blogger/` | По роли |
+| Профиль | `/profile/`, `/profile/edit/` | Авторизованные |
+| Публичный профиль блогера | `/bloggers/<pk>/` | Авторизованные |
+| Площадки | `/platforms/add/`, `/platforms/<pk>/edit/` | Блогер |
+| Кампании | `/campaigns/`, `/campaigns/create/`, `/campaigns/<pk>/` | По роли |
+| Сделки | `/deals/`, `/deals/<pk>/` | По роли |
+| Кошелёк | `/wallet/` | Авторизованные |
+| Админ-панель (дашборд) | `/panel/` | is_staff |
+| Кампании на модерации | `/panel/campaigns/` | is_staff |
+| Площадки на проверке | `/panel/platforms/` | is_staff |
+| Споры | `/panel/disputes/` | is_staff |
+| Заявки на вывод | `/panel/withdrawals/` | is_staff |
+| Пользователи | `/panel/users/` | is_staff |
+| FAQ | `/faq/` | Публичный |
+
+### Демо-аккаунты
+
+```bash
+# Создать демо-пользователей
+docker compose run --rm web python manage.py create_demo_users --reset
+
+# Заполнить демо-данными
+docker compose run --rm web python manage.py seed_demo_data --reset
+```
+
+| Роль | Email | Пароль |
+|---|---|---|
+| Рекламодатель | advertiser@demo.com | Demo1234! |
+| Блогер | blogger@demo.com | Demo1234! |
+| Администратор | admin@demo.com | Demo1234! |
 
 ## API
 
@@ -220,6 +263,19 @@ Authorization: Bearer <access_token>
 ```bash
 make makemigrations
 make migrate
+```
+
+### Тесты
+
+```bash
+# Все тесты
+docker compose run --rm web python manage.py test apps.web -v 2
+
+# Только URL/интеграционные тесты (129 тестов)
+docker compose run --rm web python manage.py test apps.web.tests_urls -v 2
+
+# Только тесты профилей (43 теста)
+docker compose run --rm web python manage.py test apps.web.tests_profiles -v 2
 ```
 
 ### Запуск без Docker (для отладки отдельного сервиса)

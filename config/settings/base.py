@@ -32,7 +32,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     'apps.users',
-    'apps.profiles',
+    'apps.profiles.apps.ProfilesConfig',
     'apps.platforms',
     'apps.campaigns',
     'apps.deals',

@@ -3,7 +3,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 from apps.campaigns.models import Campaign
-from apps.platforms.models import Category
+from apps.platforms.models import Category, Platform
+from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.users.models import User
 
 
@@ -119,3 +120,38 @@ class PasswordResetConfirmForm(forms.Form):
             except ValidationError as e:
                 raise ValidationError(list(e.messages))
         return cleaned
+
+
+class BloggerProfileForm(forms.ModelForm):
+    class Meta:
+        model = BloggerProfile
+        fields = ["nickname", "bio"]
+        widgets = {
+            "bio": forms.Textarea(attrs={"rows": 4}),
+        }
+
+
+class AdvertiserProfileForm(forms.ModelForm):
+    class Meta:
+        model = AdvertiserProfile
+        fields = ["company_name", "industry", "contact_name", "phone", "website", "description"]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 4}),
+        }
+
+
+class PlatformForm(forms.ModelForm):
+    categories = forms.ModelMultipleChoiceField(
+        queryset=Category.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Тематики",
+    )
+
+    class Meta:
+        model = Platform
+        fields = [
+            "social_type", "url", "categories",
+            "subscribers", "avg_views", "engagement_rate",
+            "price_post", "price_stories", "price_video", "price_review",
+        ]

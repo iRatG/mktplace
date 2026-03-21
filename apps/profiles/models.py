@@ -50,6 +50,7 @@ class BloggerProfile(models.Model):
     bio = models.TextField(blank=True)
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
     deals_count = models.PositiveIntegerField(default=0)
+    is_complete = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -59,3 +60,8 @@ class BloggerProfile(models.Model):
 
     def __str__(self):
         return f"BloggerProfile({self.user.email})"
+
+    def check_completeness(self):
+        self.is_complete = bool(self.nickname and self.bio)
+        self.save(update_fields=["is_complete"])
+        return self.is_complete

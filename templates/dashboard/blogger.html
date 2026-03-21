@@ -8,6 +8,13 @@
     <p class="text-slate-400 text-sm mt-1">Находите рекламные кампании и управляйте сделками</p>
 </div>
 
+{% if not profile_complete %}
+<div class="alert-info flex items-center justify-between mb-6">
+    <span>Заполните профиль — рекламодатели видят его при проверке ваших откликов.</span>
+    <a href="{% url 'web:profile' %}" class="btn-orange px-4 py-1.5 rounded-lg text-sm ml-4 flex-shrink-0">Заполнить</a>
+</div>
+{% endif %}
+
 <!-- Stats -->
 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
     <div class="card-dark rounded-xl p-5">

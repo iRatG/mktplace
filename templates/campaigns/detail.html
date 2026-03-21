@@ -78,7 +78,7 @@
                 {% for resp in responses %}
                 <div class="px-6 py-4 flex items-center justify-between">
                     <div>
-                        <div class="text-sm font-medium text-white">{{ resp.blogger.email }}</div>
+                        <a href="{% url 'web:blogger_public_profile' resp.blogger.pk %}" class="text-sm font-medium text-white hover:text-orange-400 transition-colors">{{ resp.blogger.email }}</a>
                         <div class="text-xs text-slate-500 mt-0.5">
                             {{ resp.platform }} · {{ resp.content_type }}
                             {% if resp.proposed_price %}· {{ resp.proposed_price }} {{ currency.symbol }}{% endif %}
