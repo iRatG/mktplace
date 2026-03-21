@@ -1,0 +1,387 @@
+"""
+seed_demo_data — полная эмуляция бизнес-цикла платформы.
+
+Создаёт 4 сценария, покрывающих весь жизненный цикл сделки:
+
+  Сценарий A: Кампания активна, отклик ожидает ответа
+  Сценарий B: Отклик принят → сделка IN_PROGRESS (деньги заморожены)
+  Сценарий C: Сделка на проверке → CHECKING (блогер "опубликовал")
+  Сценарий D: Сделка завершена → COMPLETED (деньги выплачены блогеру)
+
+Запуск:
+    python manage.py seed_demo_data           # создаёт данные
+    python manage.py seed_demo_data --reset   # удаляет старые и пересоздаёт
+"""
+
+from decimal import Decimal
+
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+
+from apps.billing.models import Transaction, Wallet
+from apps.billing.services import BillingService
+from apps.campaigns.models import Campaign
+from apps.campaigns.models import Response as CampaignResponse
+from apps.deals.models import Deal, DealStatusLog
+from apps.platforms.models import Category, Platform
+from apps.users.models import User
+
+
+# ─── Константы демо-данных ────────────────────────────────────────────────────
+
+ADVERTISER_EMAIL = "advertiser@demo.com"
+BLOGGER_EMAIL = "blogger@demo.com"
+
+INITIAL_BALANCE = Decimal("2_000_000")  # 2 млн UZS на кошельке рекламодателя
+BLOGGER_INITIAL = Decimal("150_000")    # стартовый баланс блогера
+
+CAMPAIGNS = [
+    {
+        "name": "Реклама фитнес-приложения FitLife",
+        "description": (
+            "Ищем блогеров для продвижения нашего фитнес-приложения FitLife. "
+            "Приложение помогает составлять персональные тренировки и отслеживать прогресс. "
+            "Нужны искренние обзоры и личный опыт использования."
+        ),
+        "payment_type": Campaign.PaymentType.FIXED,
+        "fixed_price": Decimal("350_000"),
+        "budget": Decimal("3_500_000"),
+        "content_types": ["post", "stories"],
+        "allowed_socials": ["instagram", "telegram"],
+        "min_subscribers": 5000,
+        "max_bloggers": 10,
+        "status": Campaign.Status.ACTIVE,
+    },
+    {
+        "name": "Запуск онлайн-курса по дизайну",
+        "description": (
+            "Продвигаем новый онлайн-курс «UX/UI с нуля». "
+            "Целевая аудитория — студенты и начинающие дизайнеры. "
+            "Приветствуется демонстрация платформы в формате видео."
+        ),
+        "payment_type": Campaign.PaymentType.FIXED,
+        "fixed_price": Decimal("500_000"),
+        "budget": Decimal("5_000_000"),
+        "content_types": ["video", "review"],
+        "allowed_socials": ["youtube", "telegram"],
+        "min_subscribers": 10000,
+        "max_bloggers": 5,
+        "status": Campaign.Status.ACTIVE,
+    },
+    {
+        "name": "Продвижение доставки еды YumBox",
+        "description": (
+            "YumBox — сервис доставки здоровой еды. "
+            "Хотим охватить аудиторию 25-35 лет, интересующуюся ЗОЖ. "
+            "Промокод для подписчиков: YUMBOX20 (скидка 20%)."
+        ),
+        "payment_type": Campaign.PaymentType.FIXED,
+        "fixed_price": Decimal("280_000"),
+        "budget": Decimal("2_800_000"),
+        "content_types": ["post", "stories", "reels"],
+        "allowed_socials": ["instagram", "tiktok"],
+        "min_subscribers": 3000,
+        "max_bloggers": 15,
+        "status": Campaign.Status.ACTIVE,
+    },
+]
+
+
+class Command(BaseCommand):
+    help = "Заполняет базу демо-данными: полный бизнес-цикл платформы"
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--reset",
+            action="store_true",
+            help="Удалить старые демо-данные перед созданием новых",
+        )
+
+    def handle(self, *args, **options):
+        if options["reset"]:
+            self._cleanup()
+
+        self.stdout.write("\n📦 Создание демо-данных...\n")
+
+        advertiser = self._get_user(ADVERTISER_EMAIL, User.Role.ADVERTISER)
+        blogger = self._get_user(BLOGGER_EMAIL, User.Role.BLOGGER)
+
+        # Кошельки
+        adv_wallet = self._setup_wallet(advertiser, INITIAL_BALANCE, "рекламодатель")
+        self._setup_wallet(blogger, BLOGGER_INITIAL, "блогер")
+
+        # Категория и площадка блогера
+        category = self._get_or_create_category()
+        platform = self._get_or_create_platform(blogger, category)
+
+        # Кампании
+        campaigns = self._create_campaigns(advertiser, category)
+
+        # ── Сценарий A: отклик pending ────────────────────────────────────────
+        self.stdout.write("\n  ┌─ Сценарий A: отклик ожидает ответа")
+        resp_a = self._create_response(
+            blogger, campaigns[0], platform,
+            price=Decimal("320_000"),
+            message="Привет! Веду фитнес-блог 3 года, аудитория активная — ER 6.2%. "
+                    "Готова сделать искренний обзор с личным опытом использования."
+        )
+        self.stdout.write(f"     Отклик #{resp_a.pk} → статус: {resp_a.status}")
+
+        # ── Сценарий B: сделка IN_PROGRESS ───────────────────────────────────
+        self.stdout.write("\n  ├─ Сценарий B: сделка в работе (деньги заморожены)")
+        resp_b = self._create_response(
+            blogger, campaigns[1], platform,
+            price=Decimal("500_000"),
+            message="YouTube-канал о дизайне, 18k подписчиков. "
+                    "Готов записать детальный обзор платформы курса."
+        )
+        deal_b = self._accept_response(resp_b, advertiser)
+        self.stdout.write(f"     Сделка #{deal_b.pk} → статус: {deal_b.status}")
+        self.stdout.write(f"     Заморожено: {deal_b.amount:,.0f} UZS")
+
+        # ── Сценарий C: сделка CHECKING ──────────────────────────────────────
+        self.stdout.write("\n  ├─ Сценарий C: публикация размещена, ждёт подтверждения")
+        resp_c = self._create_response(
+            blogger, campaigns[2], platform,
+            price=Decimal("280_000"),
+            message="Instagram 12k, тематика ЗОЖ и питание. Сделаю stories + пост с промокодом."
+        )
+        deal_c = self._accept_response(resp_c, advertiser)
+        # Имитируем публикацию
+        deal_c.publication_url = "https://instagram.com/p/demo_post_123"
+        deal_c.publication_at = timezone.now() - timezone.timedelta(hours=5)
+        deal_c.status = Deal.Status.CHECKING
+        deal_c.save(update_fields=["publication_url", "publication_at", "status", "updated_at"])
+        DealStatusLog.log(
+            deal_c, Deal.Status.CHECKING,
+            comment="Блогер разместил публикацию, ожидает подтверждения рекламодателя."
+        )
+        self.stdout.write(f"     Сделка #{deal_c.pk} → статус: {deal_c.status}")
+        self.stdout.write(f"     Публикация: {deal_c.publication_url}")
+
+        # ── Сценарий D: сделка COMPLETED ─────────────────────────────────────
+        self.stdout.write("\n  └─ Сценарий D: сделка завершена, деньги выплачены")
+        # Создаём отдельную кампанию-шаблон (завершённая)
+        completed_campaign = Campaign.objects.create(
+            advertiser=advertiser,
+            name="[Завершена] Реклама книжного сервиса ReadBox",
+            description="Продвижение подписки на книжный сервис ReadBox.",
+            category=category,
+            payment_type=Campaign.PaymentType.FIXED,
+            fixed_price=Decimal("200_000"),
+            budget=Decimal("1_000_000"),
+            content_types=["post"],
+            allowed_socials=["telegram"],
+            status=Campaign.Status.COMPLETED,
+        )
+        resp_d = CampaignResponse.objects.create(
+            blogger=blogger,
+            campaign=completed_campaign,
+            platform=platform,
+            content_type="post",
+            proposed_price=Decimal("200_000"),
+            status=CampaignResponse.Status.ACCEPTED,
+        )
+        deal_d = Deal.objects.create(
+            campaign=completed_campaign,
+            blogger=blogger,
+            platform=platform,
+            advertiser=advertiser,
+            response=resp_d,
+            amount=Decimal("200_000"),
+            status=Deal.Status.COMPLETED,
+            publication_url="https://t.me/demo_channel/456",
+            publication_at=timezone.now() - timezone.timedelta(days=3),
+        )
+        DealStatusLog.log(
+            deal_d, Deal.Status.COMPLETED,
+            comment="Рекламодатель подтвердил публикацию. Оплата выполнена."
+        )
+        # Создаём транзакции вручную (сделка уже завершена, BillingService не вызываем)
+        commission = (Decimal("200_000") * Decimal("15") / Decimal("100")).quantize(Decimal("0.01"))
+        blogger_earning = Decimal("200_000") - commission
+        adv_wallet.reserved_balance = max(Decimal("0"), adv_wallet.reserved_balance)
+        adv_wallet.save()
+        Transaction.objects.get_or_create(
+            deal=deal_d,
+            type=Transaction.Type.PAYMENT,
+            defaults={
+                "wallet": adv_wallet,
+                "amount": -Decimal("200_000"),
+                "balance_after": adv_wallet.available_balance,
+                "description": f"Выплата за завершённую сделку #{deal_d.pk}",
+            }
+        )
+        blogger_wallet, _ = Wallet.objects.get_or_create(user=blogger)
+        blogger_wallet.available_balance += blogger_earning
+        blogger_wallet.save(update_fields=["available_balance", "updated_at"])
+        Transaction.objects.get_or_create(
+            deal=deal_d,
+            type=Transaction.Type.EARNING,
+            defaults={
+                "wallet": blogger_wallet,
+                "amount": blogger_earning,
+                "balance_after": blogger_wallet.available_balance,
+                "description": f"Заработок за сделку #{deal_d.pk} (после комиссии 15%)",
+            }
+        )
+        self.stdout.write(f"     Сделка #{deal_d.pk} → статус: {deal_d.status}")
+        self.stdout.write(f"     Блогер получил: {blogger_earning:,.0f} UZS")
+
+        # ── Итог ──────────────────────────────────────────────────────────────
+        adv_wallet.refresh_from_db()
+        blogger_wallet.refresh_from_db()
+
+        self.stdout.write("\n" + "─" * 55)
+        self.stdout.write("✅ Демо-данные созданы!\n")
+        self.stdout.write(f"  Кошелёк рекламодателя:")
+        self.stdout.write(f"    Доступно:    {adv_wallet.available_balance:>12,.0f} UZS")
+        self.stdout.write(f"    Заморожено:  {adv_wallet.reserved_balance:>12,.0f} UZS")
+        self.stdout.write(f"  Кошелёк блогера:")
+        self.stdout.write(f"    Доступно:    {blogger_wallet.available_balance:>12,.0f} UZS")
+        self.stdout.write("\n  Сценарии:")
+        self.stdout.write(f"    A) Отклик #{resp_a.pk}  → PENDING   (ждёт решения)")
+        self.stdout.write(f"    B) Сделка #{deal_b.pk}  → IN_PROGRESS (деньги заморожены)")
+        self.stdout.write(f"    C) Сделка #{deal_c.pk}  → CHECKING   (ждёт подтверждения)")
+        self.stdout.write(f"    D) Сделка #{deal_d.pk}  → COMPLETED  (выплачено)")
+        self.stdout.write("─" * 55 + "\n")
+
+    # ─── Вспомогательные методы ───────────────────────────────────────────────
+
+    def _get_user(self, email, role):
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            self.stdout.write(f"  ⚠ Пользователь {email} не найден. Запустите create_demo_users сначала.")
+            raise SystemExit(1)
+        return user
+
+    def _setup_wallet(self, user, amount, label):
+        wallet, created = Wallet.objects.get_or_create(user=user)
+        if wallet.available_balance < Decimal("100"):
+            wallet.available_balance = amount
+            wallet.save(update_fields=["available_balance", "updated_at"])
+            Transaction.objects.create(
+                wallet=wallet,
+                type=Transaction.Type.DEPOSIT,
+                amount=amount,
+                balance_after=amount,
+                description=f"Демо-пополнение ({label})",
+            )
+            self.stdout.write(f"  💰 Кошелёк {label}: пополнен на {amount:,.0f} UZS")
+        else:
+            self.stdout.write(f"  💰 Кошелёк {label}: {wallet.available_balance:,.0f} UZS (уже есть)")
+        return wallet
+
+    def _get_or_create_category(self):
+        cat, _ = Category.objects.get_or_create(
+            slug="lifestyle",
+            defaults={"name": "Lifestyle & ЗОЖ", "description": "Образ жизни, здоровье, фитнес"}
+        )
+        return cat
+
+    def _get_or_create_platform(self, blogger, category):
+        platform, created = Platform.objects.get_or_create(
+            blogger=blogger,
+            social_type="instagram",
+            defaults={
+                "url": "https://instagram.com/demo_blogger",
+                "subscribers": 12000,
+                "avg_views": 3500,
+                "engagement_rate": Decimal("6.2"),
+                "price_post": Decimal("280_000"),
+                "price_stories": Decimal("150_000"),
+                "status": Platform.Status.APPROVED,
+            }
+        )
+        if created:
+            platform.categories.add(category)
+            self.stdout.write("  📱 Площадка блогера: создана (Instagram, 12k подп.)")
+        else:
+            self.stdout.write("  📱 Площадка блогера: уже существует")
+        return platform
+
+    def _create_campaigns(self, advertiser, category):
+        result = []
+        for data in CAMPAIGNS:
+            campaign, created = Campaign.objects.get_or_create(
+                advertiser=advertiser,
+                name=data["name"],
+                defaults={**data, "category": category},
+            )
+            if created:
+                self.stdout.write(f"  📢 Кампания: «{campaign.name[:45]}»")
+            result.append(campaign)
+        return result
+
+    def _create_response(self, blogger, campaign, platform, price, message):
+        resp, _ = CampaignResponse.objects.get_or_create(
+            blogger=blogger,
+            campaign=campaign,
+            platform=platform,
+            defaults={
+                "content_type": campaign.content_types[0] if campaign.content_types else "post",
+                "proposed_price": price,
+                "message": message,
+                "status": CampaignResponse.Status.PENDING,
+            }
+        )
+        return resp
+
+    def _accept_response(self, response, advertiser):
+        """Принимает отклик и создаёт сделку через BillingService."""
+        response.status = CampaignResponse.Status.ACCEPTED
+        response.save(update_fields=["status"])
+
+        amount = response.proposed_price or response.campaign.fixed_price
+        deal = Deal.objects.create(
+            campaign=response.campaign,
+            blogger=response.blogger,
+            platform=response.platform,
+            advertiser=advertiser,
+            response=response,
+            amount=amount,
+            status=Deal.Status.WAITING_PAYMENT,
+        )
+        BillingService.reserve_funds(deal)
+        deal.status = Deal.Status.IN_PROGRESS
+        deal.save(update_fields=["status"])
+        DealStatusLog.log(
+            deal, Deal.Status.IN_PROGRESS,
+            changed_by=advertiser,
+            comment="Отклик принят. Средства зарезервированы."
+        )
+        return deal
+
+    def _cleanup(self):
+        self.stdout.write("🗑  Удаление старых демо-данных...")
+        advertiser_emails = [ADVERTISER_EMAIL]
+        blogger_emails = [BLOGGER_EMAIL]
+
+        try:
+            advertiser = User.objects.get(email=ADVERTISER_EMAIL)
+            Deal.objects.filter(advertiser=advertiser).delete()
+            Campaign.objects.filter(advertiser=advertiser).delete()
+        except User.DoesNotExist:
+            pass
+
+        try:
+            blogger = User.objects.get(email=BLOGGER_EMAIL)
+            Platform.objects.filter(blogger=blogger).delete()
+            Wallet.objects.filter(user=blogger).update(
+                available_balance=Decimal("0"),
+                reserved_balance=Decimal("0"),
+            )
+        except User.DoesNotExist:
+            pass
+
+        try:
+            advertiser = User.objects.get(email=ADVERTISER_EMAIL)
+            Wallet.objects.filter(user=advertiser).update(
+                available_balance=Decimal("0"),
+                reserved_balance=Decimal("0"),
+            )
+        except User.DoesNotExist:
+            pass
+
+        self.stdout.write("   Готово.\n")
