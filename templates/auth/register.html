@@ -3,76 +3,73 @@
 {% block title %}Регистрация — Mktplace{% endblock %}
 
 {% block content %}
-<div class="min-h-[60vh] flex items-center justify-center">
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-md">
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">Создать аккаунт</h1>
-        <p class="text-sm text-gray-500 mb-6">Уже есть аккаунт? <a href="{% url 'web:login' %}" class="text-indigo-600 hover:underline">Войти</a></p>
+<div class="min-h-[60vh] flex items-center justify-center py-8">
+    <div class="card-dark rounded-2xl p-8 w-full max-w-md">
+        <h1 class="text-2xl font-bold text-white mb-2">Создать аккаунт</h1>
+        <p class="text-sm text-slate-400 mb-6">Уже есть аккаунт? <a href="{% url 'web:login' %}" class="text-orange-400 hover:text-orange-300 transition-colors">Войти</a></p>
 
         {% if form.non_field_errors %}
-        <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
-            {{ form.non_field_errors.0 }}
-        </div>
+        <div class="alert-error mb-4">{{ form.non_field_errors.0 }}</div>
         {% endif %}
 
         <form method="post" class="space-y-4">
             {% csrf_token %}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Я регистрируюсь как</label>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Я регистрируюсь как</label>
                 <div class="grid grid-cols-2 gap-3">
-                    <label class="flex items-center gap-2 border border-gray-300 rounded-lg px-4 py-3 cursor-pointer hover:border-indigo-400 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50">
-                        <input type="radio" name="role" value="advertiser" class="text-indigo-600"
-                            {% if form.role.value == 'advertiser' %}checked{% endif %}>
+                    <label class="flex items-center gap-3 border border-white/10 rounded-xl px-4 py-3 cursor-pointer hover:border-orange-500/40 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10">
+                        <input type="radio" name="role" value="advertiser"
+                            {% if form.role.value == 'advertiser' or not form.role.value %}checked{% endif %}>
                         <div>
-                            <div class="text-sm font-medium text-gray-800">Рекламодатель</div>
-                            <div class="text-xs text-gray-500">Размещаю рекламу</div>
+                            <div class="text-sm font-medium text-white">Рекламодатель</div>
+                            <div class="text-xs text-slate-500">Размещаю рекламу</div>
                         </div>
                     </label>
-                    <label class="flex items-center gap-2 border border-gray-300 rounded-lg px-4 py-3 cursor-pointer hover:border-indigo-400 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50">
-                        <input type="radio" name="role" value="blogger" class="text-indigo-600"
+                    <label class="flex items-center gap-3 border border-white/10 rounded-xl px-4 py-3 cursor-pointer hover:border-orange-500/40 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10">
+                        <input type="radio" name="role" value="blogger"
                             {% if form.role.value == 'blogger' %}checked{% endif %}>
                         <div>
-                            <div class="text-sm font-medium text-gray-800">Блогер</div>
-                            <div class="text-xs text-gray-500">Принимаю рекламу</div>
+                            <div class="text-sm font-medium text-white">Блогер</div>
+                            <div class="text-xs text-slate-500">Принимаю рекламу</div>
                         </div>
                     </label>
                 </div>
                 {% if form.role.errors %}
-                <p class="text-red-600 text-xs mt-1">{{ form.role.errors.0 }}</p>
+                <p class="text-red-400 text-xs mt-1">{{ form.role.errors.0 }}</p>
                 {% endif %}
             </div>
             <div>
-                <label for="id_email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label for="id_email" class="block text-sm font-medium text-slate-300 mb-1">Email</label>
                 <input type="email" name="email" id="id_email"
                     value="{{ form.email.value|default:'' }}"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    class="input-dark"
                     placeholder="you@example.com" required autofocus>
                 {% if form.email.errors %}
-                <p class="text-red-600 text-xs mt-1">{{ form.email.errors.0 }}</p>
+                <p class="text-red-400 text-xs mt-1">{{ form.email.errors.0 }}</p>
                 {% endif %}
             </div>
             <div>
-                <label for="id_password1" class="block text-sm font-medium text-gray-700 mb-1">Пароль</label>
+                <label for="id_password1" class="block text-sm font-medium text-slate-300 mb-1">Пароль</label>
                 <input type="password" name="password1" id="id_password1"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    class="input-dark"
                     placeholder="Минимум 8 символов" required>
                 {% if form.password1.errors %}
-                <p class="text-red-600 text-xs mt-1">{{ form.password1.errors.0 }}</p>
+                <p class="text-red-400 text-xs mt-1">{{ form.password1.errors.0 }}</p>
                 {% endif %}
             </div>
             <div>
-                <label for="id_password2" class="block text-sm font-medium text-gray-700 mb-1">Повторите пароль</label>
+                <label for="id_password2" class="block text-sm font-medium text-slate-300 mb-1">Повторите пароль</label>
                 <input type="password" name="password2" id="id_password2"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    class="input-dark"
                     placeholder="••••••••" required>
                 {% if form.password2.errors %}
-                <p class="text-red-600 text-xs mt-1">{{ form.password2.errors.0 }}</p>
+                <p class="text-red-400 text-xs mt-1">{{ form.password2.errors.0 }}</p>
                 {% endif %}
             </div>
-            <p class="text-xs text-gray-500">
+            <p class="text-xs text-slate-500">
                 Регистрируясь, вы соглашаетесь с условиями использования платформы.
             </p>
-            <button type="submit"
-                class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+            <button type="submit" class="btn-orange w-full py-2.5 px-4 text-sm">
                 Создать аккаунт
             </button>
         </form>
