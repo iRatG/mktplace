@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Заявки на вывод — Mktplace{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center gap-3">
+    <a href="{% url 'web:admin_dashboard' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Панель</a>
+    <h1 class="text-2xl font-bold text-white">Заявки на вывод</h1>
+    <span class="text-sm text-slate-500">({{ withdrawals|length }})</span>
+</div>
+
+{% if withdrawals %}
+<div class="card-dark rounded-xl overflow-hidden">
+    <div class="divide-y divide-white/5">
+        {% for wr in withdrawals %}
+        <div class="p-6">
+            <div class="flex items-start justify-between gap-4 mb-4">
+                <div>
+                    <div class="text-white font-semibold mb-0.5">{{ wr.blogger.email }}</div>
+                    <div class="text-xs text-slate-500">
+                        Подана: {{ wr.created_at|date:"d.m.Y H:i" }}
+                    </div>
+                </div>
+                <div class="text-right shrink-0">
+                    <div class="text-xl font-bold text-green-400">{{ wr.amount|floatformat:0 }} {{ currency.symbol }}</div>
+                </div>
+            </div>
+
+            {% if wr.requisites %}
+            <div class="bg-white/[0.03] rounded-lg p-3 mb-4">
+                <div class="text-xs text-slate-500 mb-1">Реквизиты</div>
+                <div class="text-sm text-white font-mono">
+                    {% if wr.requisites.type %}{{ wr.requisites.type }}: {% endif %}{{ wr.requisites.details|default:wr.requisites }}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="flex flex-col sm:flex-row gap-3">
+                <form method="post" action="{% url 'web:admin_withdrawal_approve' wr.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="comment" value="Выплата подтверждена">
+                    <button type="submit"
+                            onclick="return confirm('Подтвердить выплату {{ wr.amount|floatformat:0 }} {{ currency.symbol }}?')"
+                            class="btn-orange px-5 py-2 text-sm rounded-xl">
+                        ✅ Подтвердить выплату
+                    </button>
+                </form>
+
+                <details>
+                    <summary class="cursor-pointer px-4 py-2 text-sm text-red-400 border border-red-400/20 rounded-xl hover:bg-red-400/10 transition-colors inline-block">
+                        ❌ Отклонить
+                    </summary>
+                    <form method="post" action="{% url 'web:admin_withdrawal_reject' wr.pk %}" class="mt-3">
+                        {% csrf_token %}
+                        <input type="text" name="comment" placeholder="Причина отклонения"
+                               class="input-dark mb-2">
+                        <button type="submit" class="px-4 py-2 text-sm text-red-400 border border-red-400/30 rounded-xl hover:bg-red-400/10 transition-colors">
+                            Подтвердить отклонение (средства вернутся)
+                        </button>
+                    </form>
+                </details>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% else %}
+<div class="card-dark rounded-xl px-6 py-16 text-center">
+    <div class="text-4xl mb-4">✅</div>
+    <p class="text-slate-400 text-sm">Нет заявок на вывод.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Модерация площадок — Mktplace{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center gap-3">
+    <a href="{% url 'web:admin_dashboard' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Панель</a>
+    <h1 class="text-2xl font-bold text-white">Площадки на проверке</h1>
+    <span class="text-sm text-slate-500">({{ platforms|length }})</span>
+</div>
+
+{% if platforms %}
+<div class="space-y-4">
+    {% for platform in platforms %}
+    <div class="card-dark rounded-xl p-6">
+        <div class="flex items-start justify-between gap-4">
+            <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-white font-semibold">{{ platform.get_social_type_display }}</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400">На проверке</span>
+                </div>
+                <div class="text-xs text-slate-500 mb-3">
+                    Блогер: {{ platform.blogger.email }} ·
+                    Подписчиков: {{ platform.subscribers|default:0 }} ·
+                    Добавлена: {{ platform.created_at|date:"d.m.Y" }}
+                </div>
+                <a href="{{ platform.url }}" target="_blank" rel="noopener noreferrer"
+                   class="text-sm text-orange-400 hover:text-orange-300 break-all transition-colors">
+                    🔗 {{ platform.url }}
+                </a>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                    <div>
+                        <div class="text-xs text-slate-500">Ср. просмотры</div>
+                        <div class="text-sm text-white">{{ platform.avg_views|default:"—" }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">ER %</div>
+                        <div class="text-sm text-white">{{ platform.engagement_rate }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">Цена пост</div>
+                        <div class="text-sm text-white">{{ platform.price_post|default:"—" }} {{ currency.symbol }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">Цена stories</div>
+                        <div class="text-sm text-white">{{ platform.price_stories|default:"—" }} {{ currency.symbol }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-5 pt-4 border-t border-white/5 flex flex-wrap gap-3 items-start">
+            <form method="post" action="{% url 'web:admin_platform_approve' platform.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">
+                    ✅ Одобрить
+                </button>
+            </form>
+
+            <details class="flex-1">
+                <summary class="cursor-pointer px-4 py-2 text-sm text-red-400 border border-red-400/20 rounded-xl hover:bg-red-400/10 transition-colors inline-block">
+                    ❌ Отклонить
+                </summary>
+                <form method="post" action="{% url 'web:admin_platform_reject' platform.pk %}" class="mt-3">
+                    {% csrf_token %}
+                    <textarea name="reason" rows="2" placeholder="Причина отклонения"
+                              class="input-dark mb-2 resize-none"></textarea>
+                    <button type="submit" class="px-4 py-2 text-sm text-red-400 border border-red-400/30 rounded-xl hover:bg-red-400/10 transition-colors">
+                        Подтвердить отклонение
+                    </button>
+                </form>
+            </details>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="card-dark rounded-xl px-6 py-16 text-center">
+    <div class="text-4xl mb-4">✅</div>
+    <p class="text-slate-400 text-sm">Нет площадок на проверке.</p>
+</div>
+{% endif %}
+{% endblock %}

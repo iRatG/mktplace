@@ -50,4 +50,18 @@ urlpatterns = [
 
     # Billing
     path("wallet/", views.wallet_view, name="wallet"),
+
+    # Admin panel (staff only)
+    path("panel/", views.admin_dashboard, name="admin_dashboard"),
+    path("panel/campaigns/", views.admin_campaigns, name="admin_campaigns"),
+    path("panel/campaigns/<int:pk>/approve/", views.admin_campaign_approve, name="admin_campaign_approve"),
+    path("panel/campaigns/<int:pk>/reject/", views.admin_campaign_reject, name="admin_campaign_reject"),
+    path("panel/platforms/", views.admin_platforms, name="admin_platforms"),
+    path("panel/platforms/<int:pk>/approve/", views.admin_platform_approve, name="admin_platform_approve"),
+    path("panel/platforms/<int:pk>/reject/", views.admin_platform_reject, name="admin_platform_reject"),
+    path("panel/disputes/", views.admin_disputes, name="admin_disputes"),
+    path("panel/disputes/<int:pk>/resolve/", views.admin_dispute_resolve, name="admin_dispute_resolve"),
+    path("panel/withdrawals/", views.admin_withdrawals, name="admin_withdrawals"),
+    path("panel/withdrawals/<int:pk>/approve/", views.admin_withdrawal_approve, name="admin_withdrawal_approve"),
+    path("panel/withdrawals/<int:pk>/reject/", views.admin_withdrawal_reject, name="admin_withdrawal_reject"),
 ]

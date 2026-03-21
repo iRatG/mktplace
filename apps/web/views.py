@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.utils import timezone
 from django.contrib.auth import login, logout
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -682,3 +682,189 @@ def wallet_view(request):
         "pending_withdrawals": pending_withdrawals,
         "min_withdrawal": min_withdrawal,
     })
+
+
+# ── Admin (staff only) ────────────────────────────────────────────────────────
+
+def _staff_required(view_func):
+    """Decorator: allow only is_staff users, redirect others to dashboard."""
+    def _wrapped(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("web:login")
+        if not request.user.is_staff:
+            messages.error(request, "Доступ запрещён.")
+            return _redirect_dashboard(request.user)
+        return view_func(request, *args, **kwargs)
+    _wrapped.__name__ = view_func.__name__
+    return _wrapped
+
+
+@_staff_required
+def admin_dashboard(request):
+    context = {
+        "campaigns_moderation": Campaign.objects.filter(status=Campaign.Status.MODERATION).count(),
+        "platforms_pending": Platform.objects.filter(status=Platform.Status.PENDING).count(),
+        "deals_disputed": Deal.objects.filter(status=Deal.Status.DISPUTED).count(),
+        "withdrawals_pending": WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING).count(),
+        "users_total": User.objects.count(),
+        "users_active": User.objects.filter(status=User.Status.ACTIVE).count(),
+        "deals_total": Deal.objects.count(),
+        "deals_completed": Deal.objects.filter(status=Deal.Status.COMPLETED).count(),
+    }
+    return render(request, "admin_panel/dashboard.html", context)
+
+
+@_staff_required
+def admin_campaigns(request):
+    campaigns = (
+        Campaign.objects.filter(status=Campaign.Status.MODERATION)
+        .select_related("advertiser", "category")
+        .order_by("created_at")
+    )
+    return render(request, "admin_panel/campaigns.html", {"campaigns": campaigns})
+
+
+@_staff_required
+@require_POST
+def admin_campaign_approve(request, pk):
+    campaign = get_object_or_404(Campaign, pk=pk)
+    campaign.status = Campaign.Status.ACTIVE
+    campaign.rejection_reason = ""
+    campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
+    messages.success(request, f"Кампания «{campaign.name}» одобрена и опубликована.")
+    return redirect("web:admin_campaigns")
+
+
+@_staff_required
+@require_POST
+def admin_campaign_reject(request, pk):
+    campaign = get_object_or_404(Campaign, pk=pk)
+    reason = request.POST.get("reason", "").strip()
+    campaign.status = Campaign.Status.REJECTED
+    campaign.rejection_reason = reason
+    campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
+    messages.success(request, f"Кампания «{campaign.name}» отклонена.")
+    return redirect("web:admin_campaigns")
+
+
+@_staff_required
+def admin_platforms(request):
+    platforms = (
+        Platform.objects.filter(status=Platform.Status.PENDING)
+        .select_related("blogger")
+        .prefetch_related("categories")
+        .order_by("created_at")
+    )
+    return render(request, "admin_panel/platforms.html", {"platforms": platforms})
+
+
+@_staff_required
+@require_POST
+def admin_platform_approve(request, pk):
+    platform = get_object_or_404(Platform, pk=pk)
+    platform.status = Platform.Status.APPROVED
+    platform.rejection_reason = ""
+    platform.save(update_fields=["status", "rejection_reason", "updated_at"])
+    messages.success(request, f"Площадка {platform.blogger.email} / {platform.get_social_type_display()} одобрена.")
+    return redirect("web:admin_platforms")
+
+
+@_staff_required
+@require_POST
+def admin_platform_reject(request, pk):
+    platform = get_object_or_404(Platform, pk=pk)
+    reason = request.POST.get("reason", "").strip()
+    platform.status = Platform.Status.REJECTED
+    platform.rejection_reason = reason
+    platform.save(update_fields=["status", "rejection_reason", "updated_at"])
+    messages.success(request, f"Площадка отклонена.")
+    return redirect("web:admin_platforms")
+
+
+@_staff_required
+def admin_disputes(request):
+    deals = (
+        Deal.objects.filter(status=Deal.Status.DISPUTED)
+        .select_related("campaign", "blogger", "advertiser", "platform")
+        .order_by("dispute_opened_at")
+    )
+    return render(request, "admin_panel/disputes.html", {"deals": deals})
+
+
+@_staff_required
+@require_POST
+def admin_dispute_resolve(request, pk):
+    """Admin resolves dispute: complete (pay blogger) or cancel (return to advertiser)."""
+    deal = get_object_or_404(Deal, pk=pk, status=Deal.Status.DISPUTED)
+    resolution = request.POST.get("resolution")  # "complete" or "cancel"
+    comment = request.POST.get("comment", "").strip()
+
+    if resolution not in ("complete", "cancel"):
+        messages.error(request, "Укажите решение: complete или cancel.")
+        return redirect("web:admin_disputes")
+
+    from django.db import transaction as db_transaction
+    with db_transaction.atomic():
+        locked = Deal.objects.select_for_update().get(pk=pk)
+        if locked.status != Deal.Status.DISPUTED:
+            messages.error(request, "Сделка уже не в статусе спора.")
+            return redirect("web:admin_disputes")
+
+        locked.dispute_resolved_at = timezone.now()
+        locked.dispute_resolution = comment
+
+        if resolution == "complete":
+            BillingService.complete_deal_payment(locked)
+            locked.status = Deal.Status.COMPLETED
+            DealStatusLog.log(locked, Deal.Status.COMPLETED, changed_by=request.user,
+                              comment=f"Спор решён администратором: оплата блогеру. {comment}")
+            msg = "Спор решён — оплата переведена блогеру."
+        else:
+            BillingService.release_funds(locked)
+            locked.status = Deal.Status.CANCELLED
+            DealStatusLog.log(locked, Deal.Status.CANCELLED, changed_by=request.user,
+                              comment=f"Спор решён администратором: возврат рекламодателю. {comment}")
+            msg = "Спор решён — средства возвращены рекламодателю."
+
+        locked.save(update_fields=["status", "dispute_resolved_at", "dispute_resolution", "updated_at"])
+
+    messages.success(request, msg)
+    return redirect("web:admin_disputes")
+
+
+@_staff_required
+def admin_withdrawals(request):
+    withdrawals = (
+        WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING)
+        .select_related("blogger")
+        .order_by("created_at")
+    )
+    return render(request, "admin_panel/withdrawals.html", {"withdrawals": withdrawals})
+
+
+@_staff_required
+@require_POST
+def admin_withdrawal_approve(request, pk):
+    wr = get_object_or_404(WithdrawalRequest, pk=pk, status=WithdrawalRequest.Status.PENDING)
+    wr.status = WithdrawalRequest.Status.COMPLETED
+    wr.processed_at = timezone.now()
+    wr.admin_comment = request.POST.get("comment", "").strip()
+    wr.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
+    messages.success(request, f"Выплата {wr.amount:,.0f} для {wr.blogger.email} подтверждена.")
+    return redirect("web:admin_withdrawals")
+
+
+@_staff_required
+@require_POST
+def admin_withdrawal_reject(request, pk):
+    wr = get_object_or_404(WithdrawalRequest, pk=pk, status=WithdrawalRequest.Status.PENDING)
+    comment = request.POST.get("comment", "").strip()
+    from django.db import transaction as db_transaction
+    with db_transaction.atomic():
+        BillingService.refund(wr)
+        wr.status = WithdrawalRequest.Status.REJECTED
+        wr.processed_at = timezone.now()
+        wr.admin_comment = comment
+        wr.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
+    messages.success(request, f"Заявка отклонена, средства возвращены на баланс {wr.blogger.email}.")
+    return redirect("web:admin_withdrawals")
