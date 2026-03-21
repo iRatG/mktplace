@@ -10,388 +10,462 @@
             theme: {
                 extend: {
                     colors: {
-                        indigo: { 50:'#eef2ff',100:'#e0e7ff',500:'#6366f1',600:'#4f46e5',700:'#4338ca',900:'#312e81' }
-                    }
+                        navy: { 950:'#060B18', 900:'#0f172a', 800:'#1e293b', 700:'#334155' },
+                        orange: { 400:'#fb923c', 500:'#f97316', 600:'#ea580c' },
+                    },
+                    fontFamily: { sans: ['Inter','system-ui','sans-serif'] },
                 }
             }
         }
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .gradient-hero { background: linear-gradient(135deg, #060B18 0%, #0f172a 50%, #1a1035 100%); }
+        .gradient-orange { background: linear-gradient(135deg, #f97316, #ea580c); }
+        .gradient-card { background: linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(234,88,12,0.04) 100%); }
+        .glow-orange { box-shadow: 0 0 40px rgba(249,115,22,0.25); }
+        .border-glow { border: 1px solid rgba(249,115,22,0.3); }
+        .text-gradient { background: linear-gradient(135deg, #f97316, #fb923c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .section-divider { border-top: 1px solid rgba(255,255,255,0.06); }
+        .card-dark { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+        .card-dark:hover { background: rgba(255,255,255,0.07); border-color: rgba(249,115,22,0.3); transition: all 0.2s; }
+        .mock-window { background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden; }
+        .mock-bar { background: #0f172a; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .dot { width:10px;height:10px;border-radius:50%; }
+    </style>
 </head>
-<body class="bg-white text-gray-800">
+<body class="bg-navy-900 text-white overflow-x-hidden">
 
-<!-- NAVBAR -->
-<nav class="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <a href="/" class="text-xl font-bold text-indigo-600 tracking-tight">Mktplace</a>
-        <div class="hidden sm:flex items-center gap-6 text-sm text-gray-600">
-            <a href="#how-it-works" class="hover:text-indigo-600">Как это работает</a>
-            <a href="#for-advertisers" class="hover:text-indigo-600">Рекламодателям</a>
-            <a href="#for-bloggers" class="hover:text-indigo-600">Блогерам</a>
-            <a href="{% url 'web:faq' %}" class="hover:text-indigo-600">FAQ</a>
+<!-- ══ NAVBAR ═══════════════════════════════════════════════════════════════ -->
+<nav class="fixed top-0 left-0 right-0 z-50 border-b border-white/5" style="background:rgba(6,11,24,0.85);backdrop-filter:blur(16px);">
+    <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-10">
+            <a href="/" class="text-xl font-bold text-white tracking-tight">
+                Mkt<span class="text-gradient">place</span>
+            </a>
+            <div class="hidden md:flex gap-7 text-sm text-slate-400">
+                <a href="#how" class="hover:text-white transition-colors">Как работает</a>
+                <a href="#advertisers" class="hover:text-white transition-colors">Рекламодателям</a>
+                <a href="#bloggers" class="hover:text-white transition-colors">Блогерам</a>
+                <a href="{% url 'web:faq' %}" class="hover:text-white transition-colors">FAQ</a>
+            </div>
         </div>
         <div class="flex items-center gap-3">
-            <a href="{% url 'web:login' %}" class="text-sm text-gray-600 hover:text-indigo-600 font-medium">Войти</a>
-            <a href="{% url 'web:register' %}" class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium transition-colors">
+            <a href="{% url 'web:login' %}" class="text-sm text-slate-400 hover:text-white px-3 py-2 transition-colors">Войти</a>
+            <a href="{% url 'web:register' %}" class="text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors">
                 Начать бесплатно
             </a>
         </div>
     </div>
 </nav>
 
-<!-- HERO -->
-<section class="pt-32 pb-20 px-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-    <div class="max-w-5xl mx-auto text-center">
-        <div class="inline-flex items-center gap-2 bg-indigo-100 text-indigo-700 text-xs font-medium px-3 py-1.5 rounded-full mb-6">
-            ✦ Безопасные сделки · Гарантия оплаты · 15% комиссия
-        </div>
-        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
-            Реклама у блогеров —<br>
-            <span class="text-indigo-600">без риска и посредников</span>
-        </h1>
-        <p class="text-lg sm:text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Рекламодатели находят подходящих блогеров, согласовывают контент и платят только после подтверждения публикации. Блогеры получают гарантированную оплату через эскроу-систему.
-        </p>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="{% url 'web:register' %}?role=advertiser"
-                class="bg-indigo-600 text-white px-8 py-4 rounded-xl font-semibold text-base hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
-                Я рекламодатель →
-            </a>
-            <a href="{% url 'web:register' %}?role=blogger"
-                class="bg-white text-indigo-600 border-2 border-indigo-200 px-8 py-4 rounded-xl font-semibold text-base hover:border-indigo-400 transition-colors">
-                Я блогер →
-            </a>
+<!-- ══ HERO ══════════════════════════════════════════════════════════════════ -->
+<section class="gradient-hero pt-28 pb-16 px-5 relative overflow-hidden">
+    <!-- Background glow -->
+    <div class="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute top-40 right-10 w-[200px] h-[200px] bg-orange-600/8 rounded-full blur-2xl pointer-events-none"></div>
+
+    <div class="max-w-6xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <!-- Left: Text -->
+            <div>
+                <div class="inline-flex items-center gap-2 text-xs font-medium text-orange-400 border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 rounded-full mb-6">
+                    <span class="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse"></span>
+                    Платформа для рекламы у блогеров
+                </div>
+                <h1 class="text-4xl sm:text-5xl font-extrabold leading-[1.1] mb-5 text-white">
+                    Запускайте рекламу<br>
+                    у блогеров —<br>
+                    <span class="text-gradient">с гарантией оплаты</span>
+                </h1>
+                <p class="text-slate-400 text-lg leading-relaxed mb-8 max-w-lg">
+                    Рекламодатели создают кампании и выбирают блогеров. Деньги замораживаются до публикации — и поступают блогеру только после подтверждения.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-3 mb-10">
+                    <a href="{% url 'web:register' %}?role=advertiser"
+                        class="gradient-orange glow-orange text-white px-6 py-3.5 rounded-xl font-semibold text-sm text-center hover:opacity-90 transition-opacity">
+                        Запустить рекламу →
+                    </a>
+                    <a href="{% url 'web:register' %}?role=blogger"
+                        class="card-dark text-white px-6 py-3.5 rounded-xl font-semibold text-sm text-center hover:border-orange-500/50 transition-all">
+                        Я блогер — найти кампании
+                    </a>
+                </div>
+                <!-- Mini stats -->
+                <div class="flex gap-6 text-sm">
+                    <div>
+                        <div class="font-bold text-white text-xl">15%</div>
+                        <div class="text-slate-500 text-xs mt-0.5">комиссия платформы</div>
+                    </div>
+                    <div class="w-px bg-white/10"></div>
+                    <div>
+                        <div class="font-bold text-white text-xl">72ч</div>
+                        <div class="text-slate-500 text-xs mt-0.5">авто-защита блогера</div>
+                    </div>
+                    <div class="w-px bg-white/10"></div>
+                    <div>
+                        <div class="font-bold text-white text-xl">6</div>
+                        <div class="text-slate-500 text-xs mt-0.5">соцсетей</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Mock UI -->
+            <div class="hidden lg:block">
+                <div class="mock-window">
+                    <div class="mock-bar px-4 py-3 flex items-center gap-2">
+                        <div class="dot bg-red-500/70"></div>
+                        <div class="dot bg-yellow-500/70"></div>
+                        <div class="dot bg-green-500/70"></div>
+                        <div class="text-xs text-slate-500 ml-3">mktplace.com — Дашборд рекламодателя</div>
+                    </div>
+                    <div class="p-5 space-y-3">
+                        <!-- Stats row -->
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
+                                <div class="text-xs text-slate-500">Баланс</div>
+                                <div class="text-lg font-bold text-white mt-1">45 200 ₽</div>
+                            </div>
+                            <div class="bg-white/4 border border-white/8 rounded-lg p-3">
+                                <div class="text-xs text-slate-500">Кампаний</div>
+                                <div class="text-lg font-bold text-white mt-1">3 акт.</div>
+                            </div>
+                            <div class="bg-white/4 border border-white/8 rounded-lg p-3">
+                                <div class="text-xs text-slate-500">Откликов</div>
+                                <div class="text-lg font-bold text-orange-400 mt-1">12 новых</div>
+                            </div>
+                        </div>
+                        <!-- Campaign card -->
+                        <div class="bg-white/4 border border-white/8 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-sm font-medium text-white">Кампания "Новый продукт"</span>
+                                <span class="text-xs bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full">Активна</span>
+                            </div>
+                            <div class="space-y-2">
+                                {% for item in "123" %}
+                                <div class="flex items-center justify-between py-1.5 border-b border-white/5">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex-shrink-0"></div>
+                                        <div class="text-xs text-slate-300">blogger@tg · 82к подп.</div>
+                                    </div>
+                                    <div class="flex gap-1.5">
+                                        <button class="text-xs bg-orange-500 text-white px-2 py-1 rounded-md">✓ Принять</button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <!-- Deal row -->
+                        <div class="bg-white/4 border border-white/8 rounded-lg px-4 py-3 flex items-center justify-between">
+                            <div class="text-xs text-slate-400">Сделка #47 · На проверке</div>
+                            <div class="text-xs text-orange-400 font-medium">осталось 38ч</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </section>
 
-<!-- STATS -->
-<section class="py-12 bg-white border-y border-gray-100">
-    <div class="max-w-4xl mx-auto px-4">
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-            <div>
-                <div class="text-3xl font-bold text-indigo-600">100%</div>
-                <div class="text-sm text-gray-500 mt-1">Гарантия оплаты блогеру</div>
+<!-- ══ TRUST BAR ═════════════════════════════════════════════════════════════ -->
+<div class="bg-navy-800 border-y border-white/5 py-5">
+    <div class="max-w-5xl mx-auto px-5">
+        <div class="flex flex-wrap justify-center gap-x-10 gap-y-4 text-sm text-slate-400 text-center">
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                Эскроу-защита оплаты
             </div>
-            <div>
-                <div class="text-3xl font-bold text-indigo-600">15%</div>
-                <div class="text-sm text-gray-500 mt-1">Комиссия платформы</div>
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"/></svg>
+                Авто-завершение через 72ч
             </div>
-            <div>
-                <div class="text-3xl font-bold text-indigo-600">72ч</div>
-                <div class="text-sm text-gray-500 mt-1">Авто-завершение сделки</div>
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+                Согласование креатива до публикации
             </div>
-            <div>
-                <div class="text-3xl font-bold text-indigo-600">6</div>
-                <div class="text-sm text-gray-500 mt-1">Поддерживаемых соцсетей</div>
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/></svg>
+                Вывод средств от 500 ₽
+            </div>
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+                Fixed и CPA модели
             </div>
         </div>
     </div>
-</section>
+</div>
 
-<!-- HOW IT WORKS -->
-<section id="how-it-works" class="py-20 px-4 bg-gray-50">
+<!-- ══ HOW IT WORKS ══════════════════════════════════════════════════════════ -->
+<section id="how" class="py-20 px-5 bg-navy-900">
     <div class="max-w-5xl mx-auto">
         <div class="text-center mb-14">
-            <h2 class="text-3xl font-bold text-gray-900 mb-3">Как работает платформа</h2>
-            <p class="text-gray-500">Весь цикл от кампании до оплаты — в одном месте</p>
+            <div class="text-xs font-semibold text-orange-500 uppercase tracking-[0.15em] mb-3">Как это работает</div>
+            <h2 class="text-3xl sm:text-4xl font-bold text-white">Весь цикл сделки — в одном месте</h2>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- Advertisers -->
-            <div class="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">📣</div>
-                    <h3 class="text-lg font-bold text-gray-900">Рекламодатель</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Advertisers steps -->
+            <div class="card-dark rounded-2xl p-7">
+                <div class="flex items-center gap-3 mb-7">
+                    <div class="w-9 h-9 gradient-orange rounded-xl flex items-center justify-center text-lg">📣</div>
+                    <h3 class="font-bold text-white">Рекламодатель</h3>
                 </div>
-                <ol class="space-y-4">
-                    <li class="flex gap-4">
-                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center">1</span>
+                <div class="space-y-5">
+                    {% for step in advertiser_steps %}
+                    <div class="flex gap-4 items-start">
+                        <div class="w-7 h-7 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 text-xs font-bold flex items-center justify-center flex-shrink-0">{{ forloop.counter }}</div>
                         <div>
-                            <div class="font-medium text-gray-800">Создайте кампанию</div>
-                            <div class="text-sm text-gray-500 mt-0.5">Опишите продукт, требования к контенту, формат и бюджет</div>
+                            <div class="text-sm font-semibold text-white">{{ step.title }}</div>
+                            <div class="text-xs text-slate-500 mt-0.5 leading-relaxed">{{ step.desc }}</div>
                         </div>
-                    </li>
-                    <li class="flex gap-4">
-                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center">2</span>
-                        <div>
-                            <div class="font-medium text-gray-800">Выберите блогера</div>
-                            <div class="text-sm text-gray-500 mt-0.5">Просматривайте отклики или ищите блогеров в каталоге</div>
-                        </div>
-                    </li>
-                    <li class="flex gap-4">
-                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center">3</span>
-                        <div>
-                            <div class="font-medium text-gray-800">Согласуйте контент</div>
-                            <div class="text-sm text-gray-500 mt-0.5">Блогер загружает креатив, вы одобряете или отправляете на доработку</div>
-                        </div>
-                    </li>
-                    <li class="flex gap-4">
-                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center">4</span>
-                        <div>
-                            <div class="font-medium text-gray-800">Подтвердите публикацию</div>
-                            <div class="text-sm text-gray-500 mt-0.5">Проверьте вышедший материал и подтвердите — деньги поступают блогеру</div>
-                        </div>
-                    </li>
-                </ol>
-            </div>
-            <!-- Bloggers -->
-            <div class="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl">✍️</div>
-                    <h3 class="text-lg font-bold text-gray-900">Блогер</h3>
+                    </div>
+                    {% endfor %}
                 </div>
-                <ol class="space-y-4">
-                    <li class="flex gap-4">
-                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-purple-600 text-white text-sm font-bold flex items-center justify-center">1</span>
-                        <div>
-                            <div class="font-medium text-gray-800">Добавьте площадку</div>
-                            <div class="text-sm text-gray-500 mt-0.5">ВКонтакте, Telegram, YouTube, Instagram, TikTok, Яндекс.Дзен</div>
-                        </div>
-                    </li>
-                    <li class="flex gap-4">
-                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-purple-600 text-white text-sm font-bold flex items-center justify-center">2</span>
-                        <div>
-                            <div class="font-medium text-gray-800">Найдите кампанию</div>
-                            <div class="text-sm text-gray-500 mt-0.5">Просматривайте ленту активных кампаний, фильтруйте по тематике и цене</div>
-                        </div>
-                    </li>
-                    <li class="flex gap-4">
-                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-purple-600 text-white text-sm font-bold flex items-center justify-center">3</span>
-                        <div>
-                            <div class="font-medium text-gray-800">Откликнитесь</div>
-                            <div class="text-sm text-gray-500 mt-0.5">Укажите цену и напишите сопроводительное сообщение рекламодателю</div>
-                        </div>
-                    </li>
-                    <li class="flex gap-4">
-                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-purple-600 text-white text-sm font-bold flex items-center justify-center">4</span>
-                        <div>
-                            <div class="font-medium text-gray-800">Получите оплату</div>
-                            <div class="text-sm text-gray-500 mt-0.5">После подтверждения публикации — деньги гарантированно зачисляются на счёт</div>
-                        </div>
-                    </li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- FOR ADVERTISERS -->
-<section id="for-advertisers" class="py-20 px-4 bg-white">
-    <div class="max-w-5xl mx-auto">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-                <div class="text-xs font-semibold text-indigo-600 uppercase tracking-widest mb-3">Для рекламодателей</div>
-                <h2 class="text-3xl font-bold text-gray-900 mb-5">Контролируйте каждый этап рекламной кампании</h2>
-                <p class="text-gray-500 mb-8 leading-relaxed">
-                    Деньги списываются только после подтверждения публикации. Вы согласовываете контент до выхода, имеете встроенный чат с блогером и полную историю всех операций.
-                </p>
-                <div class="space-y-4">
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-sm flex-shrink-0 mt-0.5">✓</div>
-                        <div>
-                            <div class="font-medium text-gray-800">Эскроу-защита</div>
-                            <div class="text-sm text-gray-500">Средства резервируются, но списываются только после вашего подтверждения</div>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-sm flex-shrink-0 mt-0.5">✓</div>
-                        <div>
-                            <div class="font-medium text-gray-800">Согласование креатива</div>
-                            <div class="text-sm text-gray-500">Просматривайте и правьте материал до публикации — до 3 итераций</div>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-sm flex-shrink-0 mt-0.5">✓</div>
-                        <div>
-                            <div class="font-medium text-gray-800">Fixed и CPA модели</div>
-                            <div class="text-sm text-gray-500">Платите фиксированно за пост или только за результат — установки, регистрации, продажи</div>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-sm flex-shrink-0 mt-0.5">✓</div>
-                        <div>
-                            <div class="font-medium text-gray-800">Разрешение споров</div>
-                            <div class="text-sm text-gray-500">Администраторы платформы рассматривают спорные ситуации и выносят решение</div>
-                        </div>
-                    </div>
-                </div>
-                <a href="{% url 'web:register' %}?role=advertiser"
-                    class="inline-block mt-8 bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors">
+                <a href="{% url 'web:register' %}?role=advertiser" class="mt-7 w-full gradient-orange text-white text-sm font-semibold py-3 rounded-xl text-center block hover:opacity-90 transition-opacity">
                     Создать кампанию →
                 </a>
             </div>
-            <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8">
-                <div class="bg-white rounded-xl p-5 shadow-sm mb-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="text-sm font-semibold text-gray-800">Моя кампания</div>
-                        <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Активна</span>
-                    </div>
-                    <div class="text-xs text-gray-500">Откликов: <strong class="text-gray-800">12</strong> · Принято: <strong class="text-gray-800">3</strong></div>
-                    <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div class="h-full bg-indigo-500 rounded-full" style="width:65%"></div>
-                    </div>
-                    <div class="flex justify-between text-xs text-gray-400 mt-1"><span>Бюджет использован</span><span>65%</span></div>
+            <!-- Blogger steps -->
+            <div class="card-dark rounded-2xl p-7">
+                <div class="flex items-center gap-3 mb-7">
+                    <div class="w-9 h-9 bg-indigo-500/20 border border-indigo-500/30 rounded-xl flex items-center justify-center text-lg">✍️</div>
+                    <h3 class="font-bold text-white">Блогер</h3>
                 </div>
-                <div class="bg-white rounded-xl p-5 shadow-sm">
-                    <div class="text-xs text-gray-500 mb-3">Последние отклики</div>
-                    <div class="space-y-2">
-                        {% for _ in "123" %}
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-300 to-purple-400"></div>
-                                <div class="text-xs">
-                                    <div class="font-medium text-gray-800">blogger@mail.ru</div>
-                                    <div class="text-gray-400">Telegram · 45к подп.</div>
-                                </div>
-                            </div>
-                            <div class="flex gap-1">
-                                <button class="text-xs bg-green-600 text-white px-2 py-1 rounded">✓</button>
-                                <button class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded">✗</button>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- FOR BLOGGERS -->
-<section id="for-bloggers" class="py-20 px-4 bg-gray-50">
-    <div class="max-w-5xl mx-auto">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div class="order-2 lg:order-1 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-8">
-                <div class="bg-white rounded-xl p-5 shadow-sm mb-4">
-                    <div class="text-xs text-gray-500 mb-1">Доступный баланс</div>
-                    <div class="text-2xl font-bold text-gray-900">12 750 ₽</div>
-                    <div class="text-xs text-gray-400 mt-1">На выводе: 5 000 ₽</div>
-                    <button class="mt-3 w-full text-xs bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700">Вывести средства</button>
-                </div>
-                <div class="bg-white rounded-xl p-5 shadow-sm">
-                    <div class="text-xs text-gray-500 mb-3">Активные сделки</div>
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between">
-                            <div class="text-xs">
-                                <div class="font-medium text-gray-800">Кампания "Новый смартфон"</div>
-                                <div class="text-gray-400">3 000 ₽ · Ожидает публикации</div>
-                            </div>
-                            <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">В работе</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <div class="text-xs">
-                                <div class="font-medium text-gray-800">Кампания "Онлайн-курс"</div>
-                                <div class="text-gray-400">5 500 ₽ · На согласовании</div>
-                            </div>
-                            <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Согласование</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="order-1 lg:order-2">
-                <div class="text-xs font-semibold text-purple-600 uppercase tracking-widest mb-3">Для блогеров</div>
-                <h2 class="text-3xl font-bold text-gray-900 mb-5">Получайте оплату гарантированно — без задержек и обмана</h2>
-                <p class="text-gray-500 mb-8 leading-relaxed">
-                    Деньги резервируются до начала работы. Платформа выступает гарантом — если рекламодатель не отвечает 72 часа после публикации, сделка завершается автоматически и деньги поступают вам.
-                </p>
-                <div class="space-y-4">
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-sm flex-shrink-0 mt-0.5">✓</div>
+                <div class="space-y-5">
+                    {% for step in blogger_steps %}
+                    <div class="flex gap-4 items-start">
+                        <div class="w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 text-xs font-bold flex items-center justify-center flex-shrink-0">{{ forloop.counter }}</div>
                         <div>
-                            <div class="font-medium text-gray-800">Гарантия оплаты</div>
-                            <div class="text-sm text-gray-500">Средства заморожены до публикации — вас никто не кинет</div>
+                            <div class="text-sm font-semibold text-white">{{ step.title }}</div>
+                            <div class="text-xs text-slate-500 mt-0.5 leading-relaxed">{{ step.desc }}</div>
                         </div>
                     </div>
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-sm flex-shrink-0 mt-0.5">✓</div>
-                        <div>
-                            <div class="font-medium text-gray-800">Авто-завершение через 72ч</div>
-                            <div class="text-sm text-gray-500">Если рекламодатель молчит после публикации — деньги поступают автоматически</div>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-sm flex-shrink-0 mt-0.5">✓</div>
-                        <div>
-                            <div class="font-medium text-gray-800">Вывод на карту</div>
-                            <div class="text-sm text-gray-500">Минимальная сумма — 500 ₽. Обработка в течение 3 рабочих дней</div>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-sm flex-shrink-0 mt-0.5">✓</div>
-                        <div>
-                            <div class="font-medium text-gray-800">Несколько площадок</div>
-                            <div class="text-sm text-gray-500">Добавляйте ВКонтакте, Telegram, YouTube, Instagram, TikTok и другие</div>
-                        </div>
-                    </div>
+                    {% endfor %}
                 </div>
-                <a href="{% url 'web:register' %}?role=blogger"
-                    class="inline-block mt-8 bg-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-purple-700 transition-colors">
-                    Зарегистрироваться как блогер →
+                <a href="{% url 'web:register' %}?role=blogger" class="mt-7 w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-3 rounded-xl text-center block transition-colors">
+                    Найти кампании →
                 </a>
             </div>
         </div>
     </div>
 </section>
 
-<!-- SOCIAL PROOF / SUPPORTED PLATFORMS -->
-<section class="py-16 px-4 bg-white">
+<!-- ══ FOR ADVERTISERS ═══════════════════════════════════════════════════════ -->
+<section id="advertisers" class="py-20 px-5 section-divider bg-navy-900">
+    <div class="max-w-5xl mx-auto">
+        <div class="text-xs font-semibold text-orange-500 uppercase tracking-[0.15em] mb-3">Для рекламодателей</div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            <div>
+                <h2 class="text-3xl font-bold text-white mb-5">Полный контроль над рекламной кампанией</h2>
+                <p class="text-slate-400 leading-relaxed mb-8">Деньги списываются только после того как вы подтвердили публикацию. До этого — они заморожены в нашей системе. Никакого риска.</p>
+                <div class="space-y-4">
+                    {% for feature in advertiser_features %}
+                    <div class="flex gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-lg flex-shrink-0">{{ feature.icon }}</div>
+                        <div>
+                            <div class="font-semibold text-white text-sm">{{ feature.title }}</div>
+                            <div class="text-slate-500 text-xs mt-1 leading-relaxed">{{ feature.desc }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <!-- Feature cards grid -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2 card-dark rounded-xl p-5">
+                    <div class="text-xs text-slate-500 mb-1">Эскроу-расчёты</div>
+                    <div class="text-sm text-white font-medium mb-3">Деньги хранятся в системе</div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <div class="flex-1 bg-orange-500/15 border border-orange-500/20 rounded-lg p-2 text-center">
+                            <div class="text-orange-400 font-bold">45 000 ₽</div>
+                            <div class="text-slate-500 mt-0.5">Доступно</div>
+                        </div>
+                        <svg class="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        <div class="flex-1 bg-white/4 border border-white/8 rounded-lg p-2 text-center">
+                            <div class="text-yellow-400 font-bold">12 000 ₽</div>
+                            <div class="text-slate-500 mt-0.5">Заморожено</div>
+                        </div>
+                        <svg class="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        <div class="flex-1 bg-green-500/10 border border-green-500/20 rounded-lg p-2 text-center">
+                            <div class="text-green-400 font-bold">10 200 ₽</div>
+                            <div class="text-slate-500 mt-0.5">Блогеру</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-dark rounded-xl p-4">
+                    <div class="text-2xl mb-2">⏱</div>
+                    <div class="text-sm font-semibold text-white">48ч на согласование</div>
+                    <div class="text-xs text-slate-500 mt-1">Авто-одобрение если не ответили</div>
+                </div>
+                <div class="card-dark rounded-xl p-4">
+                    <div class="text-2xl mb-2">🎯</div>
+                    <div class="text-sm font-semibold text-white">Fixed и CPA</div>
+                    <div class="text-xs text-slate-500 mt-1">Оплата за пост или за результат</div>
+                </div>
+                <div class="card-dark rounded-xl p-4">
+                    <div class="text-2xl mb-2">💬</div>
+                    <div class="text-sm font-semibold text-white">Чат в сделке</div>
+                    <div class="text-xs text-slate-500 mt-1">Прямое общение с блогером</div>
+                </div>
+                <div class="card-dark rounded-xl p-4">
+                    <div class="text-2xl mb-2">⚖️</div>
+                    <div class="text-sm font-semibold text-white">Разбор споров</div>
+                    <div class="text-xs text-slate-500 mt-1">Администраторы рассмотрят ситуацию</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ══ FOR BLOGGERS ══════════════════════════════════════════════════════════ -->
+<section id="bloggers" class="py-20 px-5 section-divider" style="background:rgba(255,255,255,0.02);">
+    <div class="max-w-5xl mx-auto">
+        <div class="text-xs font-semibold text-indigo-400 uppercase tracking-[0.15em] mb-3">Для блогеров</div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            <div>
+                <h2 class="text-3xl font-bold text-white mb-5">Зарабатывайте на рекламе — без страха не получить оплату</h2>
+                <p class="text-slate-400 leading-relaxed mb-8">Деньги рекламодателя заморожены с момента старта. Если он не реагирует 72 часа после публикации — деньги поступают вам автоматически.</p>
+                <div class="space-y-4">
+                    {% for feature in blogger_features %}
+                    <div class="flex gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-lg flex-shrink-0">{{ feature.icon }}</div>
+                        <div>
+                            <div class="font-semibold text-white text-sm">{{ feature.title }}</div>
+                            <div class="text-slate-500 text-xs mt-1 leading-relaxed">{{ feature.desc }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <a href="{% url 'web:register' %}?role=blogger" class="mt-8 inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-colors">
+                    Зарегистрироваться как блогер →
+                </a>
+            </div>
+            <!-- Earning mockup -->
+            <div class="card-dark rounded-2xl p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm font-semibold text-white">Мой кошелёк</div>
+                    <span class="text-xs text-green-400 bg-green-400/10 border border-green-400/20 px-2 py-0.5 rounded-full">+3 500 ₽ сегодня</span>
+                </div>
+                <div class="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4">
+                    <div class="text-xs text-slate-500 mb-1">Доступно для вывода</div>
+                    <div class="text-3xl font-bold text-white">18 250 <span class="text-lg text-slate-400">₽</span></div>
+                    <button class="mt-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">Вывести средства</button>
+                </div>
+                <div class="space-y-2">
+                    <div class="text-xs text-slate-500 font-medium uppercase tracking-wider">Последние начисления</div>
+                    <div class="flex items-center justify-between py-2 border-b border-white/5">
+                        <div class="text-xs text-slate-300">Сделка #52 — Кампания "Смартфон"</div>
+                        <div class="text-xs text-green-400 font-semibold">+3 400 ₽</div>
+                    </div>
+                    <div class="flex items-center justify-between py-2 border-b border-white/5">
+                        <div class="text-xs text-slate-300">Сделка #49 — Кампания "Курс"</div>
+                        <div class="text-xs text-green-400 font-semibold">+4 250 ₽</div>
+                    </div>
+                    <div class="flex items-center justify-between py-2">
+                        <div class="text-xs text-slate-300">Сделка #44 — Кампания "Сервис"</div>
+                        <div class="text-xs text-green-400 font-semibold">+2 975 ₽</div>
+                    </div>
+                </div>
+                <div class="bg-white/3 rounded-xl p-3 flex items-center gap-3">
+                    <svg class="w-4 h-4 text-orange-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                    <div class="text-xs text-slate-400">Сделка #51 завершена авто-подтверждением через 72ч</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ══ PLATFORMS ═════════════════════════════════════════════════════════════ -->
+<section class="py-14 px-5 section-divider bg-navy-900">
     <div class="max-w-4xl mx-auto text-center">
-        <p class="text-sm text-gray-400 uppercase tracking-wider font-medium mb-8">Поддерживаемые площадки</p>
-        <div class="flex flex-wrap justify-center gap-4">
-            {% for platform, icon in platforms %}
-            <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 text-sm font-medium text-gray-700">
-                <span class="text-lg">{{ icon }}</span>{{ platform }}
+        <div class="text-xs text-slate-500 uppercase tracking-[0.15em] font-medium mb-8">Поддерживаемые площадки</div>
+        <div class="flex flex-wrap justify-center gap-3">
+            {% for platform, icon, color in platforms %}
+            <div class="flex items-center gap-2 card-dark px-5 py-3 rounded-xl text-sm font-medium text-slate-300 hover:text-white transition-colors cursor-default">
+                <span class="text-base">{{ icon }}</span>{{ platform }}
             </div>
             {% endfor %}
         </div>
     </div>
 </section>
 
-<!-- FAQ TEASER -->
-<section class="py-16 px-4 bg-indigo-600">
-    <div class="max-w-3xl mx-auto text-center">
-        <h2 class="text-2xl font-bold text-white mb-4">Остались вопросы?</h2>
-        <p class="text-indigo-200 mb-8">Мы подготовили подробный FAQ — как работает платформа, как проходят сделки, что такое эскроу и как вывести деньги.</p>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="{% url 'web:faq' %}"
-                class="bg-white text-indigo-600 px-6 py-3 rounded-xl font-semibold hover:bg-indigo-50 transition-colors">
-                Читать FAQ
-            </a>
-            <a href="{% url 'web:register' %}"
-                class="bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-800 transition-colors border border-indigo-500">
-                Попробовать бесплатно
+<!-- ══ FAQ TEASER ════════════════════════════════════════════════════════════ -->
+<section class="py-20 px-5 section-divider" style="background:rgba(255,255,255,0.02);">
+    <div class="max-w-4xl mx-auto">
+        <div class="text-center mb-10">
+            <h2 class="text-2xl font-bold text-white mb-2">Часто задаваемые вопросы</h2>
+            <p class="text-slate-500 text-sm">Быстрые ответы — подробный FAQ по ссылке ниже</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {% for q in faq_items %}
+            <div class="card-dark rounded-xl p-5">
+                <div class="text-sm font-semibold text-white mb-1.5">{{ q.q }}</div>
+                <div class="text-xs text-slate-500 leading-relaxed">{{ q.a }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="text-center mt-8">
+            <a href="{% url 'web:faq' %}" class="inline-flex items-center gap-2 text-sm text-orange-400 hover:text-orange-300 font-medium transition-colors">
+                Читать полный FAQ →
             </a>
         </div>
     </div>
 </section>
 
-<!-- FOOTER -->
-<footer class="bg-gray-900 text-gray-400 py-12 px-4">
+<!-- ══ CTA ═══════════════════════════════════════════════════════════════════ -->
+<section class="py-20 px-5 section-divider bg-navy-900">
+    <div class="max-w-3xl mx-auto text-center">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Готовы начать?</h2>
+        <p class="text-slate-400 mb-8 text-lg">Регистрация бесплатна. Комиссия 15% только с завершённых сделок.</p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="{% url 'web:register' %}?role=advertiser"
+                class="gradient-orange glow-orange text-white px-8 py-4 rounded-xl font-bold text-base hover:opacity-90 transition-opacity">
+                Запустить рекламную кампанию
+            </a>
+            <a href="{% url 'web:register' %}?role=blogger"
+                class="card-dark text-white px-8 py-4 rounded-xl font-bold text-base hover:border-indigo-500/40 transition-all">
+                Найти кампании для монетизации
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- ══ FOOTER ═════════════════════════════════════════════════════════════════ -->
+<footer class="py-12 px-5 section-divider bg-navy-950">
     <div class="max-w-5xl mx-auto">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
-            <div>
-                <div class="text-white font-bold text-lg mb-2">Mktplace</div>
-                <p class="text-sm leading-relaxed">Платформа для безопасного сотрудничества рекламодателей и блогеров. Эскроу-расчёты, согласование контента, гарантия оплаты.</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
+            <div class="col-span-2 sm:col-span-1">
+                <div class="text-lg font-bold mb-3">Mkt<span class="text-gradient">place</span></div>
+                <p class="text-xs text-slate-500 leading-relaxed">Платформа для безопасного сотрудничества рекламодателей и блогеров. Эскроу · Модерация · Гарантия.</p>
             </div>
             <div>
-                <div class="text-white font-medium mb-3 text-sm">Платформа</div>
-                <ul class="space-y-2 text-sm">
-                    <li><a href="{% url 'web:register' %}?role=advertiser" class="hover:text-white">Для рекламодателей</a></li>
-                    <li><a href="{% url 'web:register' %}?role=blogger" class="hover:text-white">Для блогеров</a></li>
-                    <li><a href="{% url 'web:faq' %}" class="hover:text-white">FAQ / Помощь</a></li>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Платформа</div>
+                <ul class="space-y-2 text-sm text-slate-500">
+                    <li><a href="{% url 'web:register' %}?role=advertiser" class="hover:text-white transition-colors">Рекламодателям</a></li>
+                    <li><a href="{% url 'web:register' %}?role=blogger" class="hover:text-white transition-colors">Блогерам</a></li>
+                    <li><a href="{% url 'web:faq' %}" class="hover:text-white transition-colors">FAQ</a></li>
                 </ul>
             </div>
             <div>
-                <div class="text-white font-medium mb-3 text-sm">Аккаунт</div>
-                <ul class="space-y-2 text-sm">
-                    <li><a href="{% url 'web:login' %}" class="hover:text-white">Войти</a></li>
-                    <li><a href="{% url 'web:register' %}" class="hover:text-white">Регистрация</a></li>
-                    <li><a href="/admin/" class="hover:text-white">Для администраторов</a></li>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Аккаунт</div>
+                <ul class="space-y-2 text-sm text-slate-500">
+                    <li><a href="{% url 'web:login' %}" class="hover:text-white transition-colors">Войти</a></li>
+                    <li><a href="{% url 'web:register' %}" class="hover:text-white transition-colors">Регистрация</a></li>
+                    <li><a href="/admin/" class="hover:text-white transition-colors">Администраторам</a></li>
+                </ul>
+            </div>
+            <div>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">API</div>
+                <ul class="space-y-2 text-sm text-slate-500">
+                    <li><a href="/api/docs/" class="hover:text-white transition-colors">Swagger UI</a></li>
+                    <li><a href="/api/v1/auth/" class="hover:text-white transition-colors">REST API</a></li>
                 </ul>
             </div>
         </div>
-        <div class="border-t border-gray-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p class="text-xs">© 2024 Mktplace. Все права защищены.</p>
-            <p class="text-xs">Комиссия платформы 15% · Минимальный вывод 500 ₽</p>
+        <div class="border-t border-white/5 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <span>© 2024 Mktplace. Все права защищены.</span>
+            <span>Комиссия 15% · Вывод от 500 ₽ · Авто-завершение 72ч</span>
         </div>
     </div>
 </footer>
