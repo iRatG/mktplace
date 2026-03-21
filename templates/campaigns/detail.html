@@ -81,7 +81,7 @@
                         <div class="text-sm font-medium text-white">{{ resp.blogger.email }}</div>
                         <div class="text-xs text-slate-500 mt-0.5">
                             {{ resp.platform }} · {{ resp.content_type }}
-                            {% if resp.proposed_price %}· {{ resp.proposed_price }} ₽{% endif %}
+                            {% if resp.proposed_price %}· {{ resp.proposed_price }} {{ currency.symbol }}{% endif %}
                         </div>
                         {% if resp.message %}
                         <div class="text-xs text-slate-500 mt-1 italic">"{{ resp.message|truncatechars:80 }}"</div>
@@ -148,7 +148,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1">Предложить цену (₽, необязательно)</label>
+                    <label class="block text-sm font-medium text-slate-300 mb-1">Предложить цену ({{ currency.symbol }}, необязательно)</label>
                     <input type="number" name="proposed_price" step="0.01" min="0"
                         class="input-dark"
                         placeholder="Оставьте пустым чтобы принять цену кампании">
@@ -177,7 +177,7 @@
             <dl class="space-y-2 text-sm">
                 <div class="flex justify-between">
                     <dt class="text-slate-500">Бюджет</dt>
-                    <dd class="font-medium text-white">{{ campaign.budget }} ₽</dd>
+                    <dd class="font-medium text-white">{{ campaign.budget }} {{ currency.symbol }}</dd>
                 </div>
                 <div class="flex justify-between">
                     <dt class="text-slate-500">Тип оплаты</dt>
@@ -186,7 +186,7 @@
                 {% if campaign.fixed_price %}
                 <div class="flex justify-between">
                     <dt class="text-slate-500">Фикс. цена</dt>
-                    <dd class="font-medium text-white">{{ campaign.fixed_price }} ₽</dd>
+                    <dd class="font-medium text-white">{{ campaign.fixed_price }} {{ currency.symbol }}</dd>
                 </div>
                 {% endif %}
                 {% if campaign.min_subscribers %}
