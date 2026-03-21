@@ -4,7 +4,9 @@ import environ
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
-environ.Env.read_env(BASE_DIR / '.env')
+_env_file = BASE_DIR / '.env'
+if _env_file.exists():
+    environ.Env.read_env(_env_file)
 
 SECRET_KEY = env('DJANGO_SECRET_KEY')
 DEBUG = env.bool('DJANGO_DEBUG', default=False)
