@@ -197,21 +197,23 @@ class Command(BaseCommand):
             deal_d, Deal.Status.COMPLETED,
             comment="Рекламодатель подтвердил публикацию. Оплата выполнена."
         )
-        # Создаём транзакции вручную (сделка уже завершена, BillingService не вызываем)
+        # Создаём транзакции вручную (сделка уже завершена, BillingService не вызываем).
+        # Используем свежие объекты из БД, чтобы не перезаписать изменения reserve_funds.
         commission = (Decimal("200_000") * Decimal("15") / Decimal("100")).quantize(Decimal("0.01"))
         blogger_earning = Decimal("200_000") - commission
-        adv_wallet.reserved_balance = max(Decimal("0"), adv_wallet.reserved_balance)
-        adv_wallet.save()
+
+        fresh_adv_wallet = Wallet.objects.get(user=advertiser)
         Transaction.objects.get_or_create(
             deal=deal_d,
             type=Transaction.Type.PAYMENT,
             defaults={
-                "wallet": adv_wallet,
+                "wallet": fresh_adv_wallet,
                 "amount": -Decimal("200_000"),
-                "balance_after": adv_wallet.available_balance,
+                "balance_after": fresh_adv_wallet.available_balance,
                 "description": f"Выплата за завершённую сделку #{deal_d.pk}",
             }
         )
+
         blogger_wallet, _ = Wallet.objects.get_or_create(user=blogger)
         blogger_wallet.available_balance += blogger_earning
         blogger_wallet.save(update_fields=["available_balance", "updated_at"])

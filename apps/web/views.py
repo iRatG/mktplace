@@ -538,6 +538,9 @@ def deal_submit_publication(request, pk):
     if not url:
         messages.error(request, "Укажите ссылку на публикацию.")
         return redirect("web:deal_detail", pk=pk)
+    if not (url.startswith("http://") or url.startswith("https://")):
+        messages.error(request, "Ссылка должна начинаться с http:// или https://")
+        return redirect("web:deal_detail", pk=pk)
 
     from django.db import transaction as db_transaction
     with db_transaction.atomic():
@@ -559,14 +562,21 @@ def deal_submit_publication(request, pk):
 @require_POST
 def deal_confirm(request, pk):
     """Advertiser confirms publication → COMPLETED + payment."""
-    deal = get_object_or_404(Deal, pk=pk, advertiser=request.user)
-
-    if deal.status != Deal.Status.CHECKING:
-        messages.error(request, "Подтвердить можно только сделку «На проверке».")
-        return redirect("web:deal_detail", pk=pk)
-
     from django.db import transaction as db_transaction
+
     with db_transaction.atomic():
+        # select_for_update: lock the row to prevent double-confirm race condition
+        deal = Deal.objects.select_for_update().filter(
+            pk=pk, advertiser=request.user
+        ).first()
+        if deal is None:
+            from django.http import Http404
+            raise Http404
+
+        if deal.status != Deal.Status.CHECKING:
+            messages.error(request, "Подтвердить можно только сделку «На проверке».")
+            return redirect("web:deal_detail", pk=pk)
+
         BillingService.complete_deal_payment(deal)
         deal.status = Deal.Status.COMPLETED
         deal.save(update_fields=["status", "updated_at"])
@@ -576,7 +586,7 @@ def deal_confirm(request, pk):
             comment="Рекламодатель подтвердил публикацию. Оплата выполнена.",
         )
 
-    messages.success(request, f"Сделка завершена. Блогер получил оплату.")
+    messages.success(request, "Сделка завершена. Блогер получил оплату.")
     return redirect("web:deal_detail", pk=pk)
 
 
@@ -590,9 +600,15 @@ def deal_cancel(request, pk):
     else:
         deal = get_object_or_404(Deal, pk=pk, blogger=user)
 
-    cancellable = {Deal.Status.WAITING_PAYMENT, Deal.Status.IN_PROGRESS}
+    # Blogger can only cancel before work starts (WAITING_PAYMENT).
+    # IN_PROGRESS means funds are reserved and work is underway — only advertiser can cancel then.
+    if user.role == User.Role.BLOGGER:
+        cancellable = {Deal.Status.WAITING_PAYMENT}
+    else:
+        cancellable = {Deal.Status.WAITING_PAYMENT, Deal.Status.IN_PROGRESS}
+
     if deal.status not in cancellable:
-        messages.error(request, "Эту сделку нельзя отменить.")
+        messages.error(request, "Эту сделку нельзя отменить на текущем этапе.")
         return redirect("web:deal_detail", pk=pk)
 
     from django.db import transaction as db_transaction
@@ -624,29 +640,34 @@ def wallet_view(request):
     if request.method == "POST" and user.role == User.Role.BLOGGER:
         amount_str = request.POST.get("amount", "").strip()
         card = request.POST.get("card", "").strip()
+        from decimal import Decimal as D, InvalidOperation
         try:
-            from decimal import Decimal as D
             amount = D(amount_str)
+        except (InvalidOperation, ValueError):
+            messages.error(request, "Некорректная сумма — введите число.")
+            amount = None
+
+        if amount is not None:
             if amount < D(str(min_withdrawal)):
                 messages.error(request, f"Минимальная сумма вывода: {min_withdrawal:,} {getattr(settings, 'CURRENCY_SYMBOL', '')}.")
             elif amount > wallet.available_balance:
-                messages.error(request, "Недостаточно средств.")
+                messages.error(request, "Недостаточно средств на балансе.")
             elif not card:
                 messages.error(request, "Укажите реквизиты для выплаты.")
             else:
                 from django.db import transaction as db_transaction
-                with db_transaction.atomic():
-                    wr = WithdrawalRequest.objects.create(
-                        blogger=user,
-                        amount=amount,
-                        requisites={"type": "card", "details": card},
-                    )
-                    BillingService.process_withdrawal(wr)
-                withdrawal_submitted = True
-                messages.success(request, f"Заявка на вывод {amount:,.0f} {getattr(settings, 'CURRENCY_SYMBOL', '')} подана.")
-                return redirect("web:wallet")
-        except Exception:
-            messages.error(request, "Некорректная сумма.")
+                try:
+                    with db_transaction.atomic():
+                        wr = WithdrawalRequest.objects.create(
+                            blogger=user,
+                            amount=amount,
+                            requisites={"type": "card", "details": card},
+                        )
+                        BillingService.process_withdrawal(wr)
+                    messages.success(request, f"Заявка на вывод {amount:,.0f} {getattr(settings, 'CURRENCY_SYMBOL', '')} подана.")
+                    return redirect("web:wallet")
+                except ValueError as e:
+                    messages.error(request, f"Ошибка: {e}")
 
     pending_withdrawals = []
     if user.role == User.Role.BLOGGER:
