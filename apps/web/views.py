@@ -347,6 +347,28 @@ def response_accept(request, pk):
     from django.db import transaction as db_transaction
 
     campaign = resp.campaign
+
+    # Проверяем статус кампании
+    if campaign.status != Campaign.Status.ACTIVE:
+        messages.error(request, "Нельзя принимать отклики — кампания не активна.")
+        return redirect("web:campaign_detail", pk=campaign.pk)
+
+    # Проверяем лимит блогеров
+    if campaign.max_bloggers > 0:
+        active_deals_count = Deal.objects.filter(
+            campaign=campaign,
+            status__in=[
+                Deal.Status.IN_PROGRESS,
+                Deal.Status.CHECKING,
+                Deal.Status.ON_APPROVAL,
+                Deal.Status.WAITING_PUBLICATION,
+                Deal.Status.COMPLETED,
+            ],
+        ).count()
+        if active_deals_count >= campaign.max_bloggers:
+            messages.error(request, f"Достигнут лимит блогеров для кампании ({campaign.max_bloggers}).")
+            return redirect("web:campaign_detail", pk=campaign.pk)
+
     amount = resp.proposed_price or campaign.fixed_price
     if not amount:
         messages.error(request, "Не удалось определить сумму сделки.")

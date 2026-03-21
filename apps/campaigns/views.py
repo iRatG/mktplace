@@ -152,6 +152,32 @@ class ResponseViewSet(
             )
 
         campaign = response_obj.campaign
+
+        # Проверяем статус кампании
+        if campaign.status != Campaign.Status.ACTIVE:
+            return DRFResponse(
+                {"detail": "Cannot accept responses for a non-active campaign."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Проверяем лимит блогеров
+        if campaign.max_bloggers > 0:
+            active_deals_count = Deal.objects.filter(
+                campaign=campaign,
+                status__in=[
+                    Deal.Status.IN_PROGRESS,
+                    Deal.Status.CHECKING,
+                    Deal.Status.ON_APPROVAL,
+                    Deal.Status.WAITING_PUBLICATION,
+                    Deal.Status.COMPLETED,
+                ],
+            ).count()
+            if active_deals_count >= campaign.max_bloggers:
+                return DRFResponse(
+                    {"detail": f"Campaign has reached the maximum number of bloggers ({campaign.max_bloggers})."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         amount = response_obj.proposed_price or campaign.fixed_price
         if not amount:
             return DRFResponse(
