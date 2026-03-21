@@ -1,8 +1,3 @@
-version: '3.9'
-
-# VPS deployment — no nginx container (system nginx already on port 80/443)
-# Django/gunicorn exposed directly on port 8080
-
 services:
   db:
     image: postgres:16-alpine
@@ -45,40 +40,6 @@ services:
     volumes:
       - mktplace_static:/app/staticfiles
       - mktplace_media:/app/media
-
-  celery:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: celery -A config.celery worker --loglevel=info --concurrency=2
-    entrypoint: []
-    env_file:
-      - .env.prod
-    environment:
-      DJANGO_SETTINGS_MODULE: config.settings.production
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
-  celery-beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: celery -A config.celery beat --loglevel=info
-    entrypoint: []
-    env_file:
-      - .env.prod
-    environment:
-      DJANGO_SETTINGS_MODULE: config.settings.production
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
 
 volumes:
   mktplace_postgres:
