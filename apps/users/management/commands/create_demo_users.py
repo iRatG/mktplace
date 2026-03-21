@@ -4,6 +4,34 @@ from django.db import transaction
 from apps.users.models import User
 
 
+def _delete_user_safely(user):
+    """Delete a demo user and all their dependent data in correct order."""
+    from apps.deals.models import Deal, DealStatusLog
+    from apps.campaigns.models import Campaign, Response
+    from apps.platforms.models import Platform
+    from apps.billing.models import Wallet, Transaction, WithdrawalRequest
+    from apps.profiles.models import AdvertiserProfile, BloggerProfile
+
+    # Delete deals (PROTECT FK) — must go before campaigns and users
+    deals = Deal.objects.filter(advertiser=user) | Deal.objects.filter(blogger=user)
+    for deal in deals:
+        DealStatusLog.objects.filter(deal=deal).delete()
+        Transaction.objects.filter(deal=deal).delete()
+    deals.delete()
+
+    # Delete campaigns (PROTECT FK on advertiser)
+    Campaign.objects.filter(advertiser=user).delete()
+
+    # Delete platforms (CASCADE but explicit to be safe)
+    Platform.objects.filter(blogger=user).delete()
+
+    # Delete wallet and transactions
+    Wallet.objects.filter(user=user).delete()
+    WithdrawalRequest.objects.filter(blogger=user).delete()
+
+    user.delete()
+
+
 DEMO_USERS = [
     {
         "email": "admin@demo.com",
@@ -52,7 +80,7 @@ class Command(BaseCommand):
 
             if existing:
                 if options["reset"]:
-                    existing.delete()
+                    _delete_user_safely(existing)
                     self.stdout.write(f"  Удалён: {email}")
                 else:
                     self.stdout.write(
