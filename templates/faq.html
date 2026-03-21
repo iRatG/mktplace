@@ -59,7 +59,7 @@
             <ol class="space-y-2">
                 {% for step in "12345678" %}
                 {% if forloop.counter == 1 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">1.</span><span class="text-slate-300">Зарегистрируйтесь и подтвердите email</span></li>
-                {% elif forloop.counter == 2 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">2.</span><span class="text-slate-300">Пополните баланс (минимум 1 000 ₽)</span></li>
+                {% elif forloop.counter == 2 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">2.</span><span class="text-slate-300">Пополните баланс (минимум {{ currency.min_deposit|floatformat:0 }} {{ currency.symbol }})</span></li>
                 {% elif forloop.counter == 3 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">3.</span><span class="text-slate-300">Создайте кампанию — описание, требования, бюджет</span></li>
                 {% elif forloop.counter == 4 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">4.</span><span class="text-slate-300">Отправьте кампанию на модерацию</span></li>
                 {% elif forloop.counter == 5 %}<li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-4 flex-shrink-0">5.</span><span class="text-slate-300">После одобрения кампания появится в ленте блогеров</span></li>
@@ -124,19 +124,19 @@
                 <div class="text-xs text-slate-500">Комиссия платформы<br>от суммы сделки</div>
             </div>
             <div class="card-dark rounded-xl p-4 text-center">
-                <div class="text-2xl font-bold text-orange-400 mb-1">1 000 ₽</div>
+                <div class="text-2xl font-bold text-orange-400 mb-1">{{ currency.min_deposit|floatformat:0 }} {{ currency.symbol }}</div>
                 <div class="text-xs text-slate-500">Минимальное пополнение<br>баланса</div>
             </div>
             <div class="card-dark rounded-xl p-4 text-center">
-                <div class="text-2xl font-bold text-orange-400 mb-1">500 ₽</div>
+                <div class="text-2xl font-bold text-orange-400 mb-1">{{ currency.min_withdrawal|floatformat:0 }} {{ currency.symbol }}</div>
                 <div class="text-xs text-slate-500">Минимальный вывод<br>для блогера</div>
             </div>
         </div>
 
-        {% include "partials/faq_item.html" with question="Как пополнить баланс (рекламодатель)?" answer="Перейдите в раздел «Кошелёк» → «Пополнить». После успешного платежа средства зачисляются на доступный баланс. Минимум — 1 000 ₽." %}
+        {% include "partials/faq_item.html" with question="Как пополнить баланс (рекламодатель)?" answer="Перейдите в раздел «Кошелёк» → «Пополнить». После успешного платежа средства зачисляются на доступный баланс. Минимум — {{ currency.min_deposit|floatformat:0 }} {{ currency.symbol }}." %}
         {% include "partials/faq_item.html" with question="Что такое зарезервированный баланс?" answer="При создании сделки сумма перемещается из «доступного» в «зарезервированный». Эти деньги нельзя потратить на другое. При завершении — переходят блогеру. При отмене — возвращаются рекламодателю." %}
-        {% include "partials/faq_item.html" with question="Как работает комиссия 15%?" answer="При завершении сделки на 1 000 ₽: рекламодатель заплатил 1 000 ₽, блогер получил 850 ₽, 150 ₽ — комиссия платформы. Рекламодатель платит ровно столько, сколько указал." %}
-        {% include "partials/faq_item.html" with question="Как вывести деньги (блогер)?" answer="«Кошелёк» → «Вывод средств». Укажите сумму (от 500 ₽, не более доступного баланса) и реквизиты. Обработка — до 3 рабочих дней." %}
+        {% include "partials/faq_item.html" with question="Как работает комиссия 15%?" answer="При завершении сделки на {{ currency.min_deposit|floatformat:0 }} {{ currency.symbol }}: рекламодатель заплатил {{ currency.min_deposit|floatformat:0 }} {{ currency.symbol }}, блогер получил 850 ₽, 150 ₽ — комиссия платформы. Рекламодатель платит ровно столько, сколько указал." %}
+        {% include "partials/faq_item.html" with question="Как вывести деньги (блогер)?" answer="«Кошелёк» → «Вывод средств». Укажите сумму (от {{ currency.min_withdrawal|floatformat:0 }} {{ currency.symbol }}, не более доступного баланса) и реквизиты. Обработка — до 3 рабочих дней." %}
         {% include "partials/faq_item.html" with question="Что происходит с деньгами при отмене сделки?" answer="Зарезервированная сумма полностью возвращается на доступный баланс рекламодателя. Штрафов нет." %}
         {% include "partials/faq_item.html" with question="Где посмотреть историю транзакций?" answer="«Кошелёк» → «История операций». Дата, тип, сумма, баланс после, привязка к сделке. Фильтрация по типу и дате." %}
     </div>

@@ -102,7 +102,7 @@
 <footer class="border-t border-white/5 mt-auto" style="background:rgba(6,11,24,0.8);">
     <div class="max-w-6xl mx-auto px-5 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600">
         <span>© 2026 Mkt<span class="text-orange-500">place</span> — платформа для рекламы у блогеров</span>
-        <span>Комиссия 15% · Вывод от 500 ₽</span>
+        <span>Комиссия 15% · Вывод от {{ currency.min_withdrawal|floatformat:"0" }} {{ currency.symbol }}</span>
     </div>
 </footer>
 

@@ -73,14 +73,14 @@
             </div>
 
             <div id="fixed_price_row" {% if form.payment_type.value == 'cpa' %}class="hidden"{% endif %}>
-                <label class="block text-sm text-slate-300 mb-1">Цена за размещение (₽) *</label>
+                <label class="block text-sm text-slate-300 mb-1">Цена за размещение ({{ currency.symbol }}) *</label>
                 <input type="number" name="fixed_price" value="{{ form.fixed_price.value|default:'' }}"
                     class="input-dark" placeholder="5000" min="0" step="0.01">
                 {% if form.fixed_price.errors %}<p class="text-red-400 text-xs mt-1">{{ form.fixed_price.errors.0 }}</p>{% endif %}
             </div>
 
             <div>
-                <label class="block text-sm text-slate-300 mb-1">Общий бюджет (₽) *</label>
+                <label class="block text-sm text-slate-300 mb-1">Общий бюджет ({{ currency.symbol }}) *</label>
                 <input type="number" name="budget" value="{{ form.budget.value|default:'' }}"
                     class="input-dark" placeholder="50000" min="0" step="0.01" required>
                 {% if form.budget.errors %}<p class="text-red-400 text-xs mt-1">{{ form.budget.errors.0 }}</p>{% endif %}
