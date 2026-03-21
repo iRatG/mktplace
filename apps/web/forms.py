@@ -2,7 +2,70 @@ from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
+from apps.campaigns.models import Campaign
+from apps.platforms.models import Category
 from apps.users.models import User
+
+
+class CampaignForm(forms.ModelForm):
+    CONTENT_TYPE_CHOICES = [
+        ("post", "Пост"),
+        ("stories", "Сторис"),
+        ("video", "Видео"),
+        ("review", "Обзор"),
+        ("reels", "Reels"),
+    ]
+    SOCIAL_CHOICES = [
+        ("instagram", "Instagram"),
+        ("telegram", "Telegram"),
+        ("youtube", "YouTube"),
+        ("vk", "ВКонтакте"),
+        ("tiktok", "TikTok"),
+    ]
+
+    content_types = forms.MultipleChoiceField(
+        choices=CONTENT_TYPE_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Форматы контента",
+    )
+    allowed_socials = forms.MultipleChoiceField(
+        choices=SOCIAL_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Площадки",
+    )
+
+    class Meta:
+        model = Campaign
+        fields = [
+            "name", "description", "category",
+            "payment_type", "fixed_price", "budget",
+            "start_date", "end_date", "deadline",
+            "min_subscribers", "content_types", "allowed_socials",
+            "max_bloggers",
+        ]
+        widgets = {
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+            "deadline": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["category"].queryset = Category.objects.all()
+        self.fields["category"].required = False
+        self.fields["description"].required = False
+        # Restore saved multi-values from JSON list
+        if self.instance.pk:
+            self.initial["content_types"] = self.instance.content_types
+            self.initial["allowed_socials"] = self.instance.allowed_socials
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("payment_type") == Campaign.PaymentType.FIXED and not cleaned.get("fixed_price"):
+            self.add_error("fixed_price", "Укажите фиксированную цену.")
+        return cleaned
 
 
 class LoginForm(forms.Form):

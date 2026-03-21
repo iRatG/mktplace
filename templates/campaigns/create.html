@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}{% if campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %} — Mktplace{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+    <!-- Header -->
+    <div class="mb-6">
+        <a href="{% if campaign %}{% url 'web:campaign_detail' campaign.pk %}{% else %}{% url 'web:campaign_list' %}{% endif %}"
+           class="text-sm text-slate-400 hover:text-white transition-colors">← Назад</a>
+        <h1 class="text-2xl font-bold text-white mt-2">
+            {% if campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %}
+        </h1>
+    </div>
+
+    <form method="post" class="space-y-5">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert-error">{{ form.non_field_errors.0 }}</div>
+        {% endif %}
+
+        <!-- Название -->
+        <div class="card-dark rounded-xl p-5 space-y-4">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide">Основное</h2>
+
+            <div>
+                <label class="block text-sm text-slate-300 mb-1">Название кампании *</label>
+                <input type="text" name="name" value="{{ form.name.value|default:'' }}"
+                    class="input-dark" placeholder="Например: Запуск нового продукта" required>
+                {% if form.name.errors %}<p class="text-red-400 text-xs mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-sm text-slate-300 mb-1">Описание</label>
+                <textarea name="description" rows="4"
+                    class="input-dark resize-none"
+                    placeholder="Опишите задачу, требования к контенту, целевую аудиторию...">{{ form.description.value|default:'' }}</textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm text-slate-300 mb-1">Категория</label>
+                <select name="category" class="input-dark">
+                    <option value="">— не выбрана —</option>
+                    {% for cat in form.fields.category.queryset %}
+                    <option value="{{ cat.pk }}" {% if form.category.value|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Оплата -->
+        <div class="card-dark rounded-xl p-5 space-y-4">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide">Оплата и бюджет</h2>
+
+            <div>
+                <label class="block text-sm text-slate-300 mb-2">Тип оплаты *</label>
+                <div class="flex gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="payment_type" value="fixed"
+                            {% if form.payment_type.value != 'cpa' %}checked{% endif %}
+                            onchange="document.getElementById('fixed_price_row').classList.remove('hidden')">
+                        <span class="text-sm text-white">Фиксированная</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="payment_type" value="cpa"
+                            {% if form.payment_type.value == 'cpa' %}checked{% endif %}
+                            onchange="document.getElementById('fixed_price_row').classList.add('hidden')">
+                        <span class="text-sm text-white">CPA</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="fixed_price_row" {% if form.payment_type.value == 'cpa' %}class="hidden"{% endif %}>
+                <label class="block text-sm text-slate-300 mb-1">Цена за размещение (₽) *</label>
+                <input type="number" name="fixed_price" value="{{ form.fixed_price.value|default:'' }}"
+                    class="input-dark" placeholder="5000" min="0" step="0.01">
+                {% if form.fixed_price.errors %}<p class="text-red-400 text-xs mt-1">{{ form.fixed_price.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-sm text-slate-300 mb-1">Общий бюджет (₽) *</label>
+                <input type="number" name="budget" value="{{ form.budget.value|default:'' }}"
+                    class="input-dark" placeholder="50000" min="0" step="0.01" required>
+                {% if form.budget.errors %}<p class="text-red-400 text-xs mt-1">{{ form.budget.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+
+        <!-- Сроки и требования -->
+        <div class="card-dark rounded-xl p-5 space-y-4">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide">Сроки и требования</h2>
+
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">Начало</label>
+                    <input type="date" name="start_date" value="{{ form.start_date.value|default:'' }}" class="input-dark">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">Конец</label>
+                    <input type="date" name="end_date" value="{{ form.end_date.value|default:'' }}" class="input-dark">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">Дедлайн контента</label>
+                    <input type="date" name="deadline" value="{{ form.deadline.value|default:'' }}" class="input-dark">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">Мин. подписчиков</label>
+                    <input type="number" name="min_subscribers" value="{{ form.min_subscribers.value|default:'0' }}"
+                        class="input-dark" min="0">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">Макс. блогеров</label>
+                    <input type="number" name="max_bloggers" value="{{ form.max_bloggers.value|default:'0' }}"
+                        class="input-dark" min="0">
+                </div>
+            </div>
+        </div>
+
+        <!-- Форматы и площадки -->
+        <div class="card-dark rounded-xl p-5 space-y-4">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide">Форматы и площадки</h2>
+
+            <div>
+                <label class="block text-sm text-slate-300 mb-2">Форматы контента</label>
+                <div class="flex flex-wrap gap-2">
+                    {% for value, label in form.fields.content_types.choices %}
+                    <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 cursor-pointer hover:border-orange-500/40 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10 text-sm text-slate-300">
+                        <input type="checkbox" name="content_types" value="{{ value }}"
+                            {% if value in form.initial.content_types or value in form.data.getlist.content_types %}checked{% endif %}>
+                        {{ label }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm text-slate-300 mb-2">Площадки</label>
+                <div class="flex flex-wrap gap-2">
+                    {% for value, label in form.fields.allowed_socials.choices %}
+                    <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 cursor-pointer hover:border-orange-500/40 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10 text-sm text-slate-300">
+                        <input type="checkbox" name="allowed_socials" value="{{ value }}"
+                            {% if value in form.initial.allowed_socials or value in form.data.getlist.allowed_socials %}checked{% endif %}>
+                        {{ label }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3 pb-8">
+            <button type="submit" class="btn-orange px-6 py-2.5 text-sm">
+                {% if campaign %}Сохранить изменения{% else %}Создать кампанию{% endif %}
+            </button>
+            <a href="{% if campaign %}{% url 'web:campaign_detail' campaign.pk %}{% else %}{% url 'web:campaign_list' %}{% endif %}"
+               class="px-6 py-2.5 text-sm text-slate-400 hover:text-white border border-white/10 rounded-xl transition-colors">
+                Отмена
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

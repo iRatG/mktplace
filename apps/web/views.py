@@ -12,6 +12,7 @@ from apps.users.models import PasswordResetToken, User
 from apps.users.tasks import send_password_reset_email
 
 from .forms import (
+    CampaignForm,
     LoginForm,
     PasswordResetConfirmForm,
     PasswordResetRequestForm,
@@ -226,15 +227,37 @@ def campaign_create(request):
     if request.user.role != User.Role.ADVERTISER:
         messages.error(request, "Только рекламодатели могут создавать кампании.")
         return redirect("web:advertiser_dashboard")
-    # Redirect to admin for now (full form coming soon)
-    messages.info(request, "Создание кампаний доступно через API или админ-панель.")
-    return redirect("web:campaign_list")
+
+    form = CampaignForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        campaign = form.save(commit=False)
+        campaign.advertiser = request.user
+        campaign.content_types = form.cleaned_data.get("content_types", [])
+        campaign.allowed_socials = form.cleaned_data.get("allowed_socials", [])
+        campaign.save()
+        messages.success(request, f"Кампания «{campaign.name}» создана.")
+        return redirect("web:campaign_detail", pk=campaign.pk)
+
+    return render(request, "campaigns/create.html", {"form": form})
 
 
 @login_required
 def campaign_edit(request, pk):
-    messages.info(request, "Редактирование доступно через API.")
-    return redirect("web:campaign_detail", pk=pk)
+    campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
+    if campaign.status not in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
+        messages.error(request, "Редактировать можно только черновики и отклонённые кампании.")
+        return redirect("web:campaign_detail", pk=pk)
+
+    form = CampaignForm(request.POST or None, instance=campaign)
+    if request.method == "POST" and form.is_valid():
+        campaign = form.save(commit=False)
+        campaign.content_types = form.cleaned_data.get("content_types", [])
+        campaign.allowed_socials = form.cleaned_data.get("allowed_socials", [])
+        campaign.save()
+        messages.success(request, "Кампания обновлена.")
+        return redirect("web:campaign_detail", pk=campaign.pk)
+
+    return render(request, "campaigns/create.html", {"form": form, "campaign": campaign})
 
 
 @login_required
