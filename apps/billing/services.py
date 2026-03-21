@@ -1,5 +1,6 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
+from django.conf import settings
 from django.db import transaction as db_transaction
 
 from .models import Transaction, Wallet, WithdrawalRequest
@@ -75,6 +76,14 @@ class BillingService:
         blogger_wallet = cls._get_or_create_wallet(deal.blogger)
         amount = deal.amount
 
+        commission_percent = Decimal(
+            getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15)
+        )
+        commission = (amount * commission_percent / Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        blogger_earning = amount - commission
+
         # Deduct from advertiser's reserved balance
         advertiser_wallet.reserved_balance = max(
             Decimal("0"), advertiser_wallet.reserved_balance - amount
@@ -87,29 +96,27 @@ class BillingService:
             amount=-amount,
             balance_after=advertiser_wallet.available_balance,
             deal=deal,
-            description=f"Payment for completed deal #{deal.pk}",
+            description=f"Payment for completed deal #{deal.pk} (commission {commission_percent}%)",
         )
 
-        # Credit to blogger's available balance
-        blogger_wallet.available_balance += amount
+        # Credit blogger's earning (amount minus platform commission)
+        blogger_wallet.available_balance += blogger_earning
         blogger_wallet.save(update_fields=["available_balance", "updated_at"])
 
         Transaction.objects.create(
             wallet=blogger_wallet,
             type=Transaction.Type.EARNING,
-            amount=amount,
+            amount=blogger_earning,
             balance_after=blogger_wallet.available_balance,
             deal=deal,
-            description=f"Earning for completed deal #{deal.pk}",
+            description=f"Earning for completed deal #{deal.pk} (after {commission_percent}% commission)",
         )
 
         # Update blogger profile stats
-        try:
-            profile = deal.blogger.blogger_profile
+        profile = getattr(deal.blogger, "blogger_profile", None)
+        if profile is not None:
             profile.deals_count += 1
             profile.save(update_fields=["deals_count"])
-        except Exception:
-            pass
 
         return advertiser_wallet, blogger_wallet
 

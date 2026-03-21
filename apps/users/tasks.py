@@ -2,30 +2,31 @@ from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.utils.html import strip_tags
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def send_confirmation_email(self, user_id: int, token: str):
-    """Send email confirmation link to the user."""
-    from .models import User
+def send_confirmation_email(self, user_id: int):
+    """Create email confirmation token and send link to the user."""
+    from .models import EmailConfirmationToken, User
 
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
         return
 
-    confirmation_url = (
-        f"{settings.FRONTEND_URL}/email-confirm/{token}/"
+    token = EmailConfirmationToken.objects.create(
+        user=user,
+        expires_at=timezone.now() + timezone.timedelta(hours=24),
     )
 
-    subject = "Confirm your email address"
+    confirmation_url = f"{settings.FRONTEND_URL}/confirm-email/{token.token}/"
+
+    subject = "Подтвердите email — Mktplace"
     html_message = render_to_string(
         "emails/email_confirmation.html",
-        {
-            "user": user,
-            "confirmation_url": confirmation_url,
-        },
+        {"user": user, "confirmation_url": confirmation_url},
     )
     plain_message = strip_tags(html_message)
 
@@ -43,24 +44,26 @@ def send_confirmation_email(self, user_id: int, token: str):
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def send_password_reset_email(self, user_id: int, token: str):
-    """Send password reset link to the user."""
-    from .models import User
+def send_password_reset_email(self, user_id: int):
+    """Create password reset token and send link to the user."""
+    from .models import PasswordResetToken, User
 
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
         return
 
-    reset_url = f"{settings.FRONTEND_URL}/password-reset/confirm/?token={token}"
+    token = PasswordResetToken.objects.create(
+        user=user,
+        expires_at=timezone.now() + timezone.timedelta(hours=1),
+    )
 
-    subject = "Reset your password"
+    reset_url = f"{settings.FRONTEND_URL}/password-reset/{token.token}/"
+
+    subject = "Сброс пароля — Mktplace"
     html_message = render_to_string(
         "emails/password_reset.html",
-        {
-            "user": user,
-            "reset_url": reset_url,
-        },
+        {"user": user, "reset_url": reset_url},
     )
     plain_message = strip_tags(html_message)
 

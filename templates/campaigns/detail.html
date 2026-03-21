@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}{{ campaign.name }} — Mktplace{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'web:campaign_list' %}" class="text-sm text-gray-500 hover:text-indigo-600">← Назад</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Main info -->
+    <div class="lg:col-span-2 space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <div class="flex items-start justify-between mb-4">
+                <h1 class="text-xl font-bold text-gray-900">{{ campaign.name }}</h1>
+                <span class="text-xs px-2 py-1 rounded-full
+                    {% if campaign.status == 'active' %}bg-green-100 text-green-700
+                    {% elif campaign.status == 'moderation' %}bg-yellow-100 text-yellow-700
+                    {% elif campaign.status == 'draft' %}bg-gray-100 text-gray-600
+                    {% elif campaign.status == 'paused' %}bg-orange-100 text-orange-700
+                    {% else %}bg-red-100 text-red-600{% endif %}">
+                    {{ campaign.get_status_display }}
+                </span>
+            </div>
+            <p class="text-sm text-gray-600 leading-relaxed">{{ campaign.description|default:"Описание не указано" }}</p>
+
+            {% if campaign.content_types %}
+            <div class="mt-4">
+                <div class="text-xs font-medium text-gray-500 mb-2">Типы контента:</div>
+                <div class="flex flex-wrap gap-2">
+                    {% for ct in campaign.content_types %}
+                    <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">{{ ct }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Advertiser actions -->
+        {% if is_owner %}
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="font-semibold text-gray-800 mb-4">Управление кампанией</h2>
+            <div class="flex flex-wrap gap-2">
+                {% if campaign.status == 'draft' or campaign.status == 'rejected' %}
+                <a href="{% url 'web:campaign_edit' campaign.pk %}"
+                    class="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-50">
+                    Редактировать
+                </a>
+                <form method="post" action="{% url 'web:campaign_submit' campaign.pk %}">
+                    {% csrf_token %}
+                    <button class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-indigo-700">
+                        Отправить на модерацию
+                    </button>
+                </form>
+                {% endif %}
+                {% if campaign.status == 'active' %}
+                <form method="post" action="{% url 'web:campaign_pause' campaign.pk %}">
+                    {% csrf_token %}
+                    <button class="bg-orange-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-orange-600">Приостановить</button>
+                </form>
+                {% endif %}
+                {% if campaign.status == 'paused' %}
+                <form method="post" action="{% url 'web:campaign_resume' campaign.pk %}">
+                    {% csrf_token %}
+                    <button class="bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700">Возобновить</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Responses list for advertiser -->
+        {% if responses %}
+        <div class="bg-white rounded-xl border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h2 class="font-semibold text-gray-800">Отклики ({{ responses|length }})</h2>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for resp in responses %}
+                <div class="px-6 py-4 flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-medium text-gray-800">{{ resp.blogger.email }}</div>
+                        <div class="text-xs text-gray-400 mt-0.5">
+                            {{ resp.platform }} · {{ resp.content_type }}
+                            {% if resp.proposed_price %}· {{ resp.proposed_price }} ₽{% endif %}
+                        </div>
+                        {% if resp.message %}
+                        <div class="text-xs text-gray-500 mt-1 italic">"{{ resp.message|truncatechars:80 }}"</div>
+                        {% endif %}
+                    </div>
+                    {% if resp.status == 'pending' %}
+                    <div class="flex gap-2 ml-4">
+                        <form method="post" action="{% url 'web:response_accept' resp.pk %}">
+                            {% csrf_token %}
+                            <button class="bg-green-600 text-white px-3 py-1.5 rounded text-xs hover:bg-green-700">Принять</button>
+                        </form>
+                        <form method="post" action="{% url 'web:response_reject' resp.pk %}">
+                            {% csrf_token %}
+                            <button class="bg-red-500 text-white px-3 py-1.5 rounded text-xs hover:bg-red-600">Отклонить</button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <span class="text-xs px-2 py-1 rounded-full
+                        {% if resp.status == 'accepted' %}bg-green-100 text-green-700
+                        {% elif resp.status == 'rejected' %}bg-red-100 text-red-600
+                        {% else %}bg-gray-100 text-gray-500{% endif %}">
+                        {{ resp.get_status_display }}
+                    </span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- Blogger response form -->
+        {% if campaign.status == 'active' %}
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 class="font-semibold text-gray-800 mb-4">Откликнуться на кампанию</h2>
+            {% if already_responded %}
+            <div class="bg-blue-50 border border-blue-200 text-blue-700 text-sm rounded-lg px-4 py-3">
+                Вы уже откликнулись на эту кампанию.
+            </div>
+            {% else %}
+            <form method="post" action="{% url 'web:campaign_respond' campaign.pk %}" class="space-y-3">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Площадка</label>
+                    <select name="platform" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" required>
+                        <option value="">Выберите площадку...</option>
+                        {% for platform in my_platforms %}
+                        <option value="{{ platform.pk }}">{{ platform }} ({{ platform.subscribers }} подп.)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Тип контента</label>
+                    <select name="content_type" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" required>
+                        <option value="">Выберите тип...</option>
+                        {% for ct in campaign.content_types %}
+                        <option value="{{ ct }}">{{ ct }}</option>
+                        {% endfor %}
+                        {% if not campaign.content_types %}
+                        <option value="post">Пост</option>
+                        <option value="stories">Stories</option>
+                        <option value="video">Видео</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Предложить цену (₽, необязательно)</label>
+                    <input type="number" name="proposed_price" step="0.01" min="0"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Оставьте пустым чтобы принять цену кампании">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Сообщение</label>
+                    <textarea name="message" rows="3"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Расскажите почему вы подходите для этой кампании..."></textarea>
+                </div>
+                <button type="submit"
+                    class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+                    Отправить отклик
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 class="font-semibold text-gray-800 mb-3 text-sm">Параметры</h3>
+            <dl class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">Бюджет</dt>
+                    <dd class="font-medium text-gray-800">{{ campaign.budget }} ₽</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">Тип оплаты</dt>
+                    <dd class="font-medium text-gray-800">{{ campaign.get_payment_type_display }}</dd>
+                </div>
+                {% if campaign.fixed_price %}
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">Фикс. цена</dt>
+                    <dd class="font-medium text-gray-800">{{ campaign.fixed_price }} ₽</dd>
+                </div>
+                {% endif %}
+                {% if campaign.min_subscribers %}
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">Мин. подписчиков</dt>
+                    <dd class="font-medium text-gray-800">{{ campaign.min_subscribers|floatformat:0 }}</dd>
+                </div>
+                {% endif %}
+                {% if campaign.deadline %}
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">Дедлайн</dt>
+                    <dd class="font-medium text-gray-800">{{ campaign.deadline|date:"d.m.Y" }}</dd>
+                </div>
+                {% endif %}
+                {% if campaign.category %}
+                <div class="flex justify-between">
+                    <dt class="text-gray-500">Категория</dt>
+                    <dd class="font-medium text-gray-800">{{ campaign.category.name }}</dd>
+                </div>
+                {% endif %}
+            </dl>
+        </div>
+
+        {% if campaign.allowed_socials %}
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 class="font-semibold text-gray-800 mb-3 text-sm">Соцсети</h3>
+            <div class="flex flex-wrap gap-2">
+                {% for social in campaign.allowed_socials %}
+                <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">{{ social }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

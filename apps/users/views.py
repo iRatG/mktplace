@@ -1,5 +1,3 @@
-import uuid
-from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -34,11 +32,7 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        token = EmailConfirmationToken.objects.create(
-            user=user,
-            expires_at=timezone.now() + timezone.timedelta(hours=24),
-        )
-        send_confirmation_email.delay(user.id, str(token.token))
+        send_confirmation_email.delay(user.id)
 
         return Response(
             {
@@ -116,12 +110,7 @@ class PasswordResetRequestView(APIView):
 
         try:
             user = User.objects.get(email=email)
-            token = PasswordResetToken.objects.create(
-                user=user,
-                expires_at=timezone.now() + timezone.timedelta(hours=2),
-                ip_address=request.META.get("REMOTE_ADDR"),
-            )
-            send_password_reset_email.delay(user.id, str(token.token))
+            send_password_reset_email.delay(user.id)
         except User.DoesNotExist:
             pass  # Do not reveal whether email exists
 

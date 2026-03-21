@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Дашборд блогера — Mktplace{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Добро пожаловать, {{ user.email }}</h1>
+    <p class="text-gray-500 text-sm mt-1">Находите рекламные кампании и управляйте сделками</p>
+</div>
+
+<!-- Stats -->
+<div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="text-sm text-gray-500">Баланс</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ wallet.available_balance|default:"0.00" }} ₽</div>
+        <div class="text-xs text-gray-400 mt-1">На выводе: {{ wallet.on_withdrawal|default:"0.00" }} ₽</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="text-sm text-gray-500">Откликов</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ my_responses_count }}</div>
+        <div class="text-xs text-gray-400 mt-1">Всего подано</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="text-sm text-gray-500">Сделок</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ active_deals_count }}</div>
+        <div class="text-xs text-gray-400 mt-1">В работе</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="text-sm text-gray-500">Завершено</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ completed_deals_count }}</div>
+        <div class="text-xs text-gray-400 mt-1">Успешных сделок</div>
+    </div>
+</div>
+
+<!-- Quick actions -->
+<div class="flex gap-3 mb-8">
+    <a href="{% url 'web:catalog' %}"
+        class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+        Каталог кампаний
+    </a>
+</div>
+
+<!-- Active deals -->
+<div class="bg-white rounded-xl border border-gray-200 mb-6">
+    <div class="px-6 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800">Активные сделки</h2>
+    </div>
+    {% if active_deals %}
+    <div class="divide-y divide-gray-100">
+        {% for deal in active_deals %}
+        <div class="px-6 py-4 flex items-center justify-between">
+            <div>
+                <div class="text-sm font-medium text-gray-800">{{ deal.campaign.name }}</div>
+                <div class="text-xs text-gray-400 mt-0.5">{{ deal.amount }} ₽ · {{ deal.platform }}</div>
+            </div>
+            <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                {{ deal.get_status_display }}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-6 py-8 text-center text-gray-400 text-sm">
+        Активных сделок нет. <a href="{% url 'web:catalog' %}" class="text-indigo-600 hover:underline">Найдите кампанию</a>.
+    </div>
+    {% endif %}
+</div>
+
+<!-- My platforms -->
+{% if not has_platforms %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-xl px-6 py-4">
+    <div class="text-sm font-medium text-yellow-800">Добавьте площадку</div>
+    <div class="text-xs text-yellow-700 mt-1">Чтобы откликаться на кампании, сначала добавьте свою социальную сеть.</div>
+    <a href="{% url 'web:platform_add' %}" class="inline-block mt-3 bg-yellow-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-yellow-700">
+        Добавить площадку
+    </a>
+</div>
+{% endif %}
+{% endblock %}

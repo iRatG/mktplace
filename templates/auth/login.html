@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Вход — Mktplace{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-md">
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Войти в аккаунт</h1>
+        <p class="text-sm text-gray-500 mb-6">Нет аккаунта? <a href="{% url 'web:register' %}" class="text-indigo-600 hover:underline">Зарегистрироваться</a></p>
+
+        {% if form.non_field_errors %}
+        <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
+            {{ form.non_field_errors.0 }}
+        </div>
+        {% endif %}
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label for="id_email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input type="email" name="email" id="id_email"
+                    value="{{ form.email.value|default:'' }}"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="you@example.com" required autofocus>
+                {% if form.email.errors %}
+                <p class="text-red-600 text-xs mt-1">{{ form.email.errors.0 }}</p>
+                {% endif %}
+            </div>
+            <div>
+                <label for="id_password" class="block text-sm font-medium text-gray-700 mb-1">Пароль</label>
+                <input type="password" name="password" id="id_password"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="••••••••" required>
+                {% if form.password.errors %}
+                <p class="text-red-600 text-xs mt-1">{{ form.password.errors.0 }}</p>
+                {% endif %}
+            </div>
+            <div class="flex items-center justify-between">
+                <label class="flex items-center gap-2 text-sm text-gray-600">
+                    <input type="checkbox" name="remember_me" class="rounded border-gray-300">
+                    Запомнить меня
+                </label>
+                <a href="{% url 'web:password_reset' %}" class="text-sm text-indigo-600 hover:underline">Забыли пароль?</a>
+            </div>
+            <button type="submit"
+                class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+                Войти
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

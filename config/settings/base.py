@@ -37,6 +37,7 @@ LOCAL_APPS = [
     'apps.billing',
     'apps.notifications',
     'apps.analytics',
+    'apps.web',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -105,6 +106,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+
 # Redis
 REDIS_URL = env('REDIS_URL', default='redis://redis:6379/0')
 
@@ -127,6 +131,20 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULE = {
+    'auto-complete-deals': {
+        'task': 'apps.deals.tasks.auto_complete_deals',
+        'schedule': 3600,  # every hour
+    },
+    'auto-approve-creative': {
+        'task': 'apps.deals.tasks.auto_approve_creative',
+        'schedule': 3600,  # every hour
+    },
+    'auto-cancel-overdue-deals': {
+        'task': 'apps.deals.tasks.auto_cancel_overdue_deals',
+        'schedule': 3600,  # every hour
+    },
+}
 
 # DRF
 REST_FRAMEWORK = {
@@ -175,6 +193,9 @@ EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@mktplace.com')
+
+# Frontend URL (used in email confirmation and password reset links)
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8000')
 
 # Platform business settings
 PLATFORM_COMMISSION_PERCENT = env.int('PLATFORM_COMMISSION_PERCENT', default=15)

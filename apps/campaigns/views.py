@@ -1,9 +1,13 @@
+from django.db import transaction as db_transaction
+
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
 
+from apps.billing.services import BillingService
+from apps.deals.models import Deal, DealStatusLog
 from apps.users.models import User
 from .models import Campaign
 from .models import Response as CampaignResponse
@@ -146,9 +150,47 @@ class ResponseViewSet(
                 {"detail": "Only pending responses can be accepted."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        response_obj.status = CampaignResponse.Status.ACCEPTED
-        response_obj.save(update_fields=["status"])
-        return DRFResponse({"detail": "Response accepted."})
+
+        campaign = response_obj.campaign
+        amount = response_obj.proposed_price or campaign.fixed_price
+        if not amount:
+            return DRFResponse(
+                {"detail": "Cannot determine deal amount: no price agreed upon."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            with db_transaction.atomic():
+                response_obj.status = CampaignResponse.Status.ACCEPTED
+                response_obj.save(update_fields=["status"])
+
+                deal = Deal.objects.create(
+                    campaign=campaign,
+                    blogger=response_obj.blogger,
+                    platform=response_obj.platform,
+                    advertiser=request.user,
+                    response=response_obj,
+                    amount=amount,
+                    status=Deal.Status.WAITING_PAYMENT,
+                )
+
+                BillingService.reserve_funds(deal)
+
+                deal.status = Deal.Status.IN_PROGRESS
+                deal.save(update_fields=["status"])
+                DealStatusLog.log(
+                    deal,
+                    Deal.Status.IN_PROGRESS,
+                    changed_by=request.user,
+                    comment="Deal created, funds reserved.",
+                )
+        except ValueError as e:
+            return DRFResponse({"detail": str(e)}, status=status.HTTP_402_PAYMENT_REQUIRED)
+
+        return DRFResponse(
+            {"detail": "Response accepted. Deal created.", "deal_id": deal.pk},
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):

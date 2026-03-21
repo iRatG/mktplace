@@ -1,0 +1,15 @@
+{% extends "base_email.html" %}
+
+{% block content %}
+<p>Здравствуйте!</p>
+<p>Вы зарегистрировались на платформе <strong>Mktplace</strong>.</p>
+<p>Для активации аккаунта подтвердите ваш email-адрес, нажав на кнопку ниже:</p>
+
+<a href="{{ confirmation_url }}" class="btn">Подтвердить email</a>
+
+<p>Ссылка действительна в течение <strong>24 часов</strong>.</p>
+<p>Если кнопка не работает, скопируйте эту ссылку в браузер:</p>
+<p class="url-fallback">{{ confirmation_url }}</p>
+
+<p>Если вы не регистрировались на Mktplace — просто проигнорируйте это письмо.</p>
+{% endblock %}

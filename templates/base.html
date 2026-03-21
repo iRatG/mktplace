@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Mktplace{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        'primary-dark': '#3730A3',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+<!-- Navbar -->
+<nav class="bg-white shadow-sm border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16 items-center">
+            <div class="flex items-center gap-8">
+                <a href="/" class="text-xl font-bold text-indigo-600">Mktplace</a>
+                {% if user.is_authenticated %}
+                <div class="hidden sm:flex gap-4">
+                    {% if user.role == 'advertiser' %}
+                    <a href="{% url 'web:advertiser_dashboard' %}" class="text-sm text-gray-600 hover:text-indigo-600">Дашборд</a>
+                    <a href="{% url 'web:campaign_list' %}" class="text-sm text-gray-600 hover:text-indigo-600">Кампании</a>
+                    {% elif user.role == 'blogger' %}
+                    <a href="{% url 'web:blogger_dashboard' %}" class="text-sm text-gray-600 hover:text-indigo-600">Дашборд</a>
+                    <a href="{% url 'web:catalog' %}" class="text-sm text-gray-600 hover:text-indigo-600">Каталог</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-4">
+                {% if user.is_authenticated %}
+                <span class="text-sm text-gray-500">{{ user.email }}</span>
+                <form method="post" action="{% url 'web:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-sm text-gray-600 hover:text-red-600">Выйти</button>
+                </form>
+                {% else %}
+                <a href="{% url 'web:login' %}" class="text-sm text-gray-600 hover:text-indigo-600">Войти</a>
+                <a href="{% url 'web:register' %}" class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700">Регистрация</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- Flash messages -->
+{% if messages %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+    {% for message in messages %}
+    <div class="rounded-lg px-4 py-3 mb-2 text-sm
+        {% if message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200
+        {% elif message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200
+        {% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Page content -->
+<main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="bg-white border-t border-gray-200 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 py-6 text-center text-sm text-gray-400">
+        © 2024 Mktplace — платформа для рекламы у блогеров
+    </div>
+</footer>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

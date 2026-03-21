@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Кампании — Mktplace{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">
+        {% if user.role == 'advertiser' %}Мои кампании{% else %}Каталог кампаний{% endif %}
+    </h1>
+    {% if user.role == 'advertiser' %}
+    <a href="{% url 'web:campaign_create' %}"
+        class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+        + Создать кампанию
+    </a>
+    {% endif %}
+</div>
+
+{% if campaigns %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for campaign in campaigns %}
+    <div class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+        <div class="flex items-start justify-between mb-3">
+            <h3 class="font-semibold text-gray-800 text-sm leading-tight">{{ campaign.name }}</h3>
+            <span class="text-xs px-2 py-1 rounded-full ml-2 shrink-0
+                {% if campaign.status == 'active' %}bg-green-100 text-green-700
+                {% elif campaign.status == 'moderation' %}bg-yellow-100 text-yellow-700
+                {% elif campaign.status == 'draft' %}bg-gray-100 text-gray-600
+                {% elif campaign.status == 'paused' %}bg-orange-100 text-orange-700
+                {% else %}bg-red-100 text-red-600{% endif %}">
+                {{ campaign.get_status_display }}
+            </span>
+        </div>
+        <p class="text-xs text-gray-500 mb-3 line-clamp-2">{{ campaign.description|default:"Описание не указано" }}</p>
+        <div class="flex items-center justify-between text-xs text-gray-400">
+            <span>Бюджет: <strong class="text-gray-700">{{ campaign.budget }} ₽</strong></span>
+            <span>{{ campaign.get_payment_type_display }}</span>
+        </div>
+        {% if campaign.category %}
+        <div class="mt-2 text-xs text-indigo-600 bg-indigo-50 inline-block px-2 py-0.5 rounded">{{ campaign.category.name }}</div>
+        {% endif %}
+        <div class="mt-4 pt-3 border-t border-gray-100">
+            <a href="{% url 'web:campaign_detail' campaign.pk %}"
+                class="text-sm text-indigo-600 hover:underline font-medium">Подробнее →</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-xl border border-gray-200 px-6 py-12 text-center">
+    <div class="text-4xl mb-3">📋</div>
+    <div class="text-gray-500 text-sm">
+        {% if user.role == 'advertiser' %}
+        Кампаний пока нет. <a href="{% url 'web:campaign_create' %}" class="text-indigo-600 hover:underline">Создайте первую</a>.
+        {% else %}
+        Активных кампаний пока нет. Загляните позже.
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
