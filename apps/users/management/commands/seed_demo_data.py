@@ -150,12 +150,12 @@ class Command(BaseCommand):
         # Имитируем публикацию
         deal_c.publication_url = "https://instagram.com/p/demo_post_123"
         deal_c.publication_at = timezone.now() - timezone.timedelta(hours=5)
-        deal_c.status = Deal.Status.CHECKING
-        deal_c.save(update_fields=["publication_url", "publication_at", "status", "updated_at"])
         DealStatusLog.log(
             deal_c, Deal.Status.CHECKING,
             comment="Блогер разместил публикацию, ожидает подтверждения рекламодателя."
         )
+        deal_c.status = Deal.Status.CHECKING
+        deal_c.save(update_fields=["publication_url", "publication_at", "status", "updated_at"])
         self.stdout.write(f"     Сделка #{deal_c.pk} → статус: {deal_c.status}")
         self.stdout.write(f"     Публикация: {deal_c.publication_url}")
 
@@ -189,7 +189,7 @@ class Command(BaseCommand):
             advertiser=advertiser,
             response=resp_d,
             amount=Decimal("200_000"),
-            status=Deal.Status.COMPLETED,
+            status=Deal.Status.WAITING_PAYMENT,
             publication_url="https://t.me/demo_channel/456",
             publication_at=timezone.now() - timezone.timedelta(days=3),
         )
@@ -197,6 +197,8 @@ class Command(BaseCommand):
             deal_d, Deal.Status.COMPLETED,
             comment="Рекламодатель подтвердил публикацию. Оплата выполнена."
         )
+        deal_d.status = Deal.Status.COMPLETED
+        deal_d.save(update_fields=["status"])
         # Создаём транзакции вручную (сделка уже завершена, BillingService не вызываем).
         # Используем свежие объекты из БД, чтобы не перезаписать изменения reserve_funds.
         commission = (Decimal("200_000") * Decimal("15") / Decimal("100")).quantize(Decimal("0.01"))
@@ -346,13 +348,13 @@ class Command(BaseCommand):
             status=Deal.Status.WAITING_PAYMENT,
         )
         BillingService.reserve_funds(deal)
-        deal.status = Deal.Status.IN_PROGRESS
-        deal.save(update_fields=["status"])
         DealStatusLog.log(
             deal, Deal.Status.IN_PROGRESS,
             changed_by=advertiser,
             comment="Отклик принят. Средства зарезервированы."
         )
+        deal.status = Deal.Status.IN_PROGRESS
+        deal.save(update_fields=["status"])
         return deal
 
     def _cleanup(self):

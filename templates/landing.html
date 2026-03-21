@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mktplace — Реклама у блогеров без риска</title>
+    <title>Mktplace — Безопасная реклама у блогеров с гарантией оплаты</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -73,15 +73,15 @@
             <div>
                 <div class="inline-flex items-center gap-2 text-xs font-medium text-orange-400 border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 rounded-full mb-6">
                     <span class="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse"></span>
-                    Платформа для рекламы у блогеров
+                    Маркетплейс инфлюенс-рекламы с эскроу-защитой
                 </div>
                 <h1 class="text-4xl sm:text-5xl font-extrabold leading-[1.1] mb-5 text-white">
-                    Запускайте рекламу<br>
-                    у блогеров —<br>
-                    <span class="text-gradient">с гарантией оплаты</span>
+                    Реклама у блогеров —<br>
+                    безопасно для обеих<br>
+                    <span class="text-gradient">сторон сделки</span>
                 </h1>
                 <p class="text-slate-400 text-lg leading-relaxed mb-8 max-w-lg">
-                    Рекламодатели создают кампании и выбирают блогеров. Деньги замораживаются до публикации — и поступают блогеру только после подтверждения.
+                    Рекламодатели находят блогеров, деньги замораживаются в эскроу и поступают блогеру только после подтверждения публикации. Споры решает администратор.
                 </p>
                 <div class="flex flex-col sm:flex-row gap-3 mb-10">
                     <a href="{% url 'web:register' %}?role=advertiser"
@@ -108,6 +108,11 @@
                     <div>
                         <div class="font-bold text-white text-xl">6</div>
                         <div class="text-slate-500 text-xs mt-0.5">соцсетей</div>
+                    </div>
+                    <div class="w-px bg-white/10"></div>
+                    <div>
+                        <div class="font-bold text-white text-xl">3 дня</div>
+                        <div class="text-slate-500 text-xs mt-0.5">вывод средств</div>
                     </div>
                 </div>
             </div>
@@ -187,7 +192,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <svg class="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/></svg>
-                Вывод средств от 65 000 {{ currency.symbol }}
+                Вывод средств от {{ currency.min_withdrawal|floatformat:0 }} {{ currency.symbol }}
             </div>
             <div class="flex items-center gap-2">
                 <svg class="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
@@ -258,7 +263,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
             <div>
                 <h2 class="text-3xl font-bold text-white mb-5">Полный контроль над рекламной кампанией</h2>
-                <p class="text-slate-400 leading-relaxed mb-8">Деньги списываются только после того как вы подтвердили публикацию. До этого — они заморожены в нашей системе. Никакого риска.</p>
+                <p class="text-slate-400 leading-relaxed mb-8">Деньги списываются только после того, как вы лично подтвердили публикацию. До этого — заморожены в системе. Не устраивает результат — откройте спор, администратор разберётся.</p>
                 <div class="space-y-4">
                     {% for feature in advertiser_features %}
                     <div class="flex gap-4">
@@ -324,8 +329,8 @@
         <div class="text-xs font-semibold text-indigo-400 uppercase tracking-[0.15em] mb-3">Для блогеров</div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
             <div>
-                <h2 class="text-3xl font-bold text-white mb-5">Зарабатывайте на рекламе — без страха не получить оплату</h2>
-                <p class="text-slate-400 leading-relaxed mb-8">Деньги рекламодателя заморожены с момента старта. Если он не реагирует 72 часа после публикации — деньги поступают вам автоматически.</p>
+                <h2 class="text-3xl font-bold text-white mb-5">Монетизируйте аудиторию — с гарантией получить каждый рубль</h2>
+                <p class="text-slate-400 leading-relaxed mb-8">Деньги рекламодателя заморожены ещё до старта работы. Разместили рекламу — идёт отсчёт 72 часов. Не ответил — деньги ваши автоматически.</p>
                 <div class="space-y-4">
                     {% for feature in blogger_features %}
                     <div class="flex gap-4">
@@ -417,7 +422,7 @@
 <section class="py-20 px-5 section-divider bg-navy-900">
     <div class="max-w-3xl mx-auto text-center">
         <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Готовы начать?</h2>
-        <p class="text-slate-400 mb-8 text-lg">Регистрация бесплатна. Комиссия 15% только с завершённых сделок.</p>
+        <p class="text-slate-400 mb-8 text-lg">Регистрация бесплатна. Комиссия 15% — только с завершённых сделок.</p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
             <a href="{% url 'web:register' %}?role=advertiser"
                 class="gradient-orange glow-orange text-white px-8 py-4 rounded-xl font-bold text-base hover:opacity-90 transition-opacity">
@@ -437,7 +442,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
             <div class="col-span-2 sm:col-span-1">
                 <div class="text-lg font-bold mb-3">Mkt<span class="text-gradient">place</span></div>
-                <p class="text-xs text-slate-500 leading-relaxed">Платформа для безопасного сотрудничества рекламодателей и блогеров. Эскроу · Модерация · Гарантия.</p>
+                <p class="text-xs text-slate-500 leading-relaxed">Маркетплейс инфлюенс-рекламы. Эскроу-защита · Модерация · Разбор споров · Гарантия оплаты.</p>
             </div>
             <div>
                 <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Платформа</div>
@@ -464,8 +469,8 @@
             </div>
         </div>
         <div class="border-t border-white/5 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
-            <span>© 2024 Mktplace. Все права защищены.</span>
-            <span>Комиссия 15% · Вывод от 65 000 {{ currency.symbol }} · Авто-завершение 72ч</span>
+            <span>© 2026 Mktplace. Все права защищены.</span>
+            <span>Комиссия 15% · Вывод от {{ currency.min_withdrawal|floatformat:0 }} {{ currency.symbol }} · Авто-завершение 72ч</span>
         </div>
     </div>
 </footer>

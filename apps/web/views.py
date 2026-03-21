@@ -2,6 +2,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.utils import timezone
 from django.contrib.auth import login, logout
+import functools
+
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -171,14 +173,15 @@ def advertiser_dashboard(request):
 def blogger_dashboard(request):
     user = request.user
     wallet = getattr(user, "wallet", None)
-    active_deals = Deal.objects.filter(blogger=user).exclude(
+    active_deals_qs = Deal.objects.filter(blogger=user).exclude(
         status__in=[Deal.Status.COMPLETED, Deal.Status.CANCELLED]
-    ).select_related("campaign", "platform")[:10]
+    )
+    active_deals = active_deals_qs.select_related("campaign", "platform")[:10]
 
     context = {
         "wallet": wallet,
         "my_responses_count": CampaignResponse.objects.filter(blogger=user).count(),
-        "active_deals_count": active_deals.count(),
+        "active_deals_count": active_deals_qs.count(),
         "completed_deals_count": Deal.objects.filter(
             blogger=user, status=Deal.Status.COMPLETED
         ).count(),
@@ -193,7 +196,9 @@ def blogger_dashboard(request):
 @login_required
 def campaign_list(request):
     user = request.user
-    if user.role == User.Role.ADVERTISER:
+    if user.is_staff:
+        campaigns = Campaign.objects.all().select_related("category").order_by("-created_at")
+    elif user.role == User.Role.ADVERTISER:
         campaigns = Campaign.objects.filter(advertiser=user).select_related("category")
     else:
         campaigns = Campaign.objects.filter(status=Campaign.Status.ACTIVE).select_related("category")
@@ -230,7 +235,7 @@ def campaign_detail(request, pk):
 def campaign_create(request):
     if request.user.role != User.Role.ADVERTISER:
         messages.error(request, "Только рекламодатели могут создавать кампании.")
-        return redirect("web:advertiser_dashboard")
+        return _redirect_dashboard(request.user)
 
     form = CampaignForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -378,6 +383,23 @@ def response_accept(request, pk):
 
     try:
         with db_transaction.atomic():
+            # Re-check limit inside atomic with lock to prevent race condition
+            locked_campaign = Campaign.objects.select_for_update().get(pk=campaign.pk)
+            if locked_campaign.max_bloggers > 0:
+                active_count = Deal.objects.filter(
+                    campaign=locked_campaign,
+                    status__in=[
+                        Deal.Status.IN_PROGRESS,
+                        Deal.Status.CHECKING,
+                        Deal.Status.ON_APPROVAL,
+                        Deal.Status.WAITING_PUBLICATION,
+                        Deal.Status.COMPLETED,
+                    ],
+                ).count()
+                if active_count >= locked_campaign.max_bloggers:
+                    messages.error(request, f"Достигнут лимит блогеров для кампании ({locked_campaign.max_bloggers}).")
+                    return redirect("web:campaign_detail", pk=campaign.pk)
+
             resp.status = CampaignResponse.Status.ACCEPTED
             resp.save(update_fields=["status"])
 
@@ -391,9 +413,9 @@ def response_accept(request, pk):
                 status=Deal.Status.WAITING_PAYMENT,
             )
             BillingService.reserve_funds(deal)
+            DealStatusLog.log(deal, Deal.Status.IN_PROGRESS, changed_by=request.user, comment="Accepted via web.")
             deal.status = Deal.Status.IN_PROGRESS
             deal.save(update_fields=["status"])
-            DealStatusLog.log(deal, Deal.Status.IN_PROGRESS, changed_by=request.user, comment="Accepted via web.")
         messages.success(request, f"Отклик принят. Сделка #{deal.pk} создана.")
     except ValueError as e:
         messages.error(request, f"Недостаточно средств: {e}")
@@ -434,36 +456,36 @@ def landing(request):
             ("Яндекс.Дзен", "🟡", "yellow"),
         ],
         "advertiser_steps": [
-            {"title": "Создайте кампанию", "desc": "Опишите продукт, требования к контенту, формат, бюджет — сохраняется как черновик"},
-            {"title": "Пройдите модерацию", "desc": "Администраторы проверят кампанию и опубликуют в ленте для блогеров"},
-            {"title": "Выберите блогера", "desc": "Смотрите отклики, оценивайте площадки, принимайте или отклоняйте"},
-            {"title": "Согласуйте и подтвердите", "desc": "Проверьте публикацию и подтвердите — деньги поступят блогеру"},
+            {"title": "Создайте кампанию", "desc": "Опишите продукт, требования к контенту, форматы и бюджет — черновик можно редактировать до готовности"},
+            {"title": "Пройдите модерацию", "desc": "Администраторы проверят кампанию за 24ч и опубликуют в ленте — блогеры начнут откликаться"},
+            {"title": "Выберите блогера", "desc": "Получайте отклики с площадкой, аудиторией и ценой. Принимайте одним кликом — деньги замораживаются мгновенно"},
+            {"title": "Подтвердите публикацию", "desc": "Блогер пришлёт ссылку. Нажмите «Подтвердить» — деньги поступят блогеру. Не согласны — откройте спор"},
         ],
         "blogger_steps": [
-            {"title": "Добавьте площадку", "desc": "ВКонтакте, Telegram, YouTube, Instagram, TikTok или Яндекс.Дзен"},
-            {"title": "Пройдите проверку", "desc": "Администраторы верифицируют площадку (до 48ч)"},
-            {"title": "Откликнитесь на кампанию", "desc": "Выберите подходящую кампанию, предложите цену, напишите сообщение"},
-            {"title": "Получите оплату", "desc": "Деньги заморожены с начала — гарантированно поступят после публикации"},
+            {"title": "Добавьте площадку", "desc": "Укажите ссылку, метрики и прайс для ВКонтакте, Telegram, YouTube, Instagram, TikTok или Яндекс.Дзен"},
+            {"title": "Пройдите верификацию", "desc": "Администраторы проверят площадку за 24–48ч — один раз и навсегда"},
+            {"title": "Откликнитесь на кампанию", "desc": "Найдите подходящую кампанию, предложите свою цену, добавьте сообщение рекламодателю"},
+            {"title": "Разместите и получите оплату", "desc": "Деньги заморожены с момента старта. Разместите рекламу, прикрепите ссылку — оплата гарантирована"},
         ],
         "advertiser_features": [
-            {"icon": "🔒", "title": "Эскроу-защита", "desc": "Средства списываются только после вашего подтверждения публикации"},
-            {"icon": "✏️", "title": "Согласование контента", "desc": "Просматривайте и правьте материал до выхода — до 3 итераций"},
-            {"icon": "🎯", "title": "Fixed и CPA", "desc": "Фиксированная оплата за пост или за реальный результат"},
-            {"icon": "📊", "title": "Аналитика", "desc": "Отслеживайте расход бюджета, статусы сделок и эффективность"},
+            {"icon": "🔒", "title": "Эскроу-защита", "desc": "Деньги списываются только после того, как вы лично подтвердили публикацию. Никаких авансов и предоплат."},
+            {"icon": "⚖️", "title": "Разбор споров", "desc": "Если публикация не соответствует ТЗ — откройте спор. Администратор рассмотрит и вынесет решение."},
+            {"icon": "🎯", "title": "Fixed и CPA", "desc": "Фиксированная оплата за пост и stories или оплата за реальный результат (установки, регистрации)."},
+            {"icon": "📋", "title": "Контроль бюджета", "desc": "Все сделки и статусы в реальном времени. Неизрасходованный резерв возвращается при отмене."},
         ],
         "blogger_features": [
-            {"icon": "✅", "title": "100% гарантия оплаты", "desc": "Деньги заморожены до старта — вас никто не обманет"},
-            {"icon": "⏱", "title": "Авто-завершение 72ч", "desc": "Если рекламодатель молчит после публикации — деньги ваши автоматически"},
-            {"icon": "💳", "title": "Вывод на карту", "desc": f"От {getattr(settings, 'CURRENCY_MIN_WITHDRAWAL', 500):,} {getattr(settings, 'CURRENCY_SYMBOL', '₽')}, обработка в течение 3 рабочих дней"},
-            {"icon": "📱", "title": "Несколько площадок", "desc": "Добавляйте сколько угодно аккаунтов в разных соцсетях"},
+            {"icon": "✅", "title": "100% гарантия оплаты", "desc": "Деньги рекламодателя заморожены ещё до старта. Даже если он исчезнет — вы получите оплату."},
+            {"icon": "⏱", "title": "Авто-защита 72 часа", "desc": "Разместили публикацию — идёт отсчёт. Рекламодатель не ответил за 72ч — деньги зачисляются автоматически."},
+            {"icon": "💳", "title": "Вывод за 3 рабочих дня", "desc": f"Подайте заявку в кошельке от {getattr(settings, 'CURRENCY_MIN_WITHDRAWAL', 500):,} {getattr(settings, 'CURRENCY_SYMBOL', '₽')}. Администратор обработает в течение 3 рабочих дней."},
+            {"icon": "📱", "title": "Несколько площадок", "desc": "Добавляйте любое количество аккаунтов: ВКонтакте, Telegram, YouTube, Instagram, TikTok, Яндекс.Дзен."},
         ],
         "faq_items": [
-            {"q": "Сколько стоит использование платформы?", "a": "Регистрация бесплатна. Платформа берёт 15% комиссию только с успешно завершённых сделок — вычитается из выплаты блогеру."},
-            {"q": "Как защищены деньги рекламодателя?", "a": "При создании сделки нужная сумма замораживается на счёте рекламодателя. Он не может потратить её на другое. Блогеру деньги поступают только после подтверждения."},
-            {"q": "Что если рекламодатель не отвечает?", "a": "Если в течение 72 часов после публикации рекламодатель не ответил — сделка завершается автоматически и деньги зачисляются блогеру."},
-            {"q": "Какие соцсети поддерживаются?", "a": "ВКонтакте, Telegram, YouTube, Instagram, TikTok и Яндекс.Дзен. Один блогер может добавить несколько площадок."},
-            {"q": "Как вывести заработанные деньги?", "a": f"В разделе «Кошелёк» подайте заявку на вывод (от {getattr(settings, 'CURRENCY_MIN_WITHDRAWAL', 500):,} {getattr(settings, 'CURRENCY_SYMBOL', '₽')}). Обрабатывается в течение 3 рабочих дней."},
-            {"q": "Что такое CPA-кампания?", "a": "Оплата за результат: установку приложения, регистрацию или покупку. Система генерирует уникальную трекинговую ссылку для каждого блогера."},
+            {"q": "Сколько стоит использование платформы?", "a": "Регистрация бесплатна. Платформа берёт 15% комиссию только с завершённых сделок — вычитается из выплаты блогеру. Рекламодатель платит ровно столько, сколько указал в кампании."},
+            {"q": "Как защищены деньги рекламодателя?", "a": "При принятии отклика сумма мгновенно замораживается на счёте рекламодателя. Потратить её на другое невозможно. Блогеру деньги поступают только после вашего подтверждения."},
+            {"q": "Что если рекламодатель не отвечает после публикации?", "a": "Если в течение 72 часов рекламодатель не подтвердил и не оспорил публикацию — сделка завершается автоматически и деньги поступают блогеру."},
+            {"q": "Что делать если возник спор?", "a": "Рекламодатель открывает спор вместо подтверждения. Администратор рассматривает ситуацию и выносит решение: перевести деньги блогеру или вернуть рекламодателю."},
+            {"q": "Как вывести заработанные деньги?", "a": f"В разделе «Кошелёк» подайте заявку на вывод (от {getattr(settings, 'CURRENCY_MIN_WITHDRAWAL', 500):,} {getattr(settings, 'CURRENCY_SYMBOL', '₽')}). Укажите реквизиты — обработка в течение 3 рабочих дней."},
+            {"q": "Какие соцсети поддерживаются?", "a": "ВКонтакте, Telegram, YouTube, Instagram, TikTok и Яндекс.Дзен. Один блогер может добавить несколько площадок в разных соцсетях."},
         ],
     }
     return render(request, "landing.html", context)
@@ -471,15 +493,14 @@ def landing(request):
 
 def faq(request):
     deal_statuses = [
-        ("Ожидает оплаты", "bg-yellow-100 text-yellow-700", "Сделка создана, рекламодатель должен пополнить баланс"),
-        ("В работе", "bg-blue-100 text-blue-700", "Средства зарезервированы, блогер приступил к работе"),
-        ("На согласовании", "bg-purple-100 text-purple-700", "Блогер загрузил черновик, ждёт одобрения рекламодателя"),
-        ("Ожидает публикации", "bg-indigo-100 text-indigo-700", "Креатив одобрен, блогер публикует контент"),
-        ("Опубликовано", "bg-cyan-100 text-cyan-700", "Блогер опубликовал и прикрепил ссылку"),
-        ("На проверке", "bg-orange-100 text-orange-700", "Рекламодатель проверяет публикацию (72ч)"),
-        ("Завершена", "bg-green-100 text-green-700", "Публикация подтверждена, деньги переведены блогеру"),
-        ("Оспорена", "bg-red-100 text-red-700", "Открыт спор, администратор рассматривает ситуацию"),
-        ("Отменена", "bg-gray-100 text-gray-600", "Сделка отменена, средства возвращены рекламодателю"),
+        ("Ожидает оплаты", "bg-yellow-500/15 text-yellow-400", "Сделка создана, средства резервируются на счёте рекламодателя"),
+        ("В работе", "bg-blue-500/15 text-blue-400", "Деньги заморожены, блогер приступил к созданию контента"),
+        ("На согласовании", "bg-purple-500/15 text-purple-400", "Блогер загрузил черновик, ждёт одобрения рекламодателя"),
+        ("Ожидает публикации", "bg-indigo-500/15 text-indigo-400", "Креатив одобрен, блогер публикует контент на площадке"),
+        ("На проверке", "bg-orange-500/15 text-orange-400", "Блогер прикрепил ссылку, рекламодатель проверяет (72ч на ответ)"),
+        ("Завершена", "bg-green-500/15 text-green-400", "Рекламодатель подтвердил — деньги переведены блогеру (за вычетом 15% комиссии)"),
+        ("Оспорена", "bg-red-500/15 text-red-400", "Открыт спор, администратор рассматривает ситуацию и выносит решение"),
+        ("Отменена", "bg-slate-500/15 text-slate-400", "Сделка отменена, зарезервированные средства возвращены рекламодателю"),
     ]
     return render(request, "faq.html", {"deal_statuses": deal_statuses})
 
@@ -497,7 +518,13 @@ def _redirect_dashboard(user):
 @login_required
 def deal_list(request):
     user = request.user
-    if user.role == User.Role.ADVERTISER:
+    if user.is_staff:
+        deals = (
+            Deal.objects.all()
+            .select_related("campaign", "blogger", "advertiser", "platform")
+            .order_by("-created_at")
+        )
+    elif user.role == User.Role.ADVERTISER:
         deals = (
             Deal.objects.filter(advertiser=user)
             .select_related("campaign", "blogger", "platform")
@@ -515,7 +542,9 @@ def deal_list(request):
 @login_required
 def deal_detail(request, pk):
     user = request.user
-    if user.role == User.Role.ADVERTISER:
+    if user.is_staff:
+        deal = get_object_or_404(Deal, pk=pk)
+    elif user.role == User.Role.ADVERTISER:
         deal = get_object_or_404(Deal, pk=pk, advertiser=user)
     else:
         deal = get_object_or_404(Deal, pk=pk, blogger=user)
@@ -528,12 +557,6 @@ def deal_detail(request, pk):
 @require_POST
 def deal_submit_publication(request, pk):
     """Blogger submits publication URL → status CHECKING."""
-    deal = get_object_or_404(Deal, pk=pk, blogger=request.user)
-
-    if deal.status != Deal.Status.IN_PROGRESS:
-        messages.error(request, "Добавить публикацию можно только для сделки «В работе».")
-        return redirect("web:deal_detail", pk=pk)
-
     url = request.POST.get("publication_url", "").strip()
     if not url:
         messages.error(request, "Укажите ссылку на публикацию.")
@@ -544,15 +567,23 @@ def deal_submit_publication(request, pk):
 
     from django.db import transaction as db_transaction
     with db_transaction.atomic():
-        deal.publication_url = url
-        deal.publication_at = timezone.now()
-        deal.status = Deal.Status.CHECKING
-        deal.save(update_fields=["publication_url", "publication_at", "status", "updated_at"])
+        deal = Deal.objects.select_for_update().filter(pk=pk, blogger=request.user).first()
+        if deal is None:
+            from django.http import Http404
+            raise Http404
+        if deal.status != Deal.Status.IN_PROGRESS:
+            messages.error(request, "Добавить публикацию можно только для сделки «В работе».")
+            return redirect("web:deal_detail", pk=pk)
+
         DealStatusLog.log(
             deal, Deal.Status.CHECKING,
             changed_by=request.user,
             comment=f"Публикация размещена: {url}",
         )
+        deal.publication_url = url
+        deal.publication_at = timezone.now()
+        deal.status = Deal.Status.CHECKING
+        deal.save(update_fields=["publication_url", "publication_at", "status", "updated_at"])
 
     messages.success(request, "Ссылка добавлена. Ожидайте подтверждения рекламодателя.")
     return redirect("web:deal_detail", pk=pk)
@@ -577,14 +608,14 @@ def deal_confirm(request, pk):
             messages.error(request, "Подтвердить можно только сделку «На проверке».")
             return redirect("web:deal_detail", pk=pk)
 
-        BillingService.complete_deal_payment(deal)
-        deal.status = Deal.Status.COMPLETED
-        deal.save(update_fields=["status", "updated_at"])
         DealStatusLog.log(
             deal, Deal.Status.COMPLETED,
             changed_by=request.user,
             comment="Рекламодатель подтвердил публикацию. Оплата выполнена.",
         )
+        BillingService.complete_deal_payment(deal)
+        deal.status = Deal.Status.COMPLETED
+        deal.save(update_fields=["status", "updated_at"])
 
     messages.success(request, "Сделка завершена. Блогер получил оплату.")
     return redirect("web:deal_detail", pk=pk)
@@ -595,11 +626,6 @@ def deal_confirm(request, pk):
 def deal_cancel(request, pk):
     """Cancel deal → CANCELLED + release funds."""
     user = request.user
-    if user.role == User.Role.ADVERTISER:
-        deal = get_object_or_404(Deal, pk=pk, advertiser=user)
-    else:
-        deal = get_object_or_404(Deal, pk=pk, blogger=user)
-
     # Blogger can only cancel before work starts (WAITING_PAYMENT).
     # IN_PROGRESS means funds are reserved and work is underway — only advertiser can cancel then.
     if user.role == User.Role.BLOGGER:
@@ -607,20 +633,27 @@ def deal_cancel(request, pk):
     else:
         cancellable = {Deal.Status.WAITING_PAYMENT, Deal.Status.IN_PROGRESS}
 
-    if deal.status not in cancellable:
-        messages.error(request, "Эту сделку нельзя отменить на текущем этапе.")
-        return redirect("web:deal_detail", pk=pk)
-
     from django.db import transaction as db_transaction
     with db_transaction.atomic():
-        BillingService.release_funds(deal)
-        deal.status = Deal.Status.CANCELLED
-        deal.save(update_fields=["status", "updated_at"])
+        if user.role == User.Role.ADVERTISER:
+            deal = Deal.objects.select_for_update().filter(pk=pk, advertiser=user).first()
+        else:
+            deal = Deal.objects.select_for_update().filter(pk=pk, blogger=user).first()
+        if deal is None:
+            from django.http import Http404
+            raise Http404
+        if deal.status not in cancellable:
+            messages.error(request, "Эту сделку нельзя отменить на текущем этапе.")
+            return redirect("web:deal_detail", pk=pk)
+
         DealStatusLog.log(
             deal, Deal.Status.CANCELLED,
             changed_by=user,
             comment=f"Отменено пользователем ({user.email}).",
         )
+        BillingService.release_funds(deal)
+        deal.status = Deal.Status.CANCELLED
+        deal.save(update_fields=["status", "updated_at"])
 
     messages.success(request, "Сделка отменена. Средства возвращены рекламодателю.")
     return redirect("web:deal_list")
@@ -688,6 +721,7 @@ def wallet_view(request):
 
 def _staff_required(view_func):
     """Decorator: allow only is_staff users, redirect others to dashboard."""
+    @functools.wraps(view_func)
     def _wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("web:login")
@@ -728,6 +762,9 @@ def admin_campaigns(request):
 @require_POST
 def admin_campaign_approve(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk)
+    if campaign.status != Campaign.Status.MODERATION:
+        messages.error(request, "Кампания не на модерации.")
+        return redirect("web:admin_campaigns")
     campaign.status = Campaign.Status.ACTIVE
     campaign.rejection_reason = ""
     campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
@@ -739,6 +776,9 @@ def admin_campaign_approve(request, pk):
 @require_POST
 def admin_campaign_reject(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk)
+    if campaign.status != Campaign.Status.MODERATION:
+        messages.error(request, "Кампания не на модерации.")
+        return redirect("web:admin_campaigns")
     reason = request.POST.get("reason", "").strip()
     campaign.status = Campaign.Status.REJECTED
     campaign.rejection_reason = reason
@@ -762,6 +802,9 @@ def admin_platforms(request):
 @require_POST
 def admin_platform_approve(request, pk):
     platform = get_object_or_404(Platform, pk=pk)
+    if platform.status != Platform.Status.PENDING:
+        messages.error(request, "Площадка не на проверке.")
+        return redirect("web:admin_platforms")
     platform.status = Platform.Status.APPROVED
     platform.rejection_reason = ""
     platform.save(update_fields=["status", "rejection_reason", "updated_at"])
@@ -773,6 +816,9 @@ def admin_platform_approve(request, pk):
 @require_POST
 def admin_platform_reject(request, pk):
     platform = get_object_or_404(Platform, pk=pk)
+    if platform.status != Platform.Status.PENDING:
+        messages.error(request, "Площадка не на проверке.")
+        return redirect("web:admin_platforms")
     reason = request.POST.get("reason", "").strip()
     platform.status = Platform.Status.REJECTED
     platform.rejection_reason = reason
@@ -814,16 +860,16 @@ def admin_dispute_resolve(request, pk):
         locked.dispute_resolution = comment
 
         if resolution == "complete":
-            BillingService.complete_deal_payment(locked)
-            locked.status = Deal.Status.COMPLETED
             DealStatusLog.log(locked, Deal.Status.COMPLETED, changed_by=request.user,
                               comment=f"Спор решён администратором: оплата блогеру. {comment}")
+            BillingService.complete_deal_payment(locked)
+            locked.status = Deal.Status.COMPLETED
             msg = "Спор решён — оплата переведена блогеру."
         else:
-            BillingService.release_funds(locked)
-            locked.status = Deal.Status.CANCELLED
             DealStatusLog.log(locked, Deal.Status.CANCELLED, changed_by=request.user,
                               comment=f"Спор решён администратором: возврат рекламодателю. {comment}")
+            BillingService.release_funds(locked)
+            locked.status = Deal.Status.CANCELLED
             msg = "Спор решён — средства возвращены рекламодателю."
 
         locked.save(update_fields=["status", "dispute_resolved_at", "dispute_resolution", "updated_at"])
@@ -845,11 +891,19 @@ def admin_withdrawals(request):
 @_staff_required
 @require_POST
 def admin_withdrawal_approve(request, pk):
-    wr = get_object_or_404(WithdrawalRequest, pk=pk, status=WithdrawalRequest.Status.PENDING)
-    wr.status = WithdrawalRequest.Status.COMPLETED
-    wr.processed_at = timezone.now()
-    wr.admin_comment = request.POST.get("comment", "").strip()
-    wr.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
+    from django.db import transaction as db_transaction
+    with db_transaction.atomic():
+        wr = get_object_or_404(
+            WithdrawalRequest.objects.select_for_update(),
+            pk=pk, status=WithdrawalRequest.Status.PENDING,
+        )
+        wallet = Wallet.objects.select_for_update().get(user=wr.blogger)
+        wallet.on_withdrawal -= wr.amount
+        wallet.save(update_fields=["on_withdrawal", "updated_at"])
+        wr.status = WithdrawalRequest.Status.COMPLETED
+        wr.processed_at = timezone.now()
+        wr.admin_comment = request.POST.get("comment", "").strip()
+        wr.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
     messages.success(request, f"Выплата {wr.amount:,.0f} для {wr.blogger.email} подтверждена.")
     return redirect("web:admin_withdrawals")
 
