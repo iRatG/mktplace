@@ -7,11 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
+# psycopg2-binary and Pillow ship pre-compiled wheels — no system deps needed
 COPY requirements/base.txt requirements/base.txt
 COPY requirements/production.txt requirements/production.txt
 
