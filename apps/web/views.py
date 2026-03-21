@@ -1,13 +1,16 @@
 from django.conf import settings
 from django.contrib import messages
+from django.utils import timezone
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from apps.billing.models import Transaction, Wallet, WithdrawalRequest
+from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign
 from apps.campaigns.models import Response as CampaignResponse
-from apps.deals.models import Deal
+from apps.deals.models import Deal, DealStatusLog
 from apps.platforms.models import Platform
 from apps.users.models import PasswordResetToken, User
 from apps.users.tasks import send_password_reset_email
@@ -343,8 +346,6 @@ def response_accept(request, pk):
         messages.error(request, "Можно принять только ожидающий отклик.")
         return redirect("web:campaign_detail", pk=resp.campaign_id)
 
-    from apps.billing.services import BillingService
-    from apps.deals.models import Deal, DealStatusLog
     from django.db import transaction as db_transaction
 
     campaign = resp.campaign
@@ -489,3 +490,174 @@ def _redirect_dashboard(user):
     if user.role == User.Role.ADVERTISER:
         return redirect("web:advertiser_dashboard")
     return redirect("web:blogger_dashboard")
+
+
+# ── Deals ──────────────────────────────────────────────────────────────────────
+
+@login_required
+def deal_list(request):
+    user = request.user
+    if user.role == User.Role.ADVERTISER:
+        deals = (
+            Deal.objects.filter(advertiser=user)
+            .select_related("campaign", "blogger", "platform")
+            .order_by("-created_at")
+        )
+    else:
+        deals = (
+            Deal.objects.filter(blogger=user)
+            .select_related("campaign", "advertiser", "platform")
+            .order_by("-created_at")
+        )
+    return render(request, "deals/list.html", {"deals": deals})
+
+
+@login_required
+def deal_detail(request, pk):
+    user = request.user
+    if user.role == User.Role.ADVERTISER:
+        deal = get_object_or_404(Deal, pk=pk, advertiser=user)
+    else:
+        deal = get_object_or_404(Deal, pk=pk, blogger=user)
+
+    logs = deal.status_logs.select_related("changed_by").order_by("created_at")
+    return render(request, "deals/detail.html", {"deal": deal, "logs": logs})
+
+
+@login_required
+@require_POST
+def deal_submit_publication(request, pk):
+    """Blogger submits publication URL → status CHECKING."""
+    deal = get_object_or_404(Deal, pk=pk, blogger=request.user)
+
+    if deal.status != Deal.Status.IN_PROGRESS:
+        messages.error(request, "Добавить публикацию можно только для сделки «В работе».")
+        return redirect("web:deal_detail", pk=pk)
+
+    url = request.POST.get("publication_url", "").strip()
+    if not url:
+        messages.error(request, "Укажите ссылку на публикацию.")
+        return redirect("web:deal_detail", pk=pk)
+
+    from django.db import transaction as db_transaction
+    with db_transaction.atomic():
+        deal.publication_url = url
+        deal.publication_at = timezone.now()
+        deal.status = Deal.Status.CHECKING
+        deal.save(update_fields=["publication_url", "publication_at", "status", "updated_at"])
+        DealStatusLog.log(
+            deal, Deal.Status.CHECKING,
+            changed_by=request.user,
+            comment=f"Публикация размещена: {url}",
+        )
+
+    messages.success(request, "Ссылка добавлена. Ожидайте подтверждения рекламодателя.")
+    return redirect("web:deal_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def deal_confirm(request, pk):
+    """Advertiser confirms publication → COMPLETED + payment."""
+    deal = get_object_or_404(Deal, pk=pk, advertiser=request.user)
+
+    if deal.status != Deal.Status.CHECKING:
+        messages.error(request, "Подтвердить можно только сделку «На проверке».")
+        return redirect("web:deal_detail", pk=pk)
+
+    from django.db import transaction as db_transaction
+    with db_transaction.atomic():
+        BillingService.complete_deal_payment(deal)
+        deal.status = Deal.Status.COMPLETED
+        deal.save(update_fields=["status", "updated_at"])
+        DealStatusLog.log(
+            deal, Deal.Status.COMPLETED,
+            changed_by=request.user,
+            comment="Рекламодатель подтвердил публикацию. Оплата выполнена.",
+        )
+
+    messages.success(request, f"Сделка завершена. Блогер получил оплату.")
+    return redirect("web:deal_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def deal_cancel(request, pk):
+    """Cancel deal → CANCELLED + release funds."""
+    user = request.user
+    if user.role == User.Role.ADVERTISER:
+        deal = get_object_or_404(Deal, pk=pk, advertiser=user)
+    else:
+        deal = get_object_or_404(Deal, pk=pk, blogger=user)
+
+    cancellable = {Deal.Status.WAITING_PAYMENT, Deal.Status.IN_PROGRESS}
+    if deal.status not in cancellable:
+        messages.error(request, "Эту сделку нельзя отменить.")
+        return redirect("web:deal_detail", pk=pk)
+
+    from django.db import transaction as db_transaction
+    with db_transaction.atomic():
+        BillingService.release_funds(deal)
+        deal.status = Deal.Status.CANCELLED
+        deal.save(update_fields=["status", "updated_at"])
+        DealStatusLog.log(
+            deal, Deal.Status.CANCELLED,
+            changed_by=user,
+            comment=f"Отменено пользователем ({user.email}).",
+        )
+
+    messages.success(request, "Сделка отменена. Средства возвращены рекламодателю.")
+    return redirect("web:deal_list")
+
+
+# ── Billing / Wallet ───────────────────────────────────────────────────────────
+
+@login_required
+def wallet_view(request):
+    user = request.user
+    wallet, _ = Wallet.objects.get_or_create(user=user)
+    transactions = wallet.transactions.order_by("-created_at")[:50]
+
+    withdrawal_submitted = False
+    min_withdrawal = getattr(settings, "CURRENCY_MIN_WITHDRAWAL", 500)
+
+    if request.method == "POST" and user.role == User.Role.BLOGGER:
+        amount_str = request.POST.get("amount", "").strip()
+        card = request.POST.get("card", "").strip()
+        try:
+            from decimal import Decimal as D
+            amount = D(amount_str)
+            if amount < D(str(min_withdrawal)):
+                messages.error(request, f"Минимальная сумма вывода: {min_withdrawal:,} {getattr(settings, 'CURRENCY_SYMBOL', '')}.")
+            elif amount > wallet.available_balance:
+                messages.error(request, "Недостаточно средств.")
+            elif not card:
+                messages.error(request, "Укажите реквизиты для выплаты.")
+            else:
+                from django.db import transaction as db_transaction
+                with db_transaction.atomic():
+                    wr = WithdrawalRequest.objects.create(
+                        blogger=user,
+                        amount=amount,
+                        requisites={"type": "card", "details": card},
+                    )
+                    BillingService.process_withdrawal(wr)
+                withdrawal_submitted = True
+                messages.success(request, f"Заявка на вывод {amount:,.0f} {getattr(settings, 'CURRENCY_SYMBOL', '')} подана.")
+                return redirect("web:wallet")
+        except Exception:
+            messages.error(request, "Некорректная сумма.")
+
+    pending_withdrawals = []
+    if user.role == User.Role.BLOGGER:
+        pending_withdrawals = WithdrawalRequest.objects.filter(
+            blogger=user, status=WithdrawalRequest.Status.PENDING
+        ).order_by("-created_at")
+
+    return render(request, "billing/wallet.html", {
+        "wallet": wallet,
+        "transactions": transactions,
+        "withdrawal_submitted": withdrawal_submitted,
+        "pending_withdrawals": pending_withdrawals,
+        "min_withdrawal": min_withdrawal,
+    })

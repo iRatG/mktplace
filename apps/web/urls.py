@@ -40,4 +40,14 @@ urlpatterns = [
 
     # Platforms
     path("platforms/add/", views.platform_add, name="platform_add"),
+
+    # Deals
+    path("deals/", views.deal_list, name="deal_list"),
+    path("deals/<int:pk>/", views.deal_detail, name="deal_detail"),
+    path("deals/<int:pk>/submit-publication/", views.deal_submit_publication, name="deal_submit_publication"),
+    path("deals/<int:pk>/confirm/", views.deal_confirm, name="deal_confirm"),
+    path("deals/<int:pk>/cancel/", views.deal_cancel, name="deal_cancel"),
+
+    # Billing
+    path("wallet/", views.wallet_view, name="wallet"),
 ]

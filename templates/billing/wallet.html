@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Кошелёк — Mktplace{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">Кошелёк</h1>
+    <p class="text-slate-400 text-sm mt-1">Баланс и история операций</p>
+</div>
+
+<!-- Balance cards -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+    <div class="card-dark rounded-xl p-5">
+        <div class="text-xs text-slate-500 mb-1">Доступно</div>
+        <div class="text-2xl font-bold text-green-400">{{ wallet.available_balance|floatformat:0 }} {{ currency.symbol }}</div>
+    </div>
+    <div class="card-dark rounded-xl p-5">
+        <div class="text-xs text-slate-500 mb-1">Заморожено</div>
+        <div class="text-2xl font-bold text-yellow-400">{{ wallet.reserved_balance|floatformat:0 }} {{ currency.symbol }}</div>
+        <div class="text-xs text-slate-600 mt-1">По активным сделкам</div>
+    </div>
+    <div class="card-dark rounded-xl p-5">
+        <div class="text-xs text-slate-500 mb-1">На выводе</div>
+        <div class="text-2xl font-bold text-blue-400">{{ wallet.on_withdrawal|floatformat:0 }} {{ currency.symbol }}</div>
+        <div class="text-xs text-slate-600 mt-1">Заявки в обработке</div>
+    </div>
+</div>
+
+<!-- Withdrawal form (bloggers only) -->
+{% if user.role == 'blogger' %}
+<div class="card-dark rounded-xl p-6 mb-8">
+    <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-4">Вывод средств</h2>
+    {% if pending_withdrawals %}
+    <div class="rounded-xl p-4 bg-yellow-500/10 border border-yellow-500/20 mb-4">
+        <p class="text-yellow-300 text-sm font-medium">У вас есть {{ pending_withdrawals|length }} заявк{{ pending_withdrawals|length|pluralize:"а,и,ий" }} в обработке</p>
+        <ul class="mt-2 space-y-1">
+            {% for wr in pending_withdrawals %}
+            <li class="text-xs text-yellow-300/70">{{ wr.amount|floatformat:0 }} {{ currency.symbol }} — подана {{ wr.created_at|date:"d.m.Y" }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'web:wallet' %}">
+        {% csrf_token %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Сумма ({{ currency.symbol }})</label>
+                <input type="number" name="amount" step="1" min="{{ min_withdrawal }}"
+                       placeholder="Минимум {{ min_withdrawal|floatformat:0 }}"
+                       class="input-dark" required>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Реквизиты (номер карты / счёт)</label>
+                <input type="text" name="card"
+                       placeholder="8600 XXXX XXXX XXXX"
+                       class="input-dark" required>
+            </div>
+        </div>
+        <button type="submit" class="btn-orange px-5 py-2.5 text-sm rounded-xl">
+            Подать заявку
+        </button>
+        <p class="text-xs text-slate-600 mt-3">Минимальная сумма: {{ min_withdrawal|floatformat:0 }} {{ currency.symbol }}. Обработка: 3 рабочих дня.</p>
+    </form>
+</div>
+{% endif %}
+
+<!-- Transaction history -->
+<div class="card-dark rounded-xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-white/5">
+        <h2 class="font-semibold text-white">История операций</h2>
+    </div>
+
+    {% if transactions %}
+    <div class="divide-y divide-white/5">
+        {% for tx in transactions %}
+        <div class="px-6 py-3.5 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm
+                    {% if tx.type == 'deposit' or tx.type == 'earning' or tx.type == 'release' or tx.type == 'refund' %}bg-green-500/10{% else %}bg-slate-500/10{% endif %}">
+                    {% if tx.type == 'deposit' %}💰
+                    {% elif tx.type == 'earning' %}💵
+                    {% elif tx.type == 'reserve' %}🔒
+                    {% elif tx.type == 'release' %}🔓
+                    {% elif tx.type == 'payment' %}📤
+                    {% elif tx.type == 'withdrawal' %}🏧
+                    {% elif tx.type == 'refund' %}↩️
+                    {% else %}·{% endif %}
+                </div>
+                <div>
+                    <div class="text-sm text-white">
+                        {% if tx.type == 'deposit' %}Пополнение
+                        {% elif tx.type == 'earning' %}Заработок
+                        {% elif tx.type == 'reserve' %}Резервирование
+                        {% elif tx.type == 'release' %}Возврат резерва
+                        {% elif tx.type == 'payment' %}Оплата по сделке
+                        {% elif tx.type == 'withdrawal' %}Вывод средств
+                        {% elif tx.type == 'refund' %}Возврат
+                        {% else %}{{ tx.get_type_display }}{% endif %}
+                    </div>
+                    <div class="text-xs text-slate-500 mt-0.5">
+                        {{ tx.created_at|date:"d.m.Y H:i" }}
+                        {% if tx.deal %} · Сделка #{{ tx.deal_id }}{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="text-right shrink-0">
+                <div class="text-sm font-semibold
+                    {% if tx.amount > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                    {% if tx.amount > 0 %}+{% endif %}{{ tx.amount|floatformat:0 }} {{ currency.symbol }}
+                </div>
+                <div class="text-xs text-slate-600 mt-0.5">баланс: {{ tx.balance_after|floatformat:0 }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-6 py-10 text-center text-slate-500 text-sm">
+        Операций пока нет.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

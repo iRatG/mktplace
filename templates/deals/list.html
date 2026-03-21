@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Мои сделки — Mktplace{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Мои сделки</h1>
+        <p class="text-slate-400 text-sm mt-1">История всех сделок на платформе</p>
+    </div>
+</div>
+
+{% if deals %}
+<div class="card-dark rounded-xl overflow-hidden">
+    <div class="divide-y divide-white/5">
+        {% for deal in deals %}
+        <div class="px-6 py-4 flex items-start justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <a href="{% url 'web:deal_detail' deal.pk %}"
+                       class="text-sm font-semibold text-white hover:text-orange-400 transition-colors">
+                        Сделка #{{ deal.pk }}
+                    </a>
+                    <span class="text-slate-500 text-xs">·</span>
+                    <span class="text-sm text-slate-300 truncate max-w-xs">{{ deal.campaign.name }}</span>
+                </div>
+                <div class="flex items-center gap-4 mt-1.5 flex-wrap">
+                    {% if user.role == 'advertiser' %}
+                    <span class="text-xs text-slate-500">Блогер: {{ deal.blogger.email }}</span>
+                    {% else %}
+                    <span class="text-xs text-slate-500">Рекл.: {{ deal.advertiser.email }}</span>
+                    {% endif %}
+                    <span class="text-xs text-slate-500">{{ deal.platform.get_social_type_display }}</span>
+                    <span class="text-xs text-slate-500">{{ deal.created_at|date:"d.m.Y" }}</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 shrink-0">
+                <span class="text-sm font-semibold text-white whitespace-nowrap">
+                    {{ deal.amount|floatformat:0 }} {{ currency.symbol }}
+                </span>
+
+                {% if deal.status == 'waiting_payment' %}
+                <span class="text-xs px-2.5 py-1 rounded-full bg-yellow-500/10 text-yellow-400 whitespace-nowrap">Ожидает оплаты</span>
+                {% elif deal.status == 'in_progress' %}
+                <span class="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 whitespace-nowrap">В работе</span>
+                {% elif deal.status == 'on_approval' %}
+                <span class="text-xs px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 whitespace-nowrap">На согласовании</span>
+                {% elif deal.status == 'checking' %}
+                <span class="text-xs px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 whitespace-nowrap">На проверке</span>
+                {% elif deal.status == 'completed' %}
+                <span class="text-xs px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 whitespace-nowrap">Завершена</span>
+                {% elif deal.status == 'cancelled' %}
+                <span class="text-xs px-2.5 py-1 rounded-full bg-slate-500/10 text-slate-400 whitespace-nowrap">Отменена</span>
+                {% elif deal.status == 'disputed' %}
+                <span class="text-xs px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 whitespace-nowrap">Оспорена</span>
+                {% else %}
+                <span class="text-xs px-2.5 py-1 rounded-full bg-slate-500/10 text-slate-400 whitespace-nowrap">{{ deal.get_status_display }}</span>
+                {% endif %}
+
+                <a href="{% url 'web:deal_detail' deal.pk %}"
+                   class="text-sm text-orange-400 hover:text-orange-300 transition-colors">
+                    Открыть →
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% else %}
+<div class="card-dark rounded-xl px-6 py-16 text-center">
+    <div class="text-4xl mb-4">📋</div>
+    <p class="text-slate-400 text-sm">Сделок пока нет.</p>
+    {% if user.role == 'blogger' %}
+    <a href="{% url 'web:catalog' %}" class="inline-block mt-4 text-sm text-orange-400 hover:text-orange-300 transition-colors">
+        Найти кампании →
+    </a>
+    {% else %}
+    <a href="{% url 'web:campaign_list' %}" class="inline-block mt-4 text-sm text-orange-400 hover:text-orange-300 transition-colors">
+        Мои кампании →
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

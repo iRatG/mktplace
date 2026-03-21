@@ -60,9 +60,13 @@
                 {% if user.role == 'advertiser' %}
                 <a href="{% url 'web:advertiser_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Дашборд</a>
                 <a href="{% url 'web:campaign_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кампании</a>
+                <a href="{% url 'web:deal_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Сделки</a>
+                <a href="{% url 'web:wallet' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кошелёк</a>
                 {% elif user.role == 'blogger' %}
                 <a href="{% url 'web:blogger_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Дашборд</a>
                 <a href="{% url 'web:catalog' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Каталог</a>
+                <a href="{% url 'web:deal_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Сделки</a>
+                <a href="{% url 'web:wallet' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кошелёк</a>
                 {% endif %}
                 <a href="{% url 'web:faq' %}" class="text-sm text-slate-400 hover:text-white transition-colors">FAQ</a>
             </div>

@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Сделка #{{ deal.pk }} — Mktplace{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-6 flex items-start justify-between gap-4">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'web:deal_list' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Сделки</a>
+        </div>
+        <h1 class="text-2xl font-bold text-white">Сделка #{{ deal.pk }}</h1>
+        <p class="text-slate-400 text-sm mt-1">{{ deal.campaign.name }}</p>
+    </div>
+    <!-- Status badge -->
+    <div class="shrink-0 mt-1">
+        {% if deal.status == 'waiting_payment' %}
+        <span class="px-3 py-1.5 rounded-full bg-yellow-500/10 text-yellow-400 text-sm font-medium">Ожидает оплаты</span>
+        {% elif deal.status == 'in_progress' %}
+        <span class="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-400 text-sm font-medium">В работе</span>
+        {% elif deal.status == 'on_approval' %}
+        <span class="px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-400 text-sm font-medium">На согласовании</span>
+        {% elif deal.status == 'checking' %}
+        <span class="px-3 py-1.5 rounded-full bg-orange-500/10 text-orange-400 text-sm font-medium">На проверке</span>
+        {% elif deal.status == 'completed' %}
+        <span class="px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 text-sm font-medium">Завершена</span>
+        {% elif deal.status == 'cancelled' %}
+        <span class="px-3 py-1.5 rounded-full bg-slate-500/10 text-slate-400 text-sm font-medium">Отменена</span>
+        {% elif deal.status == 'disputed' %}
+        <span class="px-3 py-1.5 rounded-full bg-red-500/10 text-red-400 text-sm font-medium">Оспорена</span>
+        {% else %}
+        <span class="px-3 py-1.5 rounded-full bg-slate-500/10 text-slate-400 text-sm font-medium">{{ deal.get_status_display }}</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left: main info + actions -->
+    <div class="lg:col-span-2 space-y-5">
+
+        <!-- Deal info card -->
+        <div class="card-dark rounded-xl p-6">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-4">Детали сделки</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <div class="text-xs text-slate-500 mb-0.5">Сумма</div>
+                    <div class="text-lg font-bold text-white">{{ deal.amount|floatformat:0 }} {{ currency.symbol }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-500 mb-0.5">Площадка</div>
+                    <div class="text-sm text-white">{{ deal.platform.get_social_type_display }}
+                        <span class="text-slate-500">· {{ deal.platform.subscribers|default:0 }} подп.</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-500 mb-0.5">Рекламодатель</div>
+                    <div class="text-sm text-white">{{ deal.advertiser.email }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-500 mb-0.5">Блогер</div>
+                    <div class="text-sm text-white">{{ deal.blogger.email }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-500 mb-0.5">Создана</div>
+                    <div class="text-sm text-white">{{ deal.created_at|date:"d.m.Y H:i" }}</div>
+                </div>
+                {% if deal.publication_at %}
+                <div>
+                    <div class="text-xs text-slate-500 mb-0.5">Публикация</div>
+                    <div class="text-sm text-white">{{ deal.publication_at|date:"d.m.Y H:i" }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Publication block -->
+        {% if deal.publication_url %}
+        <div class="card-dark rounded-xl p-6">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Публикация</h2>
+            <a href="{{ deal.publication_url }}" target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 text-sm break-all transition-colors">
+                <span>🔗</span> {{ deal.publication_url }}
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- ═══════════════════════════════════════════════════════
+             ACTIONS — depends on role and status
+        ═══════════════════════════════════════════════════════ -->
+
+        {% if user.role == 'blogger' %}
+
+            {% if deal.status == 'in_progress' %}
+            <!-- Blogger: submit publication URL -->
+            <div class="card-dark rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Добавить публикацию</h2>
+                <p class="text-slate-400 text-sm mb-4">
+                    Разместите рекламный пост и вставьте ссылку ниже. Рекламодатель проверит и подтвердит — деньги зачислятся вам.
+                </p>
+                <form method="post" action="{% url 'web:deal_submit_publication' deal.pk %}">
+                    {% csrf_token %}
+                    <div class="flex gap-3">
+                        <input type="url" name="publication_url"
+                               class="input-dark flex-1" placeholder="https://..."
+                               required>
+                        <button type="submit" class="btn-orange px-5 py-2 text-sm rounded-xl whitespace-nowrap">
+                            Отправить
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if deal.status == 'checking' %}
+            <div class="rounded-xl p-5 bg-orange-500/10 border border-orange-500/20">
+                <p class="text-orange-300 text-sm font-medium">⏳ Ожидаем подтверждения рекламодателя</p>
+                <p class="text-orange-300/70 text-xs mt-1">Если рекламодатель не ответит в течение 72 часов — сделка завершится автоматически.</p>
+            </div>
+            {% endif %}
+
+            {% if deal.status == 'completed' %}
+            <div class="rounded-xl p-5 bg-green-500/10 border border-green-500/20">
+                <p class="text-green-300 text-sm font-medium">✅ Сделка завершена!</p>
+                {% with earning=deal.amount %}
+                <p class="text-green-300/70 text-xs mt-1">Вы получили оплату (за вычетом 15% комиссии платформы).</p>
+                {% endwith %}
+            </div>
+            {% endif %}
+
+        {% elif user.role == 'advertiser' %}
+
+            {% if deal.status == 'checking' %}
+            <!-- Advertiser: confirm or dispute -->
+            <div class="card-dark rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Проверить публикацию</h2>
+                <p class="text-slate-400 text-sm mb-4">
+                    Блогер добавил ссылку на публикацию. Проверьте и подтвердите — средства будут переведены блогеру.
+                </p>
+                <div class="flex gap-3 flex-wrap">
+                    <form method="post" action="{% url 'web:deal_confirm' deal.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-orange px-5 py-2.5 text-sm rounded-xl">
+                            ✅ Подтвердить публикацию
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if deal.status == 'completed' %}
+            <div class="rounded-xl p-5 bg-green-500/10 border border-green-500/20">
+                <p class="text-green-300 text-sm font-medium">✅ Сделка завершена. Оплата выполнена.</p>
+            </div>
+            {% endif %}
+
+        {% endif %}
+
+        <!-- Cancel button — both roles, only for cancellable statuses -->
+        {% if deal.status == 'in_progress' or deal.status == 'waiting_payment' %}
+        <div>
+            <form method="post" action="{% url 'web:deal_cancel' deal.pk %}"
+                  onsubmit="return confirm('Отменить сделку? Средства вернутся рекламодателю.')">
+                {% csrf_token %}
+                <button type="submit"
+                        class="px-4 py-2 text-sm text-red-400 border border-red-400/20 rounded-xl hover:bg-red-400/10 transition-colors">
+                    Отменить сделку
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Right: status log -->
+    <div class="space-y-5">
+        <div class="card-dark rounded-xl p-5">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-4">История событий</h2>
+            {% if logs %}
+            <div class="space-y-3">
+                {% for log in logs %}
+                <div class="flex gap-3">
+                    <div class="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0"></div>
+                    <div>
+                        <div class="text-xs text-white">
+                            {% if log.new_status == 'in_progress' %}В работе
+                            {% elif log.new_status == 'checking' %}На проверке
+                            {% elif log.new_status == 'completed' %}Завершена
+                            {% elif log.new_status == 'cancelled' %}Отменена
+                            {% elif log.new_status == 'disputed' %}Оспорена
+                            {% elif log.new_status == 'waiting_payment' %}Ожидает оплаты
+                            {% else %}{{ log.new_status }}{% endif %}
+                        </div>
+                        {% if log.comment %}
+                        <div class="text-xs text-slate-500 mt-0.5">{{ log.comment }}</div>
+                        {% endif %}
+                        <div class="text-xs text-slate-600 mt-0.5">{{ log.created_at|date:"d.m.Y H:i" }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-slate-600 text-xs">Событий нет.</p>
+            {% endif %}
+        </div>
+
+        <!-- Campaign info -->
+        <div class="card-dark rounded-xl p-5">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Кампания</h2>
+            <p class="text-sm text-white mb-1">{{ deal.campaign.name }}</p>
+            <p class="text-xs text-slate-500 line-clamp-3">{{ deal.campaign.description }}</p>
+            <a href="{% url 'web:campaign_detail' deal.campaign.pk %}"
+               class="inline-block mt-3 text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                Открыть кампанию →
+            </a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
