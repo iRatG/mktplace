@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Предложить сделку | Mktplace{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto space-y-6">
+
+    <div>
+        <a href="{% url 'web:blogger_catalog' %}" class="text-sm text-slate-400 hover:text-white transition-colors">← Вернуться в каталог</a>
+        <h1 class="text-2xl font-bold mt-2">Предложить сделку</h1>
+    </div>
+
+    <!-- Карточка площадки -->
+    <div class="card-dark rounded-xl p-5 flex items-start gap-4">
+        <div class="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-xl font-bold flex-shrink-0">
+            {% with profile=blogger.blogger_profile %}
+            {{ profile.nickname|first|upper|default:blogger.email|first|upper }}
+            {% endwith %}
+        </div>
+        <div class="flex-1 min-w-0">
+            {% with profile=blogger.blogger_profile %}
+            <div class="font-semibold">{{ profile.nickname|default:blogger.email }}</div>
+            {% endwith %}
+            <div class="text-sm text-orange-400 mt-0.5">{{ platform.get_social_type_display }}</div>
+            <a href="{{ platform.url }}" target="_blank" class="text-xs text-slate-500 hover:text-slate-300 transition-colors truncate block mt-1">{{ platform.url }}</a>
+            <div class="flex gap-4 mt-2 text-xs text-slate-400">
+                <span>{{ platform.subscribers|floatformat:0 }} подписчиков</span>
+                <span>ER {{ platform.engagement_rate }}%</span>
+            </div>
+        </div>
+    </div>
+
+    {% if existing_offer %}
+    <div class="alert-info">
+        У вас уже есть активное предложение для этой площадки. Подождите ответа блогера.
+    </div>
+    {% else %}
+
+    <!-- Форма -->
+    <form method="post" class="card-dark rounded-xl p-6 space-y-5">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert-error">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <!-- Кампания -->
+        <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1.5">{{ form.campaign.label }} <span class="text-red-400">*</span></label>
+            <select name="campaign" class="input-dark text-sm">
+                <option value="">Выберите кампанию</option>
+                {% for campaign in form.fields.campaign.queryset %}
+                <option value="{{ campaign.pk }}" {% if form.campaign.value|stringformat:"s" == campaign.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ campaign.name }}{% if campaign.fixed_price %} — {{ campaign.fixed_price|floatformat:0 }} {{ currency.symbol }}{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            {% if form.campaign.errors %}<p class="text-red-400 text-xs mt-1">{{ form.campaign.errors.0 }}</p>{% endif %}
+            {% if not form.fields.campaign.queryset %}
+            <p class="text-xs text-slate-500 mt-1">Нет активных кампаний. <a href="{% url 'web:campaign_create' %}" class="text-orange-400 hover:underline">Создать кампанию</a></p>
+            {% endif %}
+        </div>
+
+        <!-- Тип контента -->
+        <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1.5">{{ form.content_type.label }} <span class="text-red-400">*</span></label>
+            <select name="content_type" class="input-dark text-sm">
+                {% for value, label in form.fields.content_type.choices %}
+                <option value="{{ value }}" {% if form.content_type.value == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Цена -->
+        <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1.5">{{ form.proposed_price.label }}</label>
+            <input type="number" name="proposed_price" class="input-dark text-sm"
+                   placeholder="оставьте пустым — цена по кампании" min="0" step="100"
+                   value="{{ form.proposed_price.value|default:'' }}">
+            <p class="text-xs text-slate-500 mt-1">Если поле пустое — будет использована цена из кампании.</p>
+        </div>
+
+        <!-- Сообщение -->
+        <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1.5">{{ form.message.label }}</label>
+            <textarea name="message" rows="4" class="input-dark text-sm resize-none"
+                      placeholder="Расскажите блогеру о вашем предложении, требованиях, сроках...">{{ form.message.value|default:'' }}</textarea>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+            <button type="submit" class="btn-orange flex-1 py-2.5 text-sm rounded-lg">Отправить предложение</button>
+            <a href="{% url 'web:blogger_catalog' %}" class="flex-1 text-center py-2.5 text-sm rounded-lg border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-colors">Отмена</a>
+        </div>
+    </form>
+
+    {% endif %}
+</div>
+{% endblock %}

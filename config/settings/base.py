@@ -69,6 +69,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'apps.web.context_processors.currency',
+                'apps.web.context_processors.notifications',
             ],
         },
     },
@@ -159,6 +160,10 @@ CELERY_BEAT_SCHEDULE = {
     'auto-cancel-overdue-deals': {
         'task': 'apps.deals.tasks.auto_cancel_overdue_deals',
         'schedule': 3600,  # every hour
+    },
+    'cleanup-old-notifications': {
+        'task': 'apps.notifications.tasks.cleanup_old_notifications',
+        'schedule': 86400,  # daily (24h)
     },
 }
 

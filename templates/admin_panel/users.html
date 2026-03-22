@@ -2,13 +2,24 @@
 {% block title %}Пользователи — Панель администратора{% endblock %}
 
 {% block content %}
-<div class="mb-6 flex items-center justify-between">
+<div class="mb-6 flex items-center justify-between gap-4 flex-wrap">
     <div>
         <h1 class="text-2xl font-bold text-white">Пользователи</h1>
         <p class="text-slate-400 text-sm mt-1">Все зарегистрированные аккаунты</p>
     </div>
     <a href="{% url 'web:admin_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">← Панель</a>
 </div>
+
+<!-- Search -->
+<form method="get" class="mb-5 flex gap-3">
+    <input type="text" name="q" value="{{ q }}"
+           placeholder="Поиск по email..."
+           class="input-dark flex-1 max-w-sm">
+    <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">Найти</button>
+    {% if q %}
+    <a href="{% url 'web:admin_users' %}" class="px-4 py-2 text-sm text-slate-400 hover:text-white border border-white/10 rounded-xl transition-colors">Сбросить</a>
+    {% endif %}
+</form>
 
 {% if users %}
 <div class="card-dark rounded-xl overflow-hidden">
@@ -20,6 +31,7 @@
                 <th class="text-left px-4 py-3 text-slate-400 font-medium">Статус</th>
                 <th class="text-left px-4 py-3 text-slate-400 font-medium">Email подтверждён</th>
                 <th class="text-left px-4 py-3 text-slate-400 font-medium">Дата регистрации</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Действия</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-white/5">
@@ -57,12 +69,38 @@
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 text-slate-500">{{ u.date_joined|date:"d.m.Y H:i" }}</td>
+                <td class="px-4 py-3">
+                    {% if not u.is_staff %}
+                        {% if u.status == 'blocked' %}
+                        <form method="post" action="{% url 'web:admin_user_unblock' u.pk %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="text-xs px-2 py-1 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors">
+                                Разблокировать
+                            </button>
+                        </form>
+                        {% else %}
+                        <form method="post" action="{% url 'web:admin_user_block' u.pk %}" class="inline"
+                              onsubmit="return confirm('Заблокировать пользователя?')">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="text-xs px-2 py-1 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
+                                Заблокировать
+                            </button>
+                        </form>
+                        {% endif %}
+                    {% else %}
+                    <span class="text-xs text-slate-600">—</span>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 {% else %}
-<div class="card-dark rounded-xl p-8 text-center text-slate-500">Пользователей нет</div>
+<div class="card-dark rounded-xl p-8 text-center text-slate-500">
+    {% if q %}Пользователей по запросу «{{ q }}» не найдено{% else %}Пользователей нет{% endif %}
+</div>
 {% endif %}
 {% endblock %}

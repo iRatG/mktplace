@@ -112,11 +112,13 @@ mktplace/
 │   ├── faq.html            # FAQ / Справка
 │   ├── auth/               # Страницы авторизации
 │   ├── campaigns/          # Страницы кампаний и откликов
+│   ├── catalog/            # Каталог блогеров и форма прямого предложения
 │   ├── dashboard/          # Дашборды (advertiser, blogger)
 │   ├── deals/              # Страницы сделок
 │   ├── profiles/           # Профиль (своя страница, редактирование, публичная)
 │   ├── platforms/          # Форма добавления/редактирования площадки
 │   ├── billing/            # Кошелёк и транзакции
+│   ├── notifications/      # Страница уведомлений
 │   ├── admin_panel/        # Панель администратора (/panel/)
 │   ├── partials/           # Переиспользуемые блоки
 │   └── emails/             # HTML письма
@@ -179,6 +181,7 @@ make deploy      # Деплой на production
 | `auto_complete_deals` | каждый час | Завершает сделки в CHECKING > 72ч |
 | `auto_approve_creative` | каждый час | Авто-одобряет креатив через 48ч |
 | `auto_cancel_overdue_deals` | каждый час | Отменяет WAITING_PAYMENT > 24ч |
+| `cleanup_old_notifications` | ежедневно | Удаляет уведомления старше 90 дней |
 
 ## Деплой на production (VPS)
 
@@ -216,13 +219,19 @@ nohup docker-compose -f docker-compose.vps.yml up -d --build > /tmp/deploy.log 2
 | Площадки | `/platforms/add/`, `/platforms/<pk>/edit/` | Блогер |
 | Кампании | `/campaigns/`, `/campaigns/create/`, `/campaigns/<pk>/` | По роли |
 | Сделки | `/deals/`, `/deals/<pk>/` | По роли |
+| **Отзыв о сделке** | `/deals/<pk>/review/` | Рекламодатель |
 | Кошелёк | `/wallet/` | Авторизованные |
+| **Уведомления** | `/notifications/` | Авторизованные |
+| **Каталог блогеров** | `/bloggers/` | Рекламодатель |
+| **Прямое предложение** | `/bloggers/<pk>/offer/` | Рекламодатель |
+| **Принять/отклонить оффер** | `/offers/<pk>/accept/`, `/offers/<pk>/reject/` | Блогер |
 | Админ-панель (дашборд) | `/panel/` | is_staff |
 | Кампании на модерации | `/panel/campaigns/` | is_staff |
 | Площадки на проверке | `/panel/platforms/` | is_staff |
 | Споры | `/panel/disputes/` | is_staff |
 | Заявки на вывод | `/panel/withdrawals/` | is_staff |
-| Пользователи | `/panel/users/` | is_staff |
+| Пользователи (поиск, блок) | `/panel/users/` | is_staff |
+| **Категории** | `/panel/categories/` | is_staff |
 | FAQ | `/faq/` | Публичный |
 
 ### Демо-аккаунты
@@ -240,6 +249,27 @@ docker compose run --rm web python manage.py seed_demo_data --reset
 | Рекламодатель | advertiser@demo.com | Demo1234! |
 | Блогер | blogger@demo.com | Demo1234! |
 | Администратор | admin@demo.com | Demo1234! |
+
+## Реализованные модули
+
+| Модуль | Статус | Описание |
+|---|---|---|
+| 2. Пользователи / Auth | ✅ | Регистрация, email-подтверждение, вход, восстановление пароля, роли, блокировка |
+| 3. Профили | ✅ | BloggerProfile, AdvertiserProfile, автосоздание, is_complete, публичный профиль |
+| 4. Площадки | ✅ | CRUD площадок, модерация, статусы PENDING/APPROVED/REJECTED |
+| 5. Кампании | ✅ | CRUD, статусы, draft→moderation→active→paused/cancelled/completed |
+| 6. Отклики | ✅ | Блогер откликается, рекламодатель принимает/отклоняет, max_bloggers guard |
+| 7. Сделки + Отзывы | ✅ | Жизненный цикл, DealStatusLog, submit/confirm/cancel, Celery авто-задачи; Review модель (1–5★, 7 дней окно, пересчёт рейтинга) |
+| 8. Биллинг | ✅ | Кошелёк, эскроу, транзакции, вывод средств, BillingService |
+| 10. Каталог блогеров | ✅ | Каталог с фильтрами, прямые предложения (DirectOffer), accept/reject |
+| 11A. In-app уведомления | ✅ | NotificationService, колокольчик в меню, страница уведомлений, авто-очистка 90 дней |
+| 13. Админ-панель | ✅ | Модерация кампаний, площадок, споры, выводы; поиск пользователей, блокировка, CRUD категорий |
+
+**Не реализовано (следующие итерации):**
+- Модуль 9: CPA-модель (трекинговые ссылки, конверсии)
+- Модуль 11B/C: Email-уведомления, Telegram-бот
+- Модуль 12: Аналитика (расширенные дашборды)
+- Сделки: согласование креатива (ON_APPROVAL), чат
 
 ## API
 
@@ -268,14 +298,23 @@ make migrate
 ### Тесты
 
 ```bash
-# Все тесты
-docker compose run --rm web python manage.py test apps.web -v 2
+# Все тесты (253 теста)
+docker compose run --rm web python manage.py test apps --noinput
 
-# Только URL/интеграционные тесты (129 тестов)
+# URL/интеграционные тесты (129 тестов)
 docker compose run --rm web python manage.py test apps.web.tests_urls -v 2
 
-# Только тесты профилей (43 теста)
+# Тесты профилей (43 теста)
 docker compose run --rm web python manage.py test apps.web.tests_profiles -v 2
+
+# Тесты каталога и прямых предложений (28 тестов)
+docker compose run --rm web python manage.py test apps.web.tests_catalog -v 2
+
+# Тесты уведомлений (28 тестов)
+docker compose run --rm web python manage.py test apps.web.tests_notifications -v 2
+
+# Тесты отзывов и доработок админ-панели (25 тестов)
+docker compose run --rm web python manage.py test apps.web.tests_reviews -v 2
 ```
 
 ### Запуск без Docker (для отладки отдельного сервиса)

@@ -18,6 +18,11 @@ class Notification(models.Model):
         CAMPAIGN_RESPONSE = "campaign_response", "Campaign Response"
         CAMPAIGN_STATUS = "campaign_status", "Campaign Status Changed"
         PLATFORM_MODERATED = "platform_moderated", "Platform Moderated"
+        RESPONSE_ACCEPTED = "response_accepted", "Response Accepted"
+        RESPONSE_REJECTED = "response_rejected", "Response Rejected"
+        DIRECT_OFFER_RECEIVED = "direct_offer_received", "Direct Offer Received"
+        DIRECT_OFFER_ACCEPTED = "direct_offer_accepted", "Direct Offer Accepted"
+        DIRECT_OFFER_REJECTED = "direct_offer_rejected", "Direct Offer Rejected"
         SYSTEM = "system", "System"
 
     user = models.ForeignKey(

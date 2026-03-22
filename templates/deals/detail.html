@@ -185,6 +185,53 @@
         </div>
         {% endif %}
 
+        <!-- Review block (Module 7) — shown only for COMPLETED deals -->
+        {% if existing_review %}
+        <div class="card-dark rounded-xl p-6">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Ваш отзыв</h2>
+            <div class="flex items-center gap-2 mb-2">
+                {% for i in "12345" %}
+                <span class="text-lg {% if forloop.counter <= existing_review.rating %}text-yellow-400{% else %}text-slate-600{% endif %}">★</span>
+                {% endfor %}
+                <span class="text-sm text-slate-400 ml-1">{{ existing_review.rating }} / 5</span>
+            </div>
+            {% if existing_review.text %}
+            <p class="text-sm text-slate-300 leading-relaxed">{{ existing_review.text }}</p>
+            {% endif %}
+            <p class="text-xs text-slate-600 mt-2">{{ existing_review.created_at|date:"d.m.Y H:i" }}</p>
+        </div>
+        {% elif can_review %}
+        <div class="card-dark rounded-xl p-6">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-1">Оставить отзыв</h2>
+            <p class="text-slate-400 text-xs mb-4">Оцените работу блогера по этой сделке. Отзыв виден на публичном профиле.</p>
+            <form method="post" action="{% url 'web:deal_review_submit' deal.pk %}">
+                {% csrf_token %}
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Оценка</label>
+                        <select name="rating" class="input-dark w-full" required>
+                            <option value="">Выберите оценку</option>
+                            <option value="5">5 ★ — Отлично</option>
+                            <option value="4">4 ★ — Хорошо</option>
+                            <option value="3">3 ★ — Нормально</option>
+                            <option value="2">2 ★ — Ниже среднего</option>
+                            <option value="1">1 ★ — Плохо</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Комментарий (необязательно)</label>
+                        <textarea name="text" rows="3" maxlength="1000"
+                                  class="input-dark w-full resize-none"
+                                  placeholder="Расскажите о сотрудничестве..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-orange px-5 py-2 text-sm rounded-xl">
+                        Отправить отзыв
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
     </div>
 
     <!-- Right: status log -->

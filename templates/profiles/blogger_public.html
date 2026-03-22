@@ -101,5 +101,31 @@
         {% endif %}
     </div>
 
+    <!-- Reviews (Module 7) -->
+    {% if reviews %}
+    <div>
+        <h2 class="text-lg font-semibold mb-3">Отзывы</h2>
+        <div class="space-y-3">
+            {% for review in reviews %}
+            <div class="card-dark rounded-xl p-5">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="flex items-center gap-0.5">
+                        {% for i in "12345" %}
+                        <span class="text-sm {% if forloop.counter <= review.rating %}text-yellow-400{% else %}text-slate-600{% endif %}">★</span>
+                        {% endfor %}
+                    </div>
+                    <span class="text-sm font-semibold text-white">{{ review.rating }} / 5</span>
+                    <span class="text-xs text-slate-500 ml-auto">{{ review.created_at|date:"d.m.Y" }}</span>
+                </div>
+                {% if review.text %}
+                <p class="text-sm text-slate-300 leading-relaxed">{{ review.text }}</p>
+                {% endif %}
+                <p class="text-xs text-slate-600 mt-1">{{ review.author.email }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}

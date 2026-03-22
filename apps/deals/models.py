@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -143,3 +143,47 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f"Message in Deal#{self.deal_id} by {getattr(self.sender, 'email', 'system')}"
+
+
+class Review(models.Model):
+    """Отзыв рекламодателя о блогере после завершения сделки (Модуль 7).
+
+    Создаётся в течение 7 дней после перехода сделки в статус COMPLETED.
+    Один отзыв на одну сделку (OneToOne к Deal).
+
+    author — рекламодатель, оставивший отзыв.
+    target — блогер, получивший отзыв.
+    rating — оценка от 1 до 5.
+    text   — произвольный текст отзыва (необязательно).
+
+    После создания пересчитывается BloggerProfile.rating (среднее всех оценок).
+    """
+
+    deal = models.OneToOneField(
+        Deal,
+        on_delete=models.CASCADE,
+        related_name="review",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reviews_written",
+    )
+    target = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reviews_received",
+    )
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    text = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Review"
+        verbose_name_plural = "Reviews"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Review#{self.pk} by {self.author.email} → {self.target.email} ({self.rating}★)"

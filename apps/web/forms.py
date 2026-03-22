@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
-from apps.campaigns.models import Campaign
+from apps.campaigns.models import Campaign, DirectOffer
 from apps.platforms.models import Category, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.users.models import User
@@ -155,3 +155,175 @@ class PlatformForm(forms.ModelForm):
             "subscribers", "avg_views", "engagement_rate",
             "price_post", "price_stories", "price_video", "price_review",
         ]
+
+
+# ── Catalog (Module 10) ───────────────────────────────────────────────────────
+
+class CatalogFilterForm(forms.Form):
+    """GET-форма фильтрации каталога блогерских площадок (Модуль 10).
+
+    Все поля необязательны. Применяется в blogger_catalog view.
+
+    Фильтры:
+        social_type      — тип соцсети (Platform.SocialType choices)
+        category         — тематика площадки (Category FK, pk)
+        min_subscribers  — подписчики от
+        max_subscribers  — подписчики до
+        min_price        — цена за пост от (Platform.price_post)
+        max_price        — цена за пост до
+        min_er           — ER% от (Platform.engagement_rate)
+        max_er           — ER% до
+        min_rating       — минимальный рейтинг (BloggerProfile.rating, 0–5)
+        sort             — порядок сортировки результатов
+                           По умолчанию (пусто): рейтинг блогера по убыванию.
+    """
+
+    SORT_CHOICES = [
+        ("", "По умолчанию"),
+        ("-subscribers", "Подписчики (больше)"),
+        ("-engagement_rate", "ER% (больше)"),
+        ("price_post", "Цена (меньше)"),
+        ("-price_post", "Цена (больше)"),
+        ("-created_at", "Новые первые"),
+    ]
+
+    social_type = forms.ChoiceField(
+        choices=[("", "Все соцсети")] + Platform.SocialType.choices,
+        required=False,
+        label="Соцсеть",
+    )
+    category = forms.ModelChoiceField(
+        queryset=Category.objects.all(),
+        required=False,
+        empty_label="Все тематики",
+        label="Тематика",
+    )
+    min_subscribers = forms.IntegerField(
+        required=False, min_value=0, label="Подписчиков от",
+        widget=forms.NumberInput(attrs={"placeholder": "0"}),
+    )
+    max_subscribers = forms.IntegerField(
+        required=False, min_value=0, label="Подписчиков до",
+        widget=forms.NumberInput(attrs={"placeholder": "любое"}),
+    )
+    min_price = forms.DecimalField(
+        required=False, min_value=0, label="Цена от",
+        widget=forms.NumberInput(attrs={"placeholder": "0"}),
+    )
+    max_price = forms.DecimalField(
+        required=False, min_value=0, label="Цена до",
+        widget=forms.NumberInput(attrs={"placeholder": "любая"}),
+    )
+    min_er = forms.DecimalField(
+        required=False, min_value=0, label="ER% от",
+        widget=forms.NumberInput(attrs={"placeholder": "0", "step": "0.1"}),
+    )
+    max_er = forms.DecimalField(
+        required=False, min_value=0, label="ER% до",
+        widget=forms.NumberInput(attrs={"placeholder": "любой", "step": "0.1"}),
+    )
+    min_rating = forms.DecimalField(
+        required=False, min_value=0, max_value=5, label="Рейтинг от",
+        widget=forms.NumberInput(attrs={"placeholder": "0", "step": "0.1"}),
+    )
+    sort = forms.ChoiceField(choices=SORT_CHOICES, required=False, label="Сортировка")
+
+
+class DirectOfferForm(forms.Form):
+    """Форма создания прямого предложения от рекламодателя блогеру (Модуль 10).
+
+    Инициализируется с обязательным аргументом advertiser (User):
+        form = DirectOfferForm(advertiser=request.user, data=request.POST)
+
+    Поля:
+        campaign       — одна из ACTIVE кампаний текущего рекламодателя (ModelChoiceField)
+        content_type   — тип контента (post / stories / video / review / reels)
+        proposed_price — предлагаемая цена за размещение (необязательно;
+                         если пусто — используется campaign.fixed_price)
+        message        — произвольное сообщение блогеру (необязательно)
+
+    __init__:
+        Ограничивает queryset кампаний: только advertiser=advertiser, status=ACTIVE.
+    """
+
+    CONTENT_TYPE_CHOICES = [
+        ("post", "Пост"),
+        ("stories", "Сторис"),
+        ("video", "Видео"),
+        ("review", "Обзор"),
+        ("reels", "Reels"),
+    ]
+
+    campaign = forms.ModelChoiceField(
+        queryset=Campaign.objects.none(),
+        label="Кампания",
+        empty_label="Выберите кампанию",
+    )
+    content_type = forms.ChoiceField(choices=CONTENT_TYPE_CHOICES, label="Тип контента")
+    proposed_price = forms.DecimalField(
+        required=False, min_value=0, label="Предлагаемая цена",
+        widget=forms.NumberInput(attrs={"placeholder": "оставьте пустым — цена по кампании"}),
+    )
+    message = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "Расскажите блогеру о вашем предложении"}),
+        required=False,
+        label="Сообщение",
+    )
+
+    def __init__(self, advertiser, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["campaign"].queryset = Campaign.objects.filter(
+            advertiser=advertiser, status=Campaign.Status.ACTIVE
+        )
+
+
+# ── Reviews (Module 7) ────────────────────────────────────────────────────────
+
+class ReviewForm(forms.Form):
+    """Форма отзыва рекламодателя о блогере после завершения сделки (Модуль 7).
+
+    Используется в deal_detail (POST) и deal_review_submit view.
+
+    Поля:
+        rating — оценка от 1 до 5 звёзд
+        text   — текстовый комментарий (необязательно, до 1000 символов)
+
+    Окно: 7 дней после COMPLETED. Один отзыв на сделку. Проверяется в view.
+    """
+
+    RATING_CHOICES = [
+        (1, "1 ★ — Плохо"),
+        (2, "2 ★ — Ниже среднего"),
+        (3, "3 ★ — Нормально"),
+        (4, "4 ★ — Хорошо"),
+        (5, "5 ★ — Отлично"),
+    ]
+
+    rating = forms.IntegerField(
+        min_value=1,
+        max_value=5,
+        label="Оценка",
+        widget=forms.Select(choices=RATING_CHOICES),
+    )
+    text = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "Расскажите о сотрудничестве"}),
+        required=False,
+        max_length=1000,
+        label="Комментарий",
+    )
+
+
+# ── Category form (Module 13) ─────────────────────────────────────────────────
+
+class CategoryForm(forms.Form):
+    """Форма создания категории платформы в админ-панели (Модуль 13).
+
+    Используется в admin_categories view.
+
+    Поля:
+        name — человекочитаемое название категории (unique)
+        slug — URL-slug (unique)
+    """
+
+    name = forms.CharField(max_length=100, label="Название")
+    slug = forms.SlugField(max_length=100, label="Slug")

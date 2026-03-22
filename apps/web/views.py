@@ -10,10 +10,11 @@ from django.views.decorators.http import require_POST
 
 from apps.billing.models import Transaction, Wallet, WithdrawalRequest
 from apps.billing.services import BillingService
-from apps.campaigns.models import Campaign
+from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
-from apps.deals.models import Deal, DealStatusLog
-from apps.platforms.models import Platform
+from apps.deals.models import Deal, DealStatusLog, Review
+from apps.notifications.service import NotificationService
+from apps.platforms.models import Category, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.users.models import PasswordResetToken, User
 from apps.users.tasks import send_password_reset_email
@@ -22,11 +23,15 @@ from .forms import (
     AdvertiserProfileForm,
     BloggerProfileForm,
     CampaignForm,
+    CatalogFilterForm,
+    CategoryForm,
+    DirectOfferForm,
     LoginForm,
     PasswordResetConfirmForm,
     PasswordResetRequestForm,
     PlatformForm,
     RegisterForm,
+    ReviewForm,
 )
 
 
@@ -187,6 +192,12 @@ def blogger_dashboard(request):
     active_deals = active_deals_qs.select_related("campaign", "platform")[:10]
     profile, _ = BloggerProfile.objects.get_or_create(user=user)
 
+    incoming_offers = (
+        DirectOffer.objects.filter(blogger=user, status=DirectOffer.Status.PENDING)
+        .select_related("advertiser", "campaign", "platform")
+        .order_by("-created_at")
+    )
+
     context = {
         "wallet": wallet,
         "my_responses_count": CampaignResponse.objects.filter(blogger=user).count(),
@@ -197,6 +208,7 @@ def blogger_dashboard(request):
         "active_deals": active_deals,
         "has_platforms": Platform.objects.filter(blogger=user).exists(),
         "profile_complete": profile.is_complete,
+        "incoming_offers": incoming_offers,
     }
     return render(request, "dashboard/blogger.html", context)
 
@@ -349,6 +361,7 @@ def campaign_respond(request, pk):
         proposed_price=proposed_price,
         message=message,
     )
+    NotificationService.notify_new_response(campaign.advertiser, campaign, request.user)
     messages.success(request, "Отклик успешно отправлен!")
     return redirect("web:campaign_detail", pk=pk)
 
@@ -426,8 +439,10 @@ def response_accept(request, pk):
             DealStatusLog.log(deal, Deal.Status.IN_PROGRESS, changed_by=request.user, comment="Accepted via web.")
             deal.status = Deal.Status.IN_PROGRESS
             deal.save(update_fields=["status"])
+        NotificationService.notify_response_accepted(resp.blogger, campaign, deal)
         messages.success(request, f"Отклик принят. Сделка #{deal.pk} создана.")
     except ValueError as e:
+        deal = None
         messages.error(request, f"Недостаточно средств: {e}")
 
     return redirect("web:campaign_detail", pk=campaign.pk)
@@ -440,6 +455,7 @@ def response_reject(request, pk):
     if resp.status == CampaignResponse.Status.PENDING:
         resp.status = CampaignResponse.Status.REJECTED
         resp.save(update_fields=["status"])
+        NotificationService.notify_response_rejected(resp.blogger, resp.campaign)
         messages.success(request, "Отклик отклонён.")
     return redirect("web:campaign_detail", pk=resp.campaign_id)
 
@@ -537,7 +553,18 @@ def profile_edit(request):
 
 @login_required
 def blogger_public_profile(request, pk):
-    """Public blogger profile — visible to authenticated users only."""
+    """Публичный профиль блогера — виден авторизованным пользователям (Модули 3, 7, 10).
+
+    Включает: площадки, метрики, число завершённых сделок,
+    последние 10 отзывов с рейтингом (Модуль 7).
+
+    Контекст шаблона:
+        blogger         — User (role=BLOGGER)
+        profile         — BloggerProfile
+        platforms       — одобренные площадки с категориями
+        completed_deals — число завершённых сделок
+        reviews         — последние 10 отзывов (Review QuerySet)
+    """
     blogger = get_object_or_404(User, pk=pk, role=User.Role.BLOGGER)
     profile, _ = BloggerProfile.objects.get_or_create(user=blogger)
     platforms = Platform.objects.filter(
@@ -546,11 +573,13 @@ def blogger_public_profile(request, pk):
     completed_deals = Deal.objects.filter(
         blogger=blogger, status=Deal.Status.COMPLETED
     ).count()
+    reviews = Review.objects.filter(target=blogger).select_related("author")[:10]
     return render(request, "profiles/blogger_public.html", {
         "blogger": blogger,
         "profile": profile,
         "platforms": platforms,
         "completed_deals": completed_deals,
+        "reviews": reviews,
     })
 
 
@@ -592,14 +621,15 @@ def landing(request):
             {"icon": "✅", "title": "100% гарантия оплаты", "desc": "Деньги рекламодателя заморожены ещё до старта. Даже если он исчезнет — вы получите оплату."},
             {"icon": "⏱", "title": "Авто-защита 72 часа", "desc": "Разместили публикацию — идёт отсчёт. Рекламодатель не ответил за 72ч — деньги зачисляются автоматически."},
             {"icon": "📊", "title": "Профиль как витрина", "desc": "Ваши площадки, метрики и прайс видны рекламодателю в один клик. Заполненный профиль работает как постоянное портфолио."},
+            {"icon": "⭐", "title": "Рейтинг и отзывы", "desc": "После каждой завершённой сделки рекламодатель оставляет оценку. Высокий рейтинг — больше выгодных предложений и прямых офферов."},
             {"icon": "📱", "title": "Несколько площадок", "desc": "Добавляйте любое количество аккаунтов: ВКонтакте, Telegram, YouTube, Instagram, TikTok, Яндекс.Дзен."},
         ],
         "faq_items": [
             {"q": "Сколько стоит использование платформы?", "a": "Регистрация бесплатна. Платформа берёт 15% комиссию только с завершённых сделок — вычитается из выплаты блогеру. Рекламодатель платит ровно столько, сколько указал в кампании."},
-            {"q": "Как рекламодатель выбирает блогера?", "a": "При получении отклика — открывает профиль блогера: площадки с подписчиками, просмотрами, ER%, тематики, прайс и история сделок. Принимает решение на основе реальных данных."},
+            {"q": "Как рекламодатель выбирает блогера?", "a": "При получении отклика — открывает профиль блогера: площадки с подписчиками, просмотрами, ER%, тематики, прайс, рейтинг и история сделок. Принимает решение на основе реальных данных."},
             {"q": "Что если рекламодатель не отвечает после публикации?", "a": "Если в течение 72 часов рекламодатель не подтвердил и не оспорил публикацию — сделка завершается автоматически и деньги поступают блогеру."},
-            {"q": "Что делать если возник спор?", "a": "Рекламодатель открывает спор вместо подтверждения. Администратор рассматривает ситуацию и выносит решение: перевести деньги блогеру или вернуть рекламодателю."},
-            {"q": "Как вывести заработанные деньги?", "a": f"В разделе «Кошелёк» подайте заявку на вывод (от {getattr(settings, 'CURRENCY_MIN_WITHDRAWAL', 500):,} {getattr(settings, 'CURRENCY_SYMBOL', '₽')}). Укажите реквизиты — обработка в течение 3 рабочих дней."},
+            {"q": "Есть ли уведомления о событиях?", "a": "Да. Колокольчик в меню показывает число непрочитанных уведомлений: новые отклики, принятые и отклонённые предложения, завершение сделок, изменения статусов."},
+            {"q": "Как вывести заработанные деньги?", "a": f"В разделе «Кошелёк» подайте заявку на вывод (от {getattr(settings, 'CURRENCY_MIN_WITHDRAWAL', 500):,} {getattr(settings, 'CURRENCY_SYMBOL', 'UZS')}). Укажите реквизиты — обработка в течение 3 рабочих дней."},
             {"q": "Какие соцсети поддерживаются?", "a": "ВКонтакте, Telegram, YouTube, Instagram, TikTok и Яндекс.Дзен. Один блогер может добавить несколько площадок в разных соцсетях."},
         ],
     }
@@ -658,6 +688,17 @@ def deal_list(request):
 
 @login_required
 def deal_detail(request, pk):
+    """Детальная страница сделки (Модуль 7).
+
+    Доступ: рекламодатель или блогер участника сделки, либо staff.
+    Контекст шаблона:
+        deal            — объект Deal
+        logs            — история статусов (DealStatusLog)
+        can_review      — bool: рекламодатель может оставить отзыв
+        existing_review — объект Review (если уже оставлен), иначе None
+        review_form     — ReviewForm (только если can_review=True)
+    """
+    from datetime import timedelta
     user = request.user
     if user.is_staff:
         deal = get_object_or_404(Deal, pk=pk)
@@ -667,7 +708,27 @@ def deal_detail(request, pk):
         deal = get_object_or_404(Deal, pk=pk, blogger=user)
 
     logs = deal.status_logs.select_related("changed_by").order_by("created_at")
-    return render(request, "deals/detail.html", {"deal": deal, "logs": logs})
+
+    can_review = False
+    existing_review = None
+    review_form = None
+    if deal.status == Deal.Status.COMPLETED and not user.is_staff:
+        try:
+            existing_review = deal.review
+        except Review.DoesNotExist:
+            if user == deal.advertiser:
+                window_open = timezone.now() - deal.updated_at < timedelta(days=7)
+                if window_open:
+                    can_review = True
+                    review_form = ReviewForm()
+
+    return render(request, "deals/detail.html", {
+        "deal": deal,
+        "logs": logs,
+        "can_review": can_review,
+        "existing_review": existing_review,
+        "review_form": review_form,
+    })
 
 
 @login_required
@@ -734,6 +795,7 @@ def deal_confirm(request, pk):
         deal.status = Deal.Status.COMPLETED
         deal.save(update_fields=["status", "updated_at"])
 
+    NotificationService.notify_deal_completed(deal.blogger, deal)
     messages.success(request, "Сделка завершена. Блогер получил оплату.")
     return redirect("web:deal_detail", pk=pk)
 
@@ -772,8 +834,269 @@ def deal_cancel(request, pk):
         deal.status = Deal.Status.CANCELLED
         deal.save(update_fields=["status", "updated_at"])
 
+    NotificationService.notify_deal_cancelled(deal, cancelled_by=user)
     messages.success(request, "Сделка отменена. Средства возвращены рекламодателю.")
     return redirect("web:deal_list")
+
+
+# ── Catalog / Direct Offers (Module 10) ──────────────────────────────────────
+
+@login_required
+def blogger_catalog(request):
+    """Каталог одобренных площадок блогеров (Модуль 10).
+
+    Доступ: только рекламодатели (role=ADVERTISER) и is_staff.
+    Блогеры и анонимные пользователи перенаправляются на свой дашборд / login.
+
+    GET-параметры (CatalogFilterForm):
+        social_type     — тип соцсети (instagram, telegram, youtube, …)
+        category        — pk категории (Category)
+        min_subscribers — минимальное число подписчиков
+        max_subscribers — максимальное число подписчиков
+        min_price       — цена за пост от (price_post__gte)
+        max_price       — цена за пост до (price_post__lte)
+        min_er          — ER% от
+        max_er          — ER% до
+        min_rating      — минимальный рейтинг блогера (BloggerProfile.rating)
+        sort            — сортировка; по умолчанию: по рейтингу убывание
+
+    Контекст шаблона:
+        platforms — QuerySet[Platform] (только APPROVED)
+        form      — CatalogFilterForm
+        total     — int, количество найденных площадок
+    """
+    if not request.user.is_staff and request.user.role != User.Role.ADVERTISER:
+        messages.error(request, "Каталог блогеров доступен только рекламодателям.")
+        return _redirect_dashboard(request.user)
+
+    form = CatalogFilterForm(request.GET or None)
+    qs = (
+        Platform.objects.filter(status=Platform.Status.APPROVED)
+        .select_related("blogger__blogger_profile")
+        .prefetch_related("categories")
+    )
+
+    if form.is_valid():
+        cd = form.cleaned_data
+        if cd.get("social_type"):
+            qs = qs.filter(social_type=cd["social_type"])
+        if cd.get("category"):
+            qs = qs.filter(categories=cd["category"])
+        if cd.get("min_subscribers"):
+            qs = qs.filter(subscribers__gte=cd["min_subscribers"])
+        if cd.get("max_subscribers"):
+            qs = qs.filter(subscribers__lte=cd["max_subscribers"])
+        if cd.get("min_price"):
+            qs = qs.filter(price_post__gte=cd["min_price"])
+        if cd.get("max_price"):
+            qs = qs.filter(price_post__lte=cd["max_price"])
+        if cd.get("min_er"):
+            qs = qs.filter(engagement_rate__gte=cd["min_er"])
+        if cd.get("max_er"):
+            qs = qs.filter(engagement_rate__lte=cd["max_er"])
+        if cd.get("min_rating"):
+            qs = qs.filter(blogger__blogger_profile__rating__gte=cd["min_rating"])
+        sort = cd.get("sort")
+        if sort:
+            qs = qs.order_by(sort)
+        else:
+            qs = qs.order_by("-blogger__blogger_profile__rating")
+    else:
+        qs = qs.order_by("-blogger__blogger_profile__rating")
+
+    return render(request, "catalog/index.html", {
+        "platforms": qs,
+        "form": form,
+        "total": qs.count(),
+    })
+
+
+@login_required
+def direct_offer_create(request, platform_pk):
+    """Создание прямого предложения от рекламодателя блогеру (Модуль 10).
+
+    Доступ: только role=ADVERTISER. Площадка должна быть APPROVED (иначе 404).
+
+    GET  — отображает форму DirectOfferForm; если уже есть PENDING-оффер для
+           этой площадки — показывает предупреждение вместо формы.
+    POST — создаёт DirectOffer со статусом PENDING.
+           Гарды:
+             • нельзя создать второй оффер для той же (advertiser, campaign, platform),
+               если предыдущий не REJECTED;
+             • кампания должна принадлежать текущему рекламодателю и быть ACTIVE.
+           При успехе: redirect → blogger_catalog с flash-сообщением.
+
+    URL-параметры:
+        platform_pk — pk площадки (Platform)
+
+    Контекст шаблона:
+        platform       — Platform
+        blogger        — User (владелец площадки)
+        form           — DirectOfferForm
+        existing_offer — DirectOffer|None (PENDING оффер, если есть)
+    """
+    if request.user.role != User.Role.ADVERTISER:
+        messages.error(request, "Только рекламодатели могут отправлять предложения.")
+        return _redirect_dashboard(request.user)
+
+    platform = get_object_or_404(Platform, pk=platform_pk, status=Platform.Status.APPROVED)
+    blogger = platform.blogger
+
+    # Check for existing pending offer
+    existing = DirectOffer.objects.filter(
+        advertiser=request.user,
+        campaign__in=Campaign.objects.filter(advertiser=request.user),
+        platform=platform,
+        status=DirectOffer.Status.PENDING,
+    ).first()
+
+    form = DirectOfferForm(advertiser=request.user, data=request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        campaign = form.cleaned_data["campaign"]
+
+        # Guard: no duplicate offer for same advertiser+campaign+platform
+        if DirectOffer.objects.filter(
+            advertiser=request.user, campaign=campaign, platform=platform
+        ).exclude(status=DirectOffer.Status.REJECTED).exists():
+            messages.error(request, "Предложение для этой площадки в рамках данной кампании уже отправлено.")
+            return redirect("web:blogger_public_profile", pk=blogger.pk)
+
+        DirectOffer.objects.create(
+            advertiser=request.user,
+            blogger=blogger,
+            campaign=campaign,
+            platform=platform,
+            content_type=form.cleaned_data["content_type"],
+            proposed_price=form.cleaned_data.get("proposed_price"),
+            message=form.cleaned_data.get("message", ""),
+        )
+        NotificationService.notify_direct_offer_received(blogger, campaign, request.user)
+        messages.success(request, f"Предложение отправлено блогеру {blogger.email}!")
+        return redirect("web:blogger_catalog")
+
+    return render(request, "catalog/direct_offer.html", {
+        "platform": platform,
+        "blogger": blogger,
+        "form": form,
+        "existing_offer": existing,
+    })
+
+
+@login_required
+@require_POST
+def direct_offer_accept(request, pk):
+    """Блогер принимает прямое предложение — создаётся Сделка (Модуль 10).
+
+    Доступ: только владелец оффера (blogger=request.user), статус PENDING.
+    Рекламодатель и чужие блогеры получают 404.
+
+    Логика (всё внутри atomic + select_for_update):
+        1. Проверка что кампания ACTIVE.
+        2. Определение суммы сделки: proposed_price ?? campaign.fixed_price.
+        3. Проверка лимита участников кампании (max_bloggers).
+        4. Повторная блокировка оффера (select_for_update) — гард от двойного принятия.
+        5. Deal.objects.create(status=WAITING_PAYMENT).
+        6. BillingService.reserve_funds(deal) — резервирует средства у рекламодателя.
+           При ValueError (нет средств) транзакция откатывается, deal=None.
+        7. DealStatusLog.log → статус → IN_PROGRESS.
+        8. DirectOffer.status → ACCEPTED, DirectOffer.deal → созданная сделка.
+
+    При успехе: redirect → deal_detail.
+    При ошибке резервирования: redirect → blogger_dashboard с сообщением об ошибке.
+
+    URL-параметры:
+        pk — pk DirectOffer
+    """
+    offer = get_object_or_404(
+        DirectOffer, pk=pk, blogger=request.user, status=DirectOffer.Status.PENDING
+    )
+
+    campaign = offer.campaign
+    if campaign.status != Campaign.Status.ACTIVE:
+        messages.error(request, "Кампания больше не активна.")
+        return redirect("web:blogger_dashboard")
+
+    amount = offer.proposed_price or campaign.fixed_price
+    if not amount:
+        messages.error(request, "Не удалось определить сумму сделки.")
+        return redirect("web:blogger_dashboard")
+
+    from django.db import transaction as db_transaction
+    deal = None
+    try:
+        with db_transaction.atomic():
+            locked_campaign = Campaign.objects.select_for_update().get(pk=campaign.pk)
+            if locked_campaign.max_bloggers > 0:
+                active_count = Deal.objects.filter(
+                    campaign=locked_campaign,
+                    status__in=[
+                        Deal.Status.IN_PROGRESS, Deal.Status.CHECKING,
+                        Deal.Status.ON_APPROVAL, Deal.Status.WAITING_PUBLICATION,
+                        Deal.Status.COMPLETED,
+                    ],
+                ).count()
+                if active_count >= locked_campaign.max_bloggers:
+                    messages.error(request, "Достигнут лимит участников кампании.")
+                    return redirect("web:blogger_dashboard")
+
+            locked_offer = DirectOffer.objects.select_for_update().get(pk=offer.pk)
+            if locked_offer.status != DirectOffer.Status.PENDING:
+                messages.error(request, "Предложение уже обработано.")
+                return redirect("web:blogger_dashboard")
+
+            deal = Deal.objects.create(
+                campaign=locked_campaign,
+                blogger=request.user,
+                platform=offer.platform,
+                advertiser=offer.advertiser,
+                amount=amount,
+                status=Deal.Status.WAITING_PAYMENT,
+            )
+            BillingService.reserve_funds(deal)
+            DealStatusLog.log(deal, Deal.Status.IN_PROGRESS, changed_by=offer.advertiser, comment="Accepted direct offer.")
+            deal.status = Deal.Status.IN_PROGRESS
+            deal.save(update_fields=["status"])
+
+            locked_offer.status = DirectOffer.Status.ACCEPTED
+            locked_offer.deal = deal
+            locked_offer.save(update_fields=["status", "deal", "updated_at"])
+
+        NotificationService.notify_direct_offer_accepted(
+            offer.advertiser, locked_campaign, request.user, deal
+        )
+        messages.success(request, f"Предложение принято. Сделка #{deal.pk} создана!")
+    except ValueError as e:
+        deal = None
+        messages.error(request, f"Недостаточно средств у рекламодателя: {e}")
+
+    return redirect("web:deal_detail", pk=deal.pk) if deal else redirect("web:blogger_dashboard")
+
+
+@login_required
+@require_POST
+def direct_offer_reject(request, pk):
+    """Блогер отклоняет прямое предложение (Модуль 10).
+
+    Доступ: только владелец оффера (blogger=request.user), статус PENDING.
+    Рекламодатель и чужие блогеры получают 404.
+
+    Устанавливает DirectOffer.status = REJECTED.
+    Финансовых операций не производит (деньги не резервировались).
+
+    При успехе: redirect → blogger_dashboard с flash-сообщением.
+
+    URL-параметры:
+        pk — pk DirectOffer
+    """
+    offer = get_object_or_404(
+        DirectOffer, pk=pk, blogger=request.user, status=DirectOffer.Status.PENDING
+    )
+    offer.status = DirectOffer.Status.REJECTED
+    offer.save(update_fields=["status", "updated_at"])
+    NotificationService.notify_direct_offer_rejected(offer.advertiser, offer.campaign, request.user)
+    messages.success(request, "Предложение отклонено.")
+    return redirect("web:blogger_dashboard")
 
 
 # ── Billing / Wallet ───────────────────────────────────────────────────────────
@@ -885,6 +1208,7 @@ def admin_campaign_approve(request, pk):
     campaign.status = Campaign.Status.ACTIVE
     campaign.rejection_reason = ""
     campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
+    NotificationService.notify_campaign_approved(campaign.advertiser, campaign)
     messages.success(request, f"Кампания «{campaign.name}» одобрена и опубликована.")
     return redirect("web:admin_campaigns")
 
@@ -900,6 +1224,7 @@ def admin_campaign_reject(request, pk):
     campaign.status = Campaign.Status.REJECTED
     campaign.rejection_reason = reason
     campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
+    NotificationService.notify_campaign_rejected(campaign.advertiser, campaign)
     messages.success(request, f"Кампания «{campaign.name}» отклонена.")
     return redirect("web:admin_campaigns")
 
@@ -925,6 +1250,7 @@ def admin_platform_approve(request, pk):
     platform.status = Platform.Status.APPROVED
     platform.rejection_reason = ""
     platform.save(update_fields=["status", "rejection_reason", "updated_at"])
+    NotificationService.notify_platform_approved(platform.blogger, platform)
     messages.success(request, f"Площадка {platform.blogger.email} / {platform.get_social_type_display()} одобрена.")
     return redirect("web:admin_platforms")
 
@@ -940,6 +1266,7 @@ def admin_platform_reject(request, pk):
     platform.status = Platform.Status.REJECTED
     platform.rejection_reason = reason
     platform.save(update_fields=["status", "rejection_reason", "updated_at"])
+    NotificationService.notify_platform_rejected(platform.blogger, platform)
     messages.success(request, f"Площадка отклонена.")
     return redirect("web:admin_platforms")
 
@@ -1007,11 +1334,20 @@ def admin_withdrawals(request):
 
 @_staff_required
 def admin_users(request):
-    users = (
-        User.objects.all()
-        .order_by("-date_joined")
-    )
-    return render(request, "admin_panel/users.html", {"users": users})
+    """Список пользователей с поиском и управлением статусом (Модуль 13).
+
+    GET ?q=email — фильтрация по email (icontains).
+    Позволяет блокировать/разблокировать пользователей через дочерние вьюхи.
+
+    Контекст шаблона:
+        users — QuerySet[User] (все или отфильтрованные), новые первые
+        q     — строка поиска
+    """
+    q = request.GET.get("q", "").strip()
+    users = User.objects.all().order_by("-date_joined")
+    if q:
+        users = users.filter(email__icontains=q)
+    return render(request, "admin_panel/users.html", {"users": users, "q": q})
 
 
 @_staff_required
@@ -1030,6 +1366,7 @@ def admin_withdrawal_approve(request, pk):
         wr.processed_at = timezone.now()
         wr.admin_comment = request.POST.get("comment", "").strip()
         wr.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
+    NotificationService.notify_withdrawal_approved(wr.blogger, wr.amount)
     messages.success(request, f"Выплата {wr.amount:,.0f} для {wr.blogger.email} подтверждена.")
     return redirect("web:admin_withdrawals")
 
@@ -1049,5 +1386,190 @@ def admin_withdrawal_reject(request, pk):
         wr.processed_at = timezone.now()
         wr.admin_comment = comment
         wr.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
+    NotificationService.notify_withdrawal_rejected(wr.blogger, wr.amount, comment)
     messages.success(request, f"Заявка отклонена, средства возвращены на баланс {wr.blogger.email}.")
     return redirect("web:admin_withdrawals")
+
+
+# ── Notifications (Module 11) ─────────────────────────────────────────────────
+
+@login_required
+def notification_list(request):
+    """Страница уведомлений пользователя (Модуль 11).
+
+    Показывает последние 50 уведомлений: непрочитанные сверху, затем прочитанные.
+    Помечает все уведомления как прочитанные при открытии страницы.
+
+    Доступ: любой авторизованный пользователь.
+
+    Контекст шаблона:
+        notifications — QuerySet[Notification] последних 50 записей
+        unread_count  — int, число непрочитанных ДО открытия страницы
+    """
+    from apps.notifications.models import Notification
+    qs = Notification.objects.filter(user=request.user).select_related("related_deal")
+    unread_count = qs.filter(is_read=False).count()
+    notifications_qs = qs[:50]
+    # Помечаем все как прочитанные
+    qs.filter(is_read=False).update(is_read=True)
+    return render(request, "notifications/list.html", {
+        "notifications": notifications_qs,
+        "unread_count": unread_count,
+    })
+
+
+@login_required
+@require_POST
+def notification_mark_all_read(request):
+    """Отметить все уведомления как прочитанные (Модуль 11).
+
+    POST-only. После выполнения: redirect → notification_list.
+    """
+    from apps.notifications.models import Notification
+    Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    messages.success(request, "Все уведомления отмечены как прочитанные.")
+    return redirect("web:notifications")
+
+
+# ── Reviews (Module 7) ────────────────────────────────────────────────────────
+
+@login_required
+@require_POST
+def deal_review_submit(request, pk):
+    """Отправить отзыв о сделке — только рекламодатель, только COMPLETED, окно 7 дней (Модуль 7).
+
+    POST /deals/<pk>/review/
+
+    Создаёт Review (author=advertiser, target=blogger). После создания
+    пересчитывает BloggerProfile.rating как среднее всех полученных отзывов.
+
+    Редиректы → deal_detail.
+    """
+    from datetime import timedelta
+    from django.db.models import Avg
+
+    deal = get_object_or_404(Deal, pk=pk, advertiser=request.user, status=Deal.Status.COMPLETED)
+
+    # Guard: one review per deal
+    try:
+        deal.review  # noqa: B018
+        messages.error(request, "Отзыв по этой сделке уже оставлен.")
+        return redirect("web:deal_detail", pk=pk)
+    except Review.DoesNotExist:
+        pass
+
+    # Guard: 7-day window
+    if timezone.now() - deal.updated_at > timedelta(days=7):
+        messages.error(request, "Срок для оставления отзыва (7 дней) истёк.")
+        return redirect("web:deal_detail", pk=pk)
+
+    form = ReviewForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Некорректный отзыв. Убедитесь что оценка от 1 до 5.")
+        return redirect("web:deal_detail", pk=pk)
+
+    Review.objects.create(
+        deal=deal,
+        author=request.user,
+        target=deal.blogger,
+        rating=form.cleaned_data["rating"],
+        text=form.cleaned_data["text"],
+    )
+
+    # Recalculate blogger rating
+    try:
+        profile = BloggerProfile.objects.get(user=deal.blogger)
+        avg = Review.objects.filter(target=deal.blogger).aggregate(avg=Avg("rating"))["avg"] or 0
+        profile.rating = round(avg, 2)
+        profile.save(update_fields=["rating"])
+    except BloggerProfile.DoesNotExist:
+        pass
+
+    messages.success(request, "Спасибо! Ваш отзыв сохранён.")
+    return redirect("web:deal_detail", pk=pk)
+
+
+# ── Admin: user management (Module 13) ───────────────────────────────────────
+
+@_staff_required
+@require_POST
+def admin_user_block(request, pk):
+    """Заблокировать пользователя (user.status = BLOCKED) (Модуль 13).
+
+    POST /panel/users/<pk>/block/
+    Нельзя заблокировать staff-аккаунт.
+    Редирект → admin_users.
+    """
+    user = get_object_or_404(User, pk=pk)
+    if user.is_staff:
+        messages.error(request, "Нельзя заблокировать администратора.")
+        return redirect("web:admin_users")
+    user.status = User.Status.BLOCKED
+    user.save(update_fields=["status"])
+    messages.success(request, f"Пользователь {user.email} заблокирован.")
+    return redirect("web:admin_users")
+
+
+@_staff_required
+@require_POST
+def admin_user_unblock(request, pk):
+    """Разблокировать пользователя (user.status = ACTIVE) (Модуль 13).
+
+    POST /panel/users/<pk>/unblock/
+    Редирект → admin_users.
+    """
+    user = get_object_or_404(User, pk=pk)
+    user.status = User.Status.ACTIVE
+    user.save(update_fields=["status"])
+    messages.success(request, f"Пользователь {user.email} разблокирован.")
+    return redirect("web:admin_users")
+
+
+# ── Admin: categories CRUD (Module 13) ───────────────────────────────────────
+
+@_staff_required
+def admin_categories(request):
+    """Управление категориями платформ: список + создание (Модуль 13).
+
+    GET  /panel/categories/ — список всех категорий + форма создания.
+    POST /panel/categories/ — создать новую категорию (name + slug).
+
+    Если name уже существует — ошибка (Category.name unique=True).
+    Редирект после POST → admin_categories.
+
+    Контекст шаблона:
+        categories — QuerySet[Category]
+        form       — CategoryForm
+    """
+    form = CategoryForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        name = form.cleaned_data["name"]
+        slug = form.cleaned_data["slug"]
+        if Category.objects.filter(name=name).exists():
+            messages.error(request, f"Категория «{name}» уже существует.")
+        elif Category.objects.filter(slug=slug).exists():
+            messages.error(request, f"Slug «{slug}» уже занят.")
+        else:
+            Category.objects.create(name=name, slug=slug)
+            messages.success(request, f"Категория «{name}» добавлена.")
+        return redirect("web:admin_categories")
+    categories = Category.objects.all()
+    return render(request, "admin_panel/categories.html", {
+        "categories": categories,
+        "form": form,
+    })
+
+
+@_staff_required
+@require_POST
+def admin_category_delete(request, pk):
+    """Удалить категорию (Модуль 13).
+
+    POST /panel/categories/<pk>/delete/
+    Редирект → admin_categories.
+    """
+    cat = get_object_or_404(Category, pk=pk)
+    name = cat.name
+    cat.delete()
+    messages.success(request, f"Категория «{name}» удалена.")
+    return redirect("web:admin_categories")

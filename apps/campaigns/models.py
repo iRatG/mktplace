@@ -140,3 +140,61 @@ class Response(models.Model):
 
     def __str__(self):
         return f"{self.blogger.email} -> {self.campaign.name} ({self.status})"
+
+
+class DirectOffer(models.Model):
+    """Advertiser initiates a deal directly to a blogger (reverse of Response)."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        REJECTED = "rejected", "Rejected"
+
+    advertiser = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="direct_offers_sent",
+        limit_choices_to={"role": "advertiser"},
+    )
+    blogger = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="direct_offers_received",
+        limit_choices_to={"role": "blogger"},
+    )
+    campaign = models.ForeignKey(
+        Campaign,
+        on_delete=models.CASCADE,
+        related_name="direct_offers",
+    )
+    platform = models.ForeignKey(
+        "platforms.Platform",
+        on_delete=models.CASCADE,
+        related_name="direct_offers",
+    )
+    content_type = models.CharField(max_length=50)
+    proposed_price = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0)],
+    )
+    message = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+    deal = models.OneToOneField(
+        "deals.Deal",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="direct_offer",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Direct Offer"
+        verbose_name_plural = "Direct Offers"
+        unique_together = [("advertiser", "campaign", "platform")]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"DirectOffer {self.advertiser.email} → {self.blogger.email} ({self.status})"

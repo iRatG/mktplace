@@ -3,6 +3,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.utils import timezone
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
@@ -66,3 +67,20 @@ def send_email_notification(self, user_id: int, subject: str, template_name: str
         )
     except Exception as exc:
         raise self.retry(exc=exc)
+
+
+@shared_task
+def cleanup_old_notifications():
+    """Удаляет уведомления старше 90 дней (Модуль 11).
+
+    Запускается периодически через Celery Beat (ежедневно в 03:00).
+    На VPS Celery отключён — задача работает только локально.
+
+    Returns:
+        int: количество удалённых записей
+    """
+    from datetime import timedelta
+    from .models import Notification
+    cutoff = timezone.now() - timedelta(days=90)
+    deleted_count, _ = Notification.objects.filter(created_at__lt=cutoff).delete()
+    return deleted_count
