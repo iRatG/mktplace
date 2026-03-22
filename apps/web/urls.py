@@ -93,4 +93,7 @@ urlpatterns = [
     # Admin: categories CRUD (Module 13)
     path("panel/categories/", views.admin_categories, name="admin_categories"),
     path("panel/categories/<int:pk>/delete/", views.admin_category_delete, name="admin_category_delete"),
+
+    # Analytics (Module 12)
+    path("analytics/", views.analytics_view, name="analytics"),
 ]

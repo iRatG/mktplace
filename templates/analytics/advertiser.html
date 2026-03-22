@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Аналитика — Mktplace{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">Аналитика</h1>
+    <p class="text-slate-400 text-sm mt-1">Сводка по вашей рекламной активности</p>
+</div>
+
+<!-- Financial summary -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div class="card-dark rounded-xl p-5">
+        <div class="text-xs text-slate-400 uppercase tracking-wide mb-1">Потрачено всего</div>
+        <div class="text-2xl font-bold text-white">{{ total_spent|floatformat:0 }} {{ currency.symbol }}</div>
+        <div class="text-xs text-slate-500 mt-1">Пополнено: {{ total_deposited|floatformat:0 }} {{ currency.symbol }}</div>
+    </div>
+    <div class="card-dark rounded-xl p-5">
+        <div class="text-xs text-slate-400 uppercase tracking-wide mb-1">Средняя сделка</div>
+        <div class="text-2xl font-bold text-white">{{ avg_deal|floatformat:0 }} {{ currency.symbol }}</div>
+        <div class="text-xs text-slate-500 mt-1">По завершённым</div>
+    </div>
+    <div class="card-dark rounded-xl p-5">
+        <div class="text-xs text-slate-400 uppercase tracking-wide mb-1">Конверсия сделок</div>
+        <div class="text-2xl font-bold {% if completion_rate >= 70 %}text-green-400{% elif completion_rate >= 40 %}text-yellow-400{% else %}text-slate-400{% endif %}">{{ completion_rate }}%</div>
+        <div class="text-xs text-slate-500 mt-1">Завершено / всего</div>
+    </div>
+</div>
+
+<!-- Deals breakdown -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+    <div class="card-dark rounded-xl p-4 text-center">
+        <div class="text-xl font-bold text-white">{{ total_deals }}</div>
+        <div class="text-xs text-slate-400 mt-1">Всего сделок</div>
+    </div>
+    <div class="card-dark rounded-xl p-4 text-center">
+        <div class="text-xl font-bold text-green-400">{{ completed_deals }}</div>
+        <div class="text-xs text-slate-400 mt-1">Завершено</div>
+    </div>
+    <div class="card-dark rounded-xl p-4 text-center">
+        <div class="text-xl font-bold text-blue-400">{{ active_deals }}</div>
+        <div class="text-xs text-slate-400 mt-1">В работе</div>
+    </div>
+    <div class="card-dark rounded-xl p-4 text-center">
+        <div class="text-xl font-bold text-red-400">{{ cancelled_deals }}</div>
+        <div class="text-xs text-slate-400 mt-1">Отменено</div>
+    </div>
+</div>
+
+<!-- Campaigns by status -->
+<div class="card-dark rounded-xl p-5 mb-6">
+    <h2 class="text-sm font-semibold text-white mb-4">Кампании по статусам</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-center">
+            <div class="text-lg font-bold text-green-400">{{ campaigns_by_status.active }}</div>
+            <div class="text-xs text-slate-400 mt-0.5">Активных</div>
+        </div>
+        <div class="bg-slate-500/10 border border-slate-500/20 rounded-lg p-3 text-center">
+            <div class="text-lg font-bold text-slate-400">{{ campaigns_by_status.draft }}</div>
+            <div class="text-xs text-slate-400 mt-0.5">Черновиков</div>
+        </div>
+        <div class="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 text-center">
+            <div class="text-lg font-bold text-orange-400">{{ campaigns_by_status.paused }}</div>
+            <div class="text-xs text-slate-400 mt-0.5">На паузе</div>
+        </div>
+        <div class="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-center">
+            <div class="text-lg font-bold text-blue-400">{{ campaigns_by_status.completed }}</div>
+            <div class="text-xs text-slate-400 mt-0.5">Завершено</div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent completed deals -->
+{% if recent_completed %}
+<div class="card-dark rounded-xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-white/5">
+        <h2 class="font-semibold text-white">Последние завершённые сделки</h2>
+    </div>
+    <div class="divide-y divide-white/5">
+        {% for deal in recent_completed %}
+        <div class="px-6 py-4 flex items-center justify-between">
+            <div>
+                <div class="text-sm font-medium text-white">{{ deal.campaign.name }}</div>
+                <div class="text-xs text-slate-500 mt-0.5">Блогер: {{ deal.blogger.email }}</div>
+            </div>
+            <div class="text-right">
+                <div class="text-sm font-semibold text-green-400">{{ deal.amount|floatformat:0 }} {{ currency.symbol }}</div>
+                <a href="{% url 'web:deal_detail' deal.pk %}" class="text-xs text-orange-400 hover:text-orange-300 transition-colors">Открыть →</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="card-dark rounded-xl px-6 py-8 text-center text-slate-500 text-sm">
+    Завершённых сделок пока нет.
+</div>
+{% endif %}
+{% endblock %}

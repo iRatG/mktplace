@@ -1,5 +1,9 @@
+from datetime import timedelta
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib import messages
+from django.db.models import Avg, Count, Sum
 from django.utils import timezone
 from django.contrib.auth import login, logout
 import functools
@@ -1175,6 +1179,40 @@ def _staff_required(view_func):
 
 @_staff_required
 def admin_dashboard(request):
+    """Дашборд администратора: операционные метрики + финансовая аналитика."""
+    last_30 = timezone.now() - timedelta(days=30)
+
+    total_payments = (
+        Transaction.objects.filter(type=Transaction.Type.PAYMENT)
+        .aggregate(total=Sum("amount"))["total"]
+        or Decimal("0")
+    )
+    total_earnings = (
+        Transaction.objects.filter(type=Transaction.Type.EARNING)
+        .aggregate(total=Sum("amount"))["total"]
+        or Decimal("0")
+    )
+    platform_revenue = total_payments - total_earnings
+
+    transaction_volume_month = (
+        Transaction.objects.filter(created_at__gte=last_30)
+        .aggregate(total=Sum("amount"))["total"]
+        or Decimal("0")
+    )
+
+    top_advertisers = (
+        Transaction.objects.filter(type=Transaction.Type.PAYMENT)
+        .values("wallet__user__email")
+        .annotate(total=Sum("amount"))
+        .order_by("-total")[:5]
+    )
+    top_bloggers = (
+        Transaction.objects.filter(type=Transaction.Type.EARNING)
+        .values("wallet__user__email")
+        .annotate(total=Sum("amount"))
+        .order_by("-total")[:5]
+    )
+
     context = {
         "campaigns_moderation": Campaign.objects.filter(status=Campaign.Status.MODERATION).count(),
         "platforms_pending": Platform.objects.filter(status=Platform.Status.PENDING).count(),
@@ -1182,8 +1220,13 @@ def admin_dashboard(request):
         "withdrawals_pending": WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING).count(),
         "users_total": User.objects.count(),
         "users_active": User.objects.filter(status=User.Status.ACTIVE).count(),
+        "new_users_month": User.objects.filter(date_joined__gte=last_30).count(),
         "deals_total": Deal.objects.count(),
         "deals_completed": Deal.objects.filter(status=Deal.Status.COMPLETED).count(),
+        "platform_revenue": platform_revenue,
+        "transaction_volume_month": transaction_volume_month,
+        "top_advertisers": top_advertisers,
+        "top_bloggers": top_bloggers,
     }
     return render(request, "admin_panel/dashboard.html", context)
 
@@ -1573,3 +1616,129 @@ def admin_category_delete(request, pk):
     cat.delete()
     messages.success(request, f"Категория «{name}» удалена.")
     return redirect("web:admin_categories")
+
+
+# ── Analytics (Module 12) ──────────────────────────────────────────────────────
+
+@login_required
+def analytics_view(request):
+    """Аналитика: маршрутизирует по роли на соответствующий шаблон."""
+    user = request.user
+    if user.is_staff:
+        return redirect("web:admin_dashboard")
+
+    if user.role == User.Role.ADVERTISER:
+        return _analytics_advertiser(request, user)
+    return _analytics_blogger(request, user)
+
+
+def _analytics_advertiser(request, user):
+    """Аналитический дашборд для рекламодателя."""
+    deals_qs = Deal.objects.filter(advertiser=user)
+    total_deals = deals_qs.count()
+    completed_deals = deals_qs.filter(status=Deal.Status.COMPLETED).count()
+    cancelled_deals = deals_qs.filter(status=Deal.Status.CANCELLED).count()
+    active_deals = deals_qs.exclude(
+        status__in=[Deal.Status.COMPLETED, Deal.Status.CANCELLED]
+    ).count()
+    completion_rate = round(completed_deals / total_deals * 100) if total_deals else 0
+
+    avg_deal = (
+        deals_qs.filter(status=Deal.Status.COMPLETED)
+        .aggregate(avg=Avg("amount"))["avg"]
+        or Decimal("0")
+    )
+
+    total_spent = (
+        Transaction.objects.filter(wallet__user=user, type=Transaction.Type.PAYMENT)
+        .aggregate(total=Sum("amount"))["total"]
+        or Decimal("0")
+    )
+    total_deposited = (
+        Transaction.objects.filter(wallet__user=user, type=Transaction.Type.DEPOSIT)
+        .aggregate(total=Sum("amount"))["total"]
+        or Decimal("0")
+    )
+
+    campaigns_qs = Campaign.objects.filter(advertiser=user)
+    campaigns_by_status = {
+        "active": campaigns_qs.filter(status=Campaign.Status.ACTIVE).count(),
+        "completed": campaigns_qs.filter(status=Campaign.Status.COMPLETED).count(),
+        "draft": campaigns_qs.filter(status=Campaign.Status.DRAFT).count(),
+        "paused": campaigns_qs.filter(status=Campaign.Status.PAUSED).count(),
+    }
+
+    recent_completed = (
+        deals_qs.filter(status=Deal.Status.COMPLETED)
+        .select_related("blogger", "campaign")
+        .order_by("-updated_at")[:5]
+    )
+
+    context = {
+        "total_deals": total_deals,
+        "completed_deals": completed_deals,
+        "cancelled_deals": cancelled_deals,
+        "active_deals": active_deals,
+        "completion_rate": completion_rate,
+        "avg_deal": avg_deal,
+        "total_spent": total_spent,
+        "total_deposited": total_deposited,
+        "campaigns_by_status": campaigns_by_status,
+        "recent_completed": recent_completed,
+    }
+    return render(request, "analytics/advertiser.html", context)
+
+
+def _analytics_blogger(request, user):
+    """Аналитический дашборд для блогера."""
+    deals_qs = Deal.objects.filter(blogger=user)
+    total_deals = deals_qs.count()
+    completed_deals = deals_qs.filter(status=Deal.Status.COMPLETED).count()
+    cancelled_deals = deals_qs.filter(status=Deal.Status.CANCELLED).count()
+    active_deals = deals_qs.exclude(
+        status__in=[Deal.Status.COMPLETED, Deal.Status.CANCELLED]
+    ).count()
+    completion_rate = round(completed_deals / total_deals * 100) if total_deals else 0
+
+    avg_earning = (
+        deals_qs.filter(status=Deal.Status.COMPLETED)
+        .aggregate(avg=Avg("amount"))["avg"]
+        or Decimal("0")
+    )
+    total_earned = (
+        Transaction.objects.filter(wallet__user=user, type=Transaction.Type.EARNING)
+        .aggregate(total=Sum("amount"))["total"]
+        or Decimal("0")
+    )
+
+    total_responses = CampaignResponse.objects.filter(blogger=user).count()
+    accepted_responses = CampaignResponse.objects.filter(
+        blogger=user, status=CampaignResponse.Status.ACCEPTED
+    ).count()
+    acceptance_rate = (
+        round(accepted_responses / total_responses * 100) if total_responses else 0
+    )
+
+    profile, _ = BloggerProfile.objects.get_or_create(user=user)
+
+    recent_completed = (
+        deals_qs.filter(status=Deal.Status.COMPLETED)
+        .select_related("campaign")
+        .order_by("-updated_at")[:5]
+    )
+
+    context = {
+        "total_deals": total_deals,
+        "completed_deals": completed_deals,
+        "cancelled_deals": cancelled_deals,
+        "active_deals": active_deals,
+        "completion_rate": completion_rate,
+        "avg_earning": avg_earning,
+        "total_earned": total_earned,
+        "total_responses": total_responses,
+        "accepted_responses": accepted_responses,
+        "acceptance_rate": acceptance_rate,
+        "rating": profile.rating,
+        "recent_completed": recent_completed,
+    }
+    return render(request, "analytics/blogger.html", context)
