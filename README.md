@@ -232,6 +232,7 @@ nohup docker-compose -f docker-compose.vps.yml up -d --build > /tmp/deploy.log 2
 | Заявки на вывод | `/panel/withdrawals/` | is_staff |
 | Пользователи (поиск, блок) | `/panel/users/` | is_staff |
 | **Категории** | `/panel/categories/` | is_staff |
+| **Аналитика** | `/analytics/` | По роли (adv/blogger) |
 | FAQ | `/faq/` | Публичный |
 
 ### Демо-аккаунты
@@ -263,12 +264,12 @@ docker compose run --rm web python manage.py seed_demo_data --reset
 | 8. Биллинг | ✅ | Кошелёк, эскроу, транзакции, вывод средств, BillingService |
 | 10. Каталог блогеров | ✅ | Каталог с фильтрами, прямые предложения (DirectOffer), accept/reject |
 | 11A. In-app уведомления | ✅ | NotificationService, колокольчик в меню, страница уведомлений, авто-очистка 90 дней |
+| 12. Аналитика | ✅ | Дашборд рекламодателя (расходы, конверсия, кампании по статусам), блогера (заработок, рейтинг, отклики), админа (доход платформы, топ пользователей) |
 | 13. Админ-панель | ✅ | Модерация кампаний, площадок, споры, выводы; поиск пользователей, блокировка, CRUD категорий |
 
 **Не реализовано (следующие итерации):**
 - Модуль 9: CPA-модель (трекинговые ссылки, конверсии)
 - Модуль 11B/C: Email-уведомления, Telegram-бот
-- Модуль 12: Аналитика (расширенные дашборды)
 - Сделки: согласование креатива (ON_APPROVAL), чат
 
 ## API
@@ -298,7 +299,7 @@ make migrate
 ### Тесты
 
 ```bash
-# Все тесты (253 теста)
+# Все тесты (277 тестов)
 docker compose run --rm web python manage.py test apps --noinput
 
 # URL/интеграционные тесты (129 тестов)
@@ -315,6 +316,9 @@ docker compose run --rm web python manage.py test apps.web.tests_notifications -
 
 # Тесты отзывов и доработок админ-панели (25 тестов)
 docker compose run --rm web python manage.py test apps.web.tests_reviews -v 2
+
+# Тесты аналитики (24 теста)
+docker compose run --rm web python manage.py test apps.web.tests_analytics -v 2
 ```
 
 ### Запуск без Docker (для отладки отдельного сервиса)
