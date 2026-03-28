@@ -96,11 +96,56 @@
         {% if user.role == 'blogger' %}
 
             {% if deal.status == 'in_progress' %}
-            <!-- Blogger: submit publication URL -->
+
+            <!-- Blogger: rejection reason notice (if creative was rejected) -->
+            {% if deal.creative_rejection_reason %}
+            <div class="rounded-xl p-5 bg-red-500/10 border border-red-500/20">
+                <p class="text-red-300 text-sm font-medium mb-1">Креатив отклонён</p>
+                <p class="text-red-300/80 text-sm">{{ deal.creative_rejection_reason }}</p>
+                <p class="text-red-300/50 text-xs mt-2">Отправьте исправленный вариант на согласование.</p>
+            </div>
+            {% endif %}
+
+            <!-- Blogger: submit creative for approval (optional step) -->
+            <div class="card-dark rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Отправить креатив на согласование</h2>
+                <p class="text-slate-400 text-sm mb-4">
+                    Необязательный шаг. Загрузите текст и/или медиафайл — рекламодатель согласует, после чего можно публиковать.
+                </p>
+                <form method="post" action="{% url 'web:deal_submit_creative' deal.pk %}"
+                      enctype="multipart/form-data" class="space-y-3">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Текст креатива</label>
+                        <textarea name="creative_text" rows="4"
+                                  class="input-dark w-full resize-none text-sm"
+                                  placeholder="Текст рекламного поста...">{{ deal.creative_text }}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Медиафайл (необязательно)</label>
+                        <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer hover:text-slate-300 transition-colors">
+                            <input type="file" name="creative_media" class="hidden"
+                                   onchange="this.parentElement.querySelector('span').textContent = this.files[0]?.name || 'Прикрепить файл'">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600/40 hover:border-slate-500/60 transition-colors">
+                                Прикрепить файл
+                            </span>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn-orange px-5 py-2 text-sm rounded-xl">
+                        Отправить на согласование
+                    </button>
+                </form>
+            </div>
+
+            <!-- Blogger: submit publication URL (can skip creative approval) -->
             <div class="card-dark rounded-xl p-6">
                 <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Добавить публикацию</h2>
                 <p class="text-slate-400 text-sm mb-4">
-                    Разместите рекламный пост и вставьте ссылку ниже. Рекламодатель проверит и подтвердит — деньги зачислятся вам.
+                    {% if deal.creative_approved_at %}
+                    Креатив согласован. Разместите пост и вставьте ссылку — рекламодатель подтвердит и вы получите оплату.
+                    {% else %}
+                    Уже разместили пост? Вставьте ссылку — рекламодатель проверит и подтвердит.
+                    {% endif %}
                 </p>
                 <form method="post" action="{% url 'web:deal_submit_publication' deal.pk %}">
                     {% csrf_token %}
@@ -113,6 +158,32 @@
                         </button>
                     </div>
                 </form>
+            </div>
+            {% endif %}
+
+            {% if deal.status == 'on_approval' %}
+            <!-- Blogger: creative is under review -->
+            <div class="card-dark rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Креатив на согласовании</h2>
+                <div class="rounded-xl p-4 bg-purple-500/10 border border-purple-500/20 mb-4">
+                    <p class="text-purple-300 text-sm font-medium">⏳ Ожидаем ответа рекламодателя</p>
+                    <p class="text-purple-300/70 text-xs mt-1">После согласования вы сможете опубликовать пост.</p>
+                </div>
+                {% if deal.creative_text %}
+                <div>
+                    <div class="text-xs text-slate-500 mb-1">Отправленный текст:</div>
+                    <div class="rounded-xl p-4 bg-slate-700/30 border border-slate-600/20 text-sm text-slate-300 whitespace-pre-wrap">{{ deal.creative_text }}</div>
+                </div>
+                {% endif %}
+                {% if deal.creative_media %}
+                <div class="mt-3">
+                    <div class="text-xs text-slate-500 mb-1">Прикреплённый файл:</div>
+                    <a href="{{ deal.creative_media.url }}" target="_blank"
+                       class="inline-flex items-center gap-2 text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                        Открыть файл →
+                    </a>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
 
@@ -133,6 +204,48 @@
             {% endif %}
 
         {% elif user.role == 'advertiser' %}
+
+            {% if deal.status == 'on_approval' %}
+            <!-- Advertiser: review and approve/reject creative -->
+            <div class="card-dark rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Согласование креатива</h2>
+                <p class="text-slate-400 text-sm mb-4">Блогер отправил креатив на проверку. Проверьте и примите решение.</p>
+
+                {% if deal.creative_text %}
+                <div class="mb-4">
+                    <div class="text-xs text-slate-500 mb-1">Текст:</div>
+                    <div class="rounded-xl p-4 bg-slate-700/30 border border-slate-600/20 text-sm text-slate-300 whitespace-pre-wrap">{{ deal.creative_text }}</div>
+                </div>
+                {% endif %}
+                {% if deal.creative_media %}
+                <div class="mb-4">
+                    <div class="text-xs text-slate-500 mb-1">Файл:</div>
+                    <a href="{{ deal.creative_media.url }}" target="_blank"
+                       class="inline-flex items-center gap-2 text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                        Открыть файл →
+                    </a>
+                </div>
+                {% endif %}
+
+                <div class="flex gap-3 flex-wrap">
+                    <form method="post" action="{% url 'web:deal_approve_creative' deal.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-orange px-5 py-2.5 text-sm rounded-xl">
+                            ✅ Согласовать
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'web:deal_reject_creative' deal.pk %}" class="flex gap-2">
+                        {% csrf_token %}
+                        <input type="text" name="rejection_reason"
+                               class="input-dark text-sm" placeholder="Причина отклонения..." required>
+                        <button type="submit"
+                                class="px-4 py-2 text-sm text-red-400 border border-red-400/20 rounded-xl hover:bg-red-400/10 transition-colors whitespace-nowrap">
+                            Отклонить
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
 
             {% if deal.status == 'checking' %}
             <!-- Advertiser: confirm or dispute -->
@@ -246,6 +359,7 @@
                     <div>
                         <div class="text-xs text-white">
                             {% if log.new_status == 'in_progress' %}В работе
+                            {% elif log.new_status == 'on_approval' %}На согласовании
                             {% elif log.new_status == 'checking' %}На проверке
                             {% elif log.new_status == 'completed' %}Завершена
                             {% elif log.new_status == 'cancelled' %}Отменена

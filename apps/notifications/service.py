@@ -169,6 +169,51 @@ class NotificationService:
             deal=deal,
         )
 
+    # ── Согласование креатива (Sprint 7) ──────────────────────────────────────
+
+    @staticmethod
+    def notify_creative_submitted(advertiser, deal):
+        """Блогер отправил креатив на согласование → рекламодателю."""
+        NotificationService.notify(
+            user=advertiser,
+            notification_type=Notification.Type.CREATIVE_SUBMITTED,
+            title="Креатив на согласовании",
+            body=(
+                f"Блогер отправил креатив по сделке #{deal.pk} "
+                f"«{deal.campaign.name}». Проверьте и согласуйте."
+            ),
+            deal=deal,
+        )
+
+    @staticmethod
+    def notify_creative_approved(blogger, deal):
+        """Рекламодатель согласовал креатив → блогеру."""
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.CREATIVE_APPROVED,
+            title="Креатив согласован",
+            body=(
+                f"Рекламодатель согласовал ваш креатив по сделке #{deal.pk} "
+                f"«{deal.campaign.name}». Можно публиковать!"
+            ),
+            deal=deal,
+        )
+
+    @staticmethod
+    def notify_creative_rejected(blogger, deal):
+        """Рекламодатель отклонил креатив → блогеру."""
+        reason = deal.creative_rejection_reason or "причина не указана"
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.CREATIVE_REJECTED,
+            title="Креатив отклонён",
+            body=(
+                f"Рекламодатель отклонил ваш креатив по сделке #{deal.pk} "
+                f"«{deal.campaign.name}». Причина: {reason}"
+            ),
+            deal=deal,
+        )
+
     # ── Кампании ──────────────────────────────────────────────────────────────
 
     @staticmethod

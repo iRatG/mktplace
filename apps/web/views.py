@@ -30,6 +30,7 @@ from .forms import (
     CatalogFilterForm,
     CategoryForm,
     ChatMessageForm,
+    CreativeSubmitForm,
     DirectOfferForm,
     LoginForm,
     PasswordResetConfirmForm,
@@ -1800,4 +1801,156 @@ def deal_send_message(request, pk):
         for error in form.errors.get("__all__", []):
             messages.error(request, error)
 
+    return redirect("web:deal_detail", pk=pk)
+
+
+# ── Creative Approval (Sprint 7) ───────────────────────────────────────────────
+
+@login_required
+@require_POST
+def deal_submit_creative(request, pk):
+    """Blogger submits creative for approval → status ON_APPROVAL.
+
+    Доступ: только блогер сделки.
+    Статус: только IN_PROGRESS.
+    Сохраняет: creative_text, creative_media, creative_submitted_at.
+    Уведомляет рекламодателя.
+    """
+    from django.db import transaction as db_transaction
+
+    deal = get_object_or_404(Deal, pk=pk, blogger=request.user)
+    if deal.status != Deal.Status.IN_PROGRESS:
+        messages.error(request, "Отправить креатив можно только для сделки «В работе».")
+        return redirect("web:deal_detail", pk=pk)
+
+    form = CreativeSubmitForm(request.POST, request.FILES)
+    if not form.is_valid():
+        for error in form.errors.get("__all__", []):
+            messages.error(request, error)
+        return redirect("web:deal_detail", pk=pk)
+
+    text = form.cleaned_data["creative_text"].strip()
+    media = form.cleaned_data.get("creative_media")
+
+    with db_transaction.atomic():
+        deal = Deal.objects.select_for_update().get(pk=pk)
+        if deal.status != Deal.Status.IN_PROGRESS:
+            messages.error(request, "Статус сделки изменился. Попробуйте ещё раз.")
+            return redirect("web:deal_detail", pk=pk)
+
+        DealStatusLog.log(
+            deal, Deal.Status.ON_APPROVAL,
+            changed_by=request.user,
+            comment="Блогер отправил креатив на согласование.",
+        )
+        deal.creative_text = text
+        if media:
+            deal.creative_media = media
+        deal.creative_submitted_at = timezone.now()
+        deal.creative_rejection_reason = ""
+        deal.status = Deal.Status.ON_APPROVAL
+        deal.save(update_fields=[
+            "creative_text", "creative_media", "creative_submitted_at",
+            "creative_rejection_reason", "status", "updated_at",
+        ])
+
+    ChatMessage.objects.create(
+        deal=deal,
+        text="Блогер отправил креатив на согласование.",
+        is_system=True,
+    )
+    NotificationService.notify_creative_submitted(deal.advertiser, deal)
+    messages.success(request, "Креатив отправлен на согласование рекламодателю.")
+    return redirect("web:deal_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def deal_approve_creative(request, pk):
+    """Advertiser approves creative → status back to IN_PROGRESS.
+
+    Доступ: только рекламодатель сделки.
+    Статус: только ON_APPROVAL.
+    Устанавливает creative_approved_at.
+    Уведомляет блогера.
+    """
+    from django.db import transaction as db_transaction
+
+    deal = get_object_or_404(Deal, pk=pk, advertiser=request.user)
+    if deal.status != Deal.Status.ON_APPROVAL:
+        messages.error(request, "Согласовать можно только сделку «На согласовании».")
+        return redirect("web:deal_detail", pk=pk)
+
+    with db_transaction.atomic():
+        deal = Deal.objects.select_for_update().get(pk=pk)
+        if deal.status != Deal.Status.ON_APPROVAL:
+            messages.error(request, "Статус сделки изменился. Попробуйте ещё раз.")
+            return redirect("web:deal_detail", pk=pk)
+
+        DealStatusLog.log(
+            deal, Deal.Status.IN_PROGRESS,
+            changed_by=request.user,
+            comment="Рекламодатель согласовал креатив.",
+        )
+        deal.creative_approved_at = timezone.now()
+        deal.creative_rejection_reason = ""
+        deal.status = Deal.Status.IN_PROGRESS
+        deal.save(update_fields=[
+            "creative_approved_at", "creative_rejection_reason", "status", "updated_at",
+        ])
+
+    ChatMessage.objects.create(
+        deal=deal,
+        text="Рекламодатель согласовал креатив. Можно публиковать!",
+        is_system=True,
+    )
+    NotificationService.notify_creative_approved(deal.blogger, deal)
+    messages.success(request, "Креатив согласован. Блогер может публиковать.")
+    return redirect("web:deal_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def deal_reject_creative(request, pk):
+    """Advertiser rejects creative → status back to IN_PROGRESS with rejection reason.
+
+    Доступ: только рекламодатель сделки.
+    Статус: только ON_APPROVAL.
+    Сохраняет creative_rejection_reason.
+    Уведомляет блогера.
+    """
+    from django.db import transaction as db_transaction
+
+    deal = get_object_or_404(Deal, pk=pk, advertiser=request.user)
+    if deal.status != Deal.Status.ON_APPROVAL:
+        messages.error(request, "Отклонить можно только сделку «На согласовании».")
+        return redirect("web:deal_detail", pk=pk)
+
+    reason = request.POST.get("rejection_reason", "").strip()
+    if not reason:
+        messages.error(request, "Укажите причину отклонения.")
+        return redirect("web:deal_detail", pk=pk)
+
+    with db_transaction.atomic():
+        deal = Deal.objects.select_for_update().get(pk=pk)
+        if deal.status != Deal.Status.ON_APPROVAL:
+            messages.error(request, "Статус сделки изменился. Попробуйте ещё раз.")
+            return redirect("web:deal_detail", pk=pk)
+
+        DealStatusLog.log(
+            deal, Deal.Status.IN_PROGRESS,
+            changed_by=request.user,
+            comment=f"Рекламодатель отклонил креатив: {reason}",
+        )
+        deal.creative_rejection_reason = reason
+        deal.status = Deal.Status.IN_PROGRESS
+        deal.save(update_fields=["creative_rejection_reason", "status", "updated_at"])
+
+    ChatMessage.objects.create(
+        deal=deal,
+        text=f"Рекламодатель отклонил креатив. Причина: {reason}",
+        is_system=True,
+    )
+    NotificationService.notify_creative_rejected(deal.blogger, deal)
+    messages.success(request, "Креатив отклонён. Блогер получил уведомление.")
     return redirect("web:deal_detail", pk=pk)

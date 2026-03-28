@@ -360,3 +360,37 @@ class ChatMessageForm(forms.Form):
         if not text and not file:
             raise forms.ValidationError("Введите текст или прикрепите файл.")
         return cleaned_data
+
+
+# ── Creative submit form (Sprint 7) ───────────────────────────────────────────
+
+class CreativeSubmitForm(forms.Form):
+    """Форма отправки креатива на согласование (Sprint 7).
+
+    Используется в deal_submit_creative view (только блогер).
+    Переводит сделку из IN_PROGRESS → ON_APPROVAL.
+
+    Поля:
+        creative_text  — текст креатива (необязательно если есть creative_media)
+        creative_media — медиафайл (необязательно если есть creative_text)
+    """
+
+    creative_text = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 5, "placeholder": "Текст рекламного поста..."}),
+        max_length=5000,
+        required=False,
+        label="Текст креатива",
+    )
+    creative_media = forms.FileField(
+        required=False,
+        label="Медиафайл",
+        help_text="Изображение или видео для публикации",
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        text = cleaned_data.get("creative_text", "").strip()
+        media = cleaned_data.get("creative_media")
+        if not text and not media:
+            raise forms.ValidationError("Укажите текст креатива или прикрепите медиафайл.")
+        return cleaned_data
