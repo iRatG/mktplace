@@ -100,4 +100,8 @@ urlpatterns = [
 
     # Analytics (Module 12)
     path("analytics/", views.analytics_view, name="analytics"),
+
+    # CPA Tracking (Sprint 8) — public endpoints, no login required
+    path("t/<slug:slug>/", views.cpa_click_track, name="cpa_click_track"),
+    path("pb/", views.cpa_postback, name="cpa_postback"),
 ]

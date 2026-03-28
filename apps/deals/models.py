@@ -1,6 +1,12 @@
+import uuid as _uuid
+
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+
+def _generate_slug():
+    return _uuid.uuid4().hex[:16]
 
 
 class Deal(models.Model):
@@ -187,3 +193,109 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review#{self.pk} by {self.author.email} → {self.target.email} ({self.rating}★)"
+
+
+# ── CPA Tracking (Sprint 8) ──────────────────────────────────────────────────
+
+class TrackingLink(models.Model):
+    """Уникальная трекинговая ссылка для CPA-сделки.
+
+    Создаётся лениво при первом открытии страницы сделки (get_or_create).
+    Slug — 16-символьный hex UUID, используется в публичном URL /t/<slug>/.
+    """
+
+    deal = models.OneToOneField(
+        Deal,
+        on_delete=models.CASCADE,
+        related_name="tracking_link",
+    )
+    slug = models.CharField(
+        max_length=16,
+        unique=True,
+        db_index=True,
+        default=_generate_slug,
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Tracking Link"
+        verbose_name_plural = "Tracking Links"
+
+    def __str__(self):
+        return f"TrackingLink#{self.pk} slug={self.slug} deal={self.deal_id}"
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse("web:cpa_click_track", kwargs={"slug": self.slug})
+
+
+class ClickLog(models.Model):
+    """Один клик по трекинговой ссылке."""
+
+    tracking_link = models.ForeignKey(
+        TrackingLink,
+        on_delete=models.CASCADE,
+        related_name="clicks",
+    )
+    click_id = models.UUIDField(unique=True, default=_uuid.uuid4, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Click Log"
+        verbose_name_plural = "Click Logs"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Click {self.click_id} on TrackingLink#{self.tracking_link_id}"
+
+
+class Conversion(models.Model):
+    """Конверсия по CPA-сделке.
+
+    Типы:
+    - CLICK  — мгновенная оплата при клике (без постбека)
+    - LEAD   — лид, подтверждается постбеком
+    - SALE   — продажа, подтверждается постбеком
+    - INSTALL — установка приложения, подтверждается постбеком
+
+    credited=True означает что BillingService.credit_cpa_conversion уже начислил.
+    """
+
+    class ConversionType(models.TextChoices):
+        CLICK = "click", "Click"
+        LEAD = "lead", "Lead"
+        SALE = "sale", "Sale"
+        INSTALL = "install", "Install"
+
+    tracking_link = models.ForeignKey(
+        TrackingLink,
+        on_delete=models.CASCADE,
+        related_name="conversions",
+    )
+    click_log = models.ForeignKey(
+        ClickLog,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="conversions",
+    )
+    conversion_type = models.CharField(
+        max_length=20,
+        choices=ConversionType.choices,
+        default=ConversionType.CLICK,
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    credited = models.BooleanField(default=False)
+    postback_raw = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Conversion"
+        verbose_name_plural = "Conversions"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Conversion#{self.pk} type={self.conversion_type} amount={self.amount} credited={self.credited}"

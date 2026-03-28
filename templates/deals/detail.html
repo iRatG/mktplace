@@ -298,6 +298,69 @@
         </div>
         {% endif %}
 
+        <!-- CPA Tracking block (Sprint 8) — shown when deal is CPA type -->
+        {% if tracking_link %}
+        <div class="card-dark rounded-xl p-6">
+            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">CPA трекинг</h2>
+            {% if user.role == 'blogger' %}
+            <p class="text-slate-400 text-sm mb-3">
+                Поделитесь этой ссылкой для трекинга кликов и конверсий. Каждая конверсия — это оплата.
+            </p>
+            <div class="flex items-center gap-2 mb-4">
+                <input id="cpa-link-input" type="text"
+                       class="input-dark flex-1 text-sm"
+                       value="{{ request.scheme }}://{{ request.get_host }}{% url 'web:cpa_click_track' tracking_link.slug %}"
+                       readonly>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('cpa-link-input').value).then(()=>this.textContent='✓ Скопировано').catch(()=>{})"
+                        class="btn-orange px-4 py-2 text-sm rounded-xl whitespace-nowrap">
+                    Копировать
+                </button>
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-center">
+                <div class="rounded-lg bg-slate-800/50 p-3">
+                    <div class="text-lg font-bold text-white">{{ tracking_link.clicks.count }}</div>
+                    <div class="text-xs text-slate-400 mt-1">Кликов</div>
+                </div>
+                <div class="rounded-lg bg-slate-800/50 p-3">
+                    <div class="text-lg font-bold text-white">{{ tracking_link.conversions.count }}</div>
+                    <div class="text-xs text-slate-400 mt-1">Конверсий</div>
+                </div>
+                <div class="rounded-lg bg-slate-800/50 p-3">
+                    <div class="text-lg font-bold text-emerald-400">
+                        {% with credited=tracking_link.conversions.all %}
+                        {{ credited|length }}
+                        {% endwith %}
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1">Зачислено</div>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-slate-400 text-sm mb-3">
+                Тип: <span class="text-white font-medium">{{ deal.campaign.get_cpa_type_display }}</span>
+                &nbsp;·&nbsp; Ставка: <span class="text-emerald-400 font-medium">{{ deal.campaign.cpa_rate }} {{ currency.symbol }}</span>
+            </p>
+            <div class="grid grid-cols-3 gap-3 text-center">
+                <div class="rounded-lg bg-slate-800/50 p-3">
+                    <div class="text-lg font-bold text-white">{{ tracking_link.clicks.count }}</div>
+                    <div class="text-xs text-slate-400 mt-1">Кликов</div>
+                </div>
+                <div class="rounded-lg bg-slate-800/50 p-3">
+                    <div class="text-lg font-bold text-white">{{ tracking_link.conversions.count }}</div>
+                    <div class="text-xs text-slate-400 mt-1">Конверсий</div>
+                </div>
+                <div class="rounded-lg bg-slate-800/50 p-3">
+                    <div class="text-lg font-bold text-orange-400">
+                        {% with total=tracking_link.conversions.all %}
+                        {{ total|length }}
+                        {% endwith %}
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1">Всего</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <!-- Review block (Module 7) — shown only for COMPLETED deals -->
         {% if existing_review %}
         <div class="card-dark rounded-xl p-6">

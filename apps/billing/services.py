@@ -168,3 +168,65 @@ class BillingService:
             description=f"Refund for rejected withdrawal request #{withdrawal.pk}",
         )
         return wallet
+
+    # ── CPA (Sprint 8) ──────────────────────────────────────────────────────
+
+    @classmethod
+    @db_transaction.atomic
+    def credit_cpa_conversion(cls, conversion):
+        """
+        Credit blogger for a CPA conversion.
+
+        - Deducts `conversion.amount` from advertiser's available_balance.
+        - Credits blogger after platform commission.
+        - Marks conversion.credited = True.
+        - Idempotent: raises ValueError if already credited.
+        """
+        from apps.deals.models import Conversion  # local import to avoid circular
+
+        if conversion.credited:
+            raise ValueError(f"Conversion #{conversion.pk} is already credited.")
+
+        deal = conversion.tracking_link.deal
+        amount = conversion.amount
+
+        advertiser_wallet = cls._get_or_create_wallet(deal.advertiser)
+        if advertiser_wallet.available_balance < amount:
+            raise ValueError("Advertiser has insufficient funds for CPA conversion.")
+
+        commission_percent = Decimal(
+            getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15)
+        )
+        commission = (amount * commission_percent / Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        blogger_earning = amount - commission
+
+        # Deduct from advertiser
+        advertiser_wallet.available_balance -= amount
+        advertiser_wallet.save(update_fields=["available_balance", "updated_at"])
+        Transaction.objects.create(
+            wallet=advertiser_wallet,
+            type=Transaction.Type.PAYMENT,
+            amount=-amount,
+            balance_after=advertiser_wallet.available_balance,
+            deal=deal,
+            description=f"CPA conversion #{conversion.pk} for deal #{deal.pk}",
+        )
+
+        # Credit blogger
+        blogger_wallet = cls._get_or_create_wallet(deal.blogger)
+        blogger_wallet.available_balance += blogger_earning
+        blogger_wallet.save(update_fields=["available_balance", "updated_at"])
+        Transaction.objects.create(
+            wallet=blogger_wallet,
+            type=Transaction.Type.EARNING,
+            amount=blogger_earning,
+            balance_after=blogger_wallet.available_balance,
+            deal=deal,
+            description=f"CPA earning for conversion #{conversion.pk} deal #{deal.pk}",
+        )
+
+        conversion.credited = True
+        conversion.save(update_fields=["credited"])
+        return advertiser_wallet, blogger_wallet

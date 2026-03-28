@@ -739,6 +739,17 @@ def deal_detail(request, pk):
         and (user == deal.blogger or user == deal.advertiser or user.is_staff)
     )
 
+    # CPA tracking link (Sprint 8) — create lazily for CPA deals
+    from apps.deals.models import TrackingLink
+    tracking_link = None
+    campaign = deal.campaign
+    if (
+        campaign.payment_type == campaign.PaymentType.CPA
+        and deal.status not in {Deal.Status.CANCELLED}
+        and not user.is_staff
+    ):
+        tracking_link, _ = TrackingLink.objects.get_or_create(deal=deal)
+
     return render(request, "deals/detail.html", {
         "deal": deal,
         "logs": logs,
@@ -748,6 +759,7 @@ def deal_detail(request, pk):
         "chat_messages": chat_messages,
         "chat_form": chat_form,
         "can_send_message": can_send_message,
+        "tracking_link": tracking_link,
     })
 
 
@@ -1954,3 +1966,135 @@ def deal_reject_creative(request, pk):
     NotificationService.notify_creative_rejected(deal.blogger, deal)
     messages.success(request, "Креатив отклонён. Блогер получил уведомление.")
     return redirect("web:deal_detail", pk=pk)
+
+
+# ── CPA Tracking (Sprint 8) ──────────────────────────────────────────────────
+
+def cpa_click_track(request, slug):
+    """Публичный endpoint: /t/<slug>/
+
+    Логирует клик, создаёт конверсию (для click-type сразу начисляет).
+    Редиректит на cpa_tracking_url кампании или на '/' если не задан.
+    Авторизация не требуется — публичная ссылка для конечных пользователей.
+    """
+    from apps.deals.models import ClickLog, Conversion, TrackingLink
+    from apps.billing.services import BillingService
+
+    try:
+        tl = TrackingLink.objects.select_related(
+            "deal__campaign"
+        ).get(slug=slug, is_active=True)
+    except TrackingLink.DoesNotExist:
+        from django.http import Http404
+        raise Http404
+
+    # Log the click
+    ip = (
+        request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
+        or request.META.get("REMOTE_ADDR")
+        or None
+    )
+    ua = request.META.get("HTTP_USER_AGENT", "")[:1000]
+    click = ClickLog.objects.create(tracking_link=tl, ip=ip, user_agent=ua)
+
+    campaign = tl.deal.campaign
+    cpa_type = campaign.cpa_type or ""
+    cpa_rate = campaign.cpa_rate
+
+    if cpa_type == campaign.CPAType.CLICK and cpa_rate:
+        # Immediate conversion + billing
+        conversion = Conversion.objects.create(
+            tracking_link=tl,
+            click_log=click,
+            conversion_type=Conversion.ConversionType.CLICK,
+            amount=cpa_rate,
+        )
+        try:
+            BillingService.credit_cpa_conversion(conversion)
+        except ValueError:
+            pass  # insufficient funds — conversion stays uncredited
+
+    # Redirect to target URL, appending click_id for postback attribution
+    target_url = campaign.cpa_tracking_url or "/"
+    if "?" in target_url:
+        target_url += f"&click_id={click.click_id}"
+    else:
+        target_url += f"?click_id={click.click_id}"
+
+    return redirect(target_url)
+
+
+def cpa_postback(request):
+    """Публичный postback endpoint: /pb/?click_id=UUID&goal=lead
+
+    Принимает GET/POST.
+    Обязательный параметр: click_id (UUID)
+    Опциональный: goal (lead/sale/install), по умолчанию lead.
+    Создаёт Conversion и начисляет через BillingService.
+    Идемпотентен: повторный постбек с тем же click_id игнорируется.
+    """
+    from apps.deals.models import ClickLog, Conversion
+    from apps.billing.services import BillingService
+
+    params = request.GET if request.method == "GET" else request.POST
+    click_id_raw = params.get("click_id", "").strip()
+    goal = params.get("goal", "lead").strip().lower()
+
+    if not click_id_raw:
+        from django.http import JsonResponse
+        return JsonResponse({"status": "error", "detail": "click_id required"}, status=400)
+
+    try:
+        import uuid
+        click_id = uuid.UUID(click_id_raw)
+    except ValueError:
+        from django.http import JsonResponse
+        return JsonResponse({"status": "error", "detail": "invalid click_id"}, status=400)
+
+    try:
+        click = ClickLog.objects.select_related(
+            "tracking_link__deal__campaign"
+        ).get(click_id=click_id)
+    except ClickLog.DoesNotExist:
+        from django.http import JsonResponse
+        return JsonResponse({"status": "error", "detail": "click not found"}, status=404)
+
+    # Map goal → ConversionType
+    goal_map = {
+        "lead": Conversion.ConversionType.LEAD,
+        "sale": Conversion.ConversionType.SALE,
+        "install": Conversion.ConversionType.INSTALL,
+    }
+    conv_type = goal_map.get(goal, Conversion.ConversionType.LEAD)
+
+    # Idempotency: one credited conversion per click per goal
+    already = Conversion.objects.filter(
+        click_log=click, conversion_type=conv_type, credited=True
+    ).exists()
+    if already:
+        from django.http import JsonResponse
+        return JsonResponse({"status": "ok", "detail": "already credited"})
+
+    campaign = click.tracking_link.deal.campaign
+    cpa_rate = campaign.cpa_rate
+    if not cpa_rate:
+        from django.http import JsonResponse
+        return JsonResponse({"status": "error", "detail": "no cpa_rate on campaign"}, status=400)
+
+    import json as _json
+    postback_raw = _json.dumps(dict(params))
+
+    conversion = Conversion.objects.create(
+        tracking_link=click.tracking_link,
+        click_log=click,
+        conversion_type=conv_type,
+        amount=cpa_rate,
+        postback_raw=postback_raw,
+    )
+    try:
+        BillingService.credit_cpa_conversion(conversion)
+        from django.http import JsonResponse
+        return JsonResponse({"status": "ok", "conversion_id": conversion.pk})
+    except ValueError as e:
+        from django.http import JsonResponse
+        return JsonResponse({"status": "error", "detail": str(e)}, status=402)
