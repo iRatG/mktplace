@@ -174,6 +174,21 @@ make deploy      # Деплой на production
 → COMPLETED (деньги блогеру) / DISPUTED (спор)
 ```
 
+### CPA-модель
+
+```
+Рекламодатель создаёт кампанию с payment_type=CPA (cpa_type: click/lead/sale/install)
+        ↓
+Блогер открывает страницу сделки → TrackingLink создаётся автоматически
+        ↓
+Блогер копирует ссылку /t/<slug>/ и публикует её аудитории
+        ↓
+Пользователь кликает → ClickLog → редирект на cpa_tracking_url?click_id=UUID
+    ├─ cpa_type=CLICK → Conversion + BillingService.credit_cpa_conversion мгновенно
+    └─ cpa_type=LEAD/SALE/INSTALL → ждём постбек /pb/?click_id=UUID&goal=lead
+                                          → Conversion + billing при получении постбека
+```
+
 ### Celery задачи (периодические)
 
 | Задача | Расписание | Описание |
@@ -220,6 +235,10 @@ nohup docker-compose -f docker-compose.vps.yml up -d --build > /tmp/deploy.log 2
 | Кампании | `/campaigns/`, `/campaigns/create/`, `/campaigns/<pk>/` | По роли |
 | Сделки | `/deals/`, `/deals/<pk>/` | По роли |
 | **Отзыв о сделке** | `/deals/<pk>/review/` | Рекламодатель |
+| **Сообщение в чате** | `/deals/<pk>/messages/` | Стороны сделки |
+| **Отправить креатив** | `/deals/<pk>/submit-creative/` | Блогер |
+| **Согласовать креатив** | `/deals/<pk>/approve-creative/` | Рекламодатель |
+| **Отклонить креатив** | `/deals/<pk>/reject-creative/` | Рекламодатель |
 | Кошелёк | `/wallet/` | Авторизованные |
 | **Уведомления** | `/notifications/` | Авторизованные |
 | **Каталог блогеров** | `/bloggers/` | Рекламодатель |
@@ -233,6 +252,8 @@ nohup docker-compose -f docker-compose.vps.yml up -d --build > /tmp/deploy.log 2
 | Пользователи (поиск, блок) | `/panel/users/` | is_staff |
 | **Категории** | `/panel/categories/` | is_staff |
 | **Аналитика** | `/analytics/` | По роли (adv/blogger) |
+| **CPA-трекинг (публичный)** | `/t/<slug>/` | Публичный (без авторизации) |
+| **CPA-постбек (публичный)** | `/pb/` | Публичный (без авторизации) |
 | FAQ | `/faq/` | Публичный |
 
 ### Демо-аккаунты
@@ -261,16 +282,17 @@ docker compose run --rm web python manage.py seed_demo_data --reset
 | 5. Кампании | ✅ | CRUD, статусы, draft→moderation→active→paused/cancelled/completed |
 | 6. Отклики | ✅ | Блогер откликается, рекламодатель принимает/отклоняет, max_bloggers guard |
 | 7. Сделки + Отзывы | ✅ | Жизненный цикл, DealStatusLog, submit/confirm/cancel, Celery авто-задачи; Review модель (1–5★, 7 дней окно, пересчёт рейтинга) |
+| 7. Чат в сделке | ✅ | ChatMessage, прикрепление файлов, bubble UI, системные сообщения, read-only после завершения |
+| 7. Согласование креатива | ✅ | ON_APPROVAL статус, блогер отправляет черновик, рекламодатель одобряет/отклоняет с причиной |
 | 8. Биллинг | ✅ | Кошелёк, эскроу, транзакции, вывод средств, BillingService |
+| 9. CPA-модель | ✅ | TrackingLink (/t/<slug>/), ClickLog, Conversion (CLICK/LEAD/SALE/INSTALL), postback /pb/, BillingService.credit_cpa_conversion |
 | 10. Каталог блогеров | ✅ | Каталог с фильтрами, прямые предложения (DirectOffer), accept/reject |
 | 11A. In-app уведомления | ✅ | NotificationService, колокольчик в меню, страница уведомлений, авто-очистка 90 дней |
 | 12. Аналитика | ✅ | Дашборд рекламодателя (расходы, конверсия, кампании по статусам), блогера (заработок, рейтинг, отклики), админа (доход платформы, топ пользователей) |
 | 13. Админ-панель | ✅ | Модерация кампаний, площадок, споры, выводы; поиск пользователей, блокировка, CRUD категорий |
 
 **Не реализовано (следующие итерации):**
-- Модуль 9: CPA-модель (трекинговые ссылки, конверсии)
-- Модуль 11B/C: Email-уведомления, Telegram-бот
-- Сделки: согласование креатива (ON_APPROVAL), чат
+- Модуль 11B/C: Email-уведомления (SMTP заблокирован на текущем VPS), Telegram-бот
 
 ## API
 
@@ -299,7 +321,7 @@ make migrate
 ### Тесты
 
 ```bash
-# Все тесты (277 тестов)
+# Все тесты (357 тестов)
 docker compose run --rm web python manage.py test apps --noinput
 
 # URL/интеграционные тесты (129 тестов)
@@ -319,6 +341,15 @@ docker compose run --rm web python manage.py test apps.web.tests_reviews -v 2
 
 # Тесты аналитики (24 теста)
 docker compose run --rm web python manage.py test apps.web.tests_analytics -v 2
+
+# Тесты чата в сделке (27 тестов)
+docker compose run --rm web python manage.py test apps.web.tests_chat -v 2
+
+# Тесты согласования креатива (27 тестов)
+docker compose run --rm web python manage.py test apps.web.tests_creative -v 2
+
+# Тесты CPA-модели (28 тестов)
+docker compose run --rm web python manage.py test apps.web.tests_cpa -v 2
 ```
 
 ### Запуск без Docker (для отладки отдельного сервиса)
