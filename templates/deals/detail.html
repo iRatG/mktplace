@@ -279,4 +279,152 @@
     </div>
 
 </div>
+
+<!-- ═══════════════════════════════════════════════════════
+     CHAT — Sprint 6
+     Полная ширина, ниже основного grid
+     Системные сообщения (is_system=True) — по центру серым
+     Своё сообщение — справа оранжевым, чужое — слева тёмным
+═══════════════════════════════════════════════════════ -->
+<div class="mt-6">
+    <div class="card-dark rounded-xl p-6">
+        <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">
+            Чат сделки
+            {% if chat_messages %}
+            <span class="ml-2 text-xs font-normal text-slate-500 normal-case">({{ chat_messages|length }} сообщ.)</span>
+            {% endif %}
+        </h2>
+
+        <!-- Messages list -->
+        {% if chat_messages %}
+        <div class="space-y-3 mb-5 max-h-96 overflow-y-auto pr-1" id="chat-messages">
+            {% for msg in chat_messages %}
+
+            {% if msg.is_system %}
+            <!-- System message — centered -->
+            <div class="flex justify-center">
+                <div class="px-3 py-1 rounded-full bg-slate-700/50 text-xs text-slate-500 italic">
+                    {{ msg.text }}
+                    <span class="ml-2 text-slate-600">{{ msg.created_at|date:"d.m H:i" }}</span>
+                </div>
+            </div>
+
+            {% elif msg.sender == user %}
+            <!-- Own message — right side -->
+            <div class="flex justify-end">
+                <div class="max-w-[70%]">
+                    <div class="bg-orange-500/20 border border-orange-500/20 rounded-2xl rounded-tr-sm px-4 py-2.5">
+                        {% if msg.text %}
+                        <p class="text-sm text-white leading-relaxed whitespace-pre-wrap">{{ msg.text }}</p>
+                        {% endif %}
+                        {% if msg.file %}
+                        <a href="{{ msg.file.url }}" target="_blank"
+                           class="inline-flex items-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 mt-1 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                            </svg>
+                            {{ msg.file.name|slice:"15:" }}
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-slate-600 text-right mt-0.5 pr-1">
+                        {{ msg.created_at|date:"d.m H:i" }}
+                    </div>
+                </div>
+            </div>
+
+            {% else %}
+            <!-- Counterpart message — left side -->
+            <div class="flex justify-start gap-2">
+                <div class="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0 mt-0.5">
+                    <span class="text-xs text-slate-300 font-medium">
+                        {{ msg.sender.email|slice:":1"|upper }}
+                    </span>
+                </div>
+                <div class="max-w-[70%]">
+                    <div class="text-xs text-slate-500 mb-0.5">
+                        {% if msg.sender == deal.blogger %}Блогер
+                        {% elif msg.sender == deal.advertiser %}Рекламодатель
+                        {% else %}Поддержка{% endif %}
+                    </div>
+                    <div class="bg-slate-700/50 border border-slate-600/30 rounded-2xl rounded-tl-sm px-4 py-2.5">
+                        {% if msg.text %}
+                        <p class="text-sm text-white leading-relaxed whitespace-pre-wrap">{{ msg.text }}</p>
+                        {% endif %}
+                        {% if msg.file %}
+                        <a href="{{ msg.file.url }}" target="_blank"
+                           class="inline-flex items-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 mt-1 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                            </svg>
+                            {{ msg.file.name|slice:"15:" }}
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-slate-600 mt-0.5 pl-1">
+                        {{ msg.created_at|date:"d.m H:i" }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-slate-600 text-sm mb-5">Сообщений пока нет. Начните диалог.</p>
+        {% endif %}
+
+        <!-- Send form / read-only notice -->
+        {% if can_send_message %}
+        <form method="post" action="{% url 'web:deal_send_message' deal.pk %}"
+              enctype="multipart/form-data" class="space-y-2">
+            {% csrf_token %}
+            <div class="flex gap-2 items-end">
+                <textarea name="text" rows="2"
+                          class="input-dark flex-1 resize-none text-sm"
+                          placeholder="Напишите сообщение..."></textarea>
+                <button type="submit"
+                        class="btn-orange px-4 py-2 text-sm rounded-xl shrink-0 h-[4.5rem]">
+                    Отправить
+                </button>
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-slate-500 cursor-pointer hover:text-slate-300 transition-colors">
+                    <input type="file" name="file" class="hidden"
+                           onchange="this.parentElement.querySelector('span').textContent = this.files[0]?.name || 'Прикрепить файл'">
+                    <span class="inline-flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                        </svg>
+                        Прикрепить файл
+                    </span>
+                </label>
+            </div>
+        </form>
+        {% else %}
+        <div class="rounded-xl px-4 py-3 bg-slate-700/30 border border-slate-600/20">
+            <p class="text-xs text-slate-500">
+                {% if deal.status == 'completed' or deal.status == 'cancelled' %}
+                Чат закрыт — сделка завершена. История сообщений сохранена.
+                {% else %}
+                У вас нет доступа к чату этой сделки.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Auto-scroll to bottom of chat -->
+<script>
+(function() {
+    var chatBox = document.getElementById('chat-messages');
+    if (chatBox) { chatBox.scrollTop = chatBox.scrollHeight; }
+})();
+</script>
+
 {% endblock %}

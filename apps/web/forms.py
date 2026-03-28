@@ -327,3 +327,36 @@ class CategoryForm(forms.Form):
 
     name = forms.CharField(max_length=100, label="Название")
     slug = forms.SlugField(max_length=100, label="Slug")
+
+
+class ChatMessageForm(forms.Form):
+    """Форма отправки сообщения в чате сделки (Модуль 7 / Sprint 6).
+
+    Используется в deal_send_message view.
+    Доступна сторонам сделки (блогер, рекламодатель) и is_staff.
+    После завершения/отмены сделки чат переходит в режим только чтения.
+
+    Поля:
+        text — текст сообщения (необязательно если есть file)
+        file — прикреплённый файл до 10 МБ (необязательно если есть text)
+    """
+
+    text = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 2, "placeholder": "Напишите сообщение..."}),
+        max_length=2000,
+        required=False,
+        label="",
+    )
+    file = forms.FileField(
+        required=False,
+        label="",
+        help_text="До 10 МБ",
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        text = cleaned_data.get("text", "").strip()
+        file = cleaned_data.get("file")
+        if not text and not file:
+            raise forms.ValidationError("Введите текст или прикрепите файл.")
+        return cleaned_data

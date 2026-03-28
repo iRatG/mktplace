@@ -16,7 +16,7 @@ from apps.billing.models import Transaction, Wallet, WithdrawalRequest
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
-from apps.deals.models import Deal, DealStatusLog, Review
+from apps.deals.models import ChatMessage, Deal, DealStatusLog, Review
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Category, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
@@ -29,6 +29,7 @@ from .forms import (
     CampaignForm,
     CatalogFilterForm,
     CategoryForm,
+    ChatMessageForm,
     DirectOfferForm,
     LoginForm,
     PasswordResetConfirmForm,
@@ -728,12 +729,24 @@ def deal_detail(request, pk):
                     can_review = True
                     review_form = ReviewForm()
 
+    # Chat context (Sprint 6)
+    chat_messages = deal.messages.select_related("sender").all()
+    chat_form = ChatMessageForm()
+    read_only_statuses = {Deal.Status.COMPLETED, Deal.Status.CANCELLED}
+    can_send_message = (
+        deal.status not in read_only_statuses
+        and (user == deal.blogger or user == deal.advertiser or user.is_staff)
+    )
+
     return render(request, "deals/detail.html", {
         "deal": deal,
         "logs": logs,
         "can_review": can_review,
         "existing_review": existing_review,
         "review_form": review_form,
+        "chat_messages": chat_messages,
+        "chat_form": chat_form,
+        "can_send_message": can_send_message,
     })
 
 
@@ -1744,3 +1757,47 @@ def _analytics_blogger(request, user):
         "recent_completed": recent_completed,
     }
     return render(request, "analytics/blogger.html", context)
+
+
+# ── Chat (Sprint 6) ────────────────────────────────────────────────────────────
+
+@login_required
+@require_POST
+def deal_send_message(request, pk):
+    """Отправка сообщения в чат сделки (Модуль 7 / Sprint 6).
+
+    Доступ: блогер или рекламодатель сделки, либо is_staff.
+    Гард: COMPLETED и CANCELLED → чат только для чтения.
+    Создаёт ChatMessage(deal, sender, text, file).
+    """
+    user = request.user
+
+    # Получаем сделку с проверкой доступа
+    if user.is_staff:
+        deal = get_object_or_404(Deal, pk=pk)
+    elif user.role == User.Role.ADVERTISER:
+        deal = get_object_or_404(Deal, pk=pk, advertiser=user)
+    else:
+        deal = get_object_or_404(Deal, pk=pk, blogger=user)
+
+    # Гард: завершённые и отменённые сделки — только чтение
+    read_only_statuses = {Deal.Status.COMPLETED, Deal.Status.CANCELLED}
+    if deal.status in read_only_statuses:
+        messages.error(request, "Чат этой сделки доступен только для чтения.")
+        return redirect("web:deal_detail", pk=pk)
+
+    form = ChatMessageForm(request.POST, request.FILES)
+    if form.is_valid():
+        text = form.cleaned_data["text"].strip()
+        file = form.cleaned_data.get("file")
+        ChatMessage.objects.create(
+            deal=deal,
+            sender=user,
+            text=text,
+            file=file,
+        )
+    else:
+        for error in form.errors.get("__all__", []):
+            messages.error(request, error)
+
+    return redirect("web:deal_detail", pk=pk)
