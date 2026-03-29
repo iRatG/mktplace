@@ -58,6 +58,25 @@
                 <span class="text-xs px-2.5 py-1 rounded-full bg-slate-500/10 text-slate-400 whitespace-nowrap">{{ deal.get_status_display }}</span>
                 {% endif %}
 
+                {# ── Action badge: требует вашего действия ── #}
+                {% if user.role == 'advertiser' or user.is_staff %}
+                    {% if deal.status == 'checking' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/40 whitespace-nowrap font-medium">↑ Подтвердите</span>
+                    {% elif deal.status == 'on_approval' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 whitespace-nowrap font-medium">↑ Согласуйте</span>
+                    {% elif deal.status == 'disputed' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/40 whitespace-nowrap font-medium">⚠ Спор</span>
+                    {% endif %}
+                {% else %}
+                    {% if deal.status == 'in_progress' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 whitespace-nowrap font-medium">↑ Разместите</span>
+                    {% elif deal.status == 'on_approval' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 whitespace-nowrap font-medium">↑ Отправьте креатив</span>
+                    {% elif deal.status == 'waiting_payment' %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 whitespace-nowrap font-medium">⏳ Ждёт оплаты</span>
+                    {% endif %}
+                {% endif %}
+
                 <a href="{% url 'web:deal_detail' deal.pk %}"
                    class="text-sm text-orange-400 hover:text-orange-300 transition-colors">
                     Открыть →
@@ -83,4 +102,5 @@
     {% endif %}
 </div>
 {% endif %}
+{% include "partials/pagination.html" %}
 {% endblock %}

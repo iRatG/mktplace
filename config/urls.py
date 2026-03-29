@@ -4,6 +4,24 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+handler404 = "config.urls.page_not_found_view"
+handler500 = "config.urls.server_error_view"
+
+
+def page_not_found_view(request, exception=None):
+    from django.template import loader
+    from django.http import HttpResponseNotFound
+    t = loader.get_template("404.html")
+    return HttpResponseNotFound(t.render())
+
+
+def server_error_view(request):
+    from django.template import loader
+    from django.http import HttpResponse
+    t = loader.get_template("500.html")
+    return HttpResponse(t.render(), status=500)
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 

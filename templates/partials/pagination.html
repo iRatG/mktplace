@@ -1,0 +1,35 @@
+{% if page_obj.has_other_pages %}
+<div class="flex items-center justify-center gap-1 mt-6">
+    {% if page_obj.has_previous %}
+    <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}"
+       class="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+        ← Назад
+    </a>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <span class="px-3 py-2 rounded-lg text-sm font-semibold text-orange-400 bg-orange-500/10 border border-orange-500/30">
+            {{ num }}
+        </span>
+        {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+        <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ num }}"
+           class="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+            {{ num }}
+        </a>
+        {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}"
+       class="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+        Вперёд →
+    </a>
+    {% endif %}
+
+    <span class="ml-3 text-xs text-slate-600">
+        стр. {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+        ({{ page_obj.paginator.count }} записей)
+    </span>
+</div>
+{% endif %}

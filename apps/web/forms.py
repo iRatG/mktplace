@@ -42,6 +42,7 @@ class CampaignForm(forms.ModelForm):
         fields = [
             "name", "description", "category",
             "payment_type", "fixed_price", "budget",
+            "cpa_type", "cpa_rate", "cpa_tracking_url",
             "start_date", "end_date", "deadline",
             "min_subscribers", "content_types", "allowed_socials",
             "max_bloggers",
@@ -63,9 +64,36 @@ class CampaignForm(forms.ModelForm):
             self.initial["allowed_socials"] = self.instance.allowed_socials
 
     def clean(self):
+        from django.utils import timezone as _tz
         cleaned = super().clean()
-        if cleaned.get("payment_type") == Campaign.PaymentType.FIXED and not cleaned.get("fixed_price"):
-            self.add_error("fixed_price", "Укажите фиксированную цену.")
+        payment_type = cleaned.get("payment_type")
+
+        # Fixed: обязательна fixed_price > 0
+        if payment_type == Campaign.PaymentType.FIXED:
+            if not cleaned.get("fixed_price"):
+                self.add_error("fixed_price", "Укажите фиксированную цену.")
+            elif cleaned["fixed_price"] <= 0:
+                self.add_error("fixed_price", "Цена должна быть больше нуля.")
+
+        # CPA: cpa_type и cpa_rate обязательны, cpa_rate > 0
+        if payment_type == Campaign.PaymentType.CPA:
+            if not cleaned.get("cpa_type"):
+                self.add_error("cpa_type", "Укажите тип CPA конверсии.")
+            if not cleaned.get("cpa_rate"):
+                self.add_error("cpa_rate", "Укажите ставку за конверсию.")
+            elif cleaned["cpa_rate"] <= 0:
+                self.add_error("cpa_rate", "Ставка должна быть больше нуля.")
+
+        # budget > 0
+        budget = cleaned.get("budget")
+        if budget is not None and budget <= 0:
+            self.add_error("budget", "Бюджет должен быть больше нуля.")
+
+        # deadline не в прошлом (только при создании / при изменении)
+        deadline = cleaned.get("deadline")
+        if deadline and deadline < _tz.now().date():
+            self.add_error("deadline", "Дедлайн не может быть в прошлом.")
+
         return cleaned
 
 
