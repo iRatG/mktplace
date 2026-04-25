@@ -165,6 +165,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.notifications.tasks.cleanup_old_notifications',
         'schedule': 86400,  # daily (24h)
     },
+    'check-permit-expiry': {
+        'task': 'apps.platforms.tasks.check_permit_expiry',
+        'schedule': 86400,  # daily (24h) — REQ-2
+    },
 }
 
 # DRF

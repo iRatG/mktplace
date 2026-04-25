@@ -44,6 +44,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     login_attempts = models.PositiveSmallIntegerField(default=0)
     blocked_until = models.DateTimeField(null=True, blank=True)
 
+    is_demo = models.BooleanField(default=False, help_text="Demo account — test balance only, withdrawals blocked")
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(default=timezone.now)

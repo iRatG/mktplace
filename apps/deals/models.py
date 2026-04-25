@@ -76,6 +76,17 @@ class Deal(models.Model):
     dispute_resolved_at = models.DateTimeField(null=True, blank=True)
     dispute_resolution = models.TextField(blank=True)
 
+    # Data retention fields (REQ-5 — Закон «О рекламе» ст.15, 3 года хранения)
+    last_distributed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Дата последнего распространения рекламы. От этой даты отсчитывается 3-летний срок хранения материалов.",
+    )
+    is_frozen = models.BooleanField(
+        default=False,
+        help_text="Материалы заморожены (активный или завершённый спор) — удаление запрещено до истечения 3 лет.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

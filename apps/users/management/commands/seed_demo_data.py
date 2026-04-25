@@ -377,7 +377,9 @@ class Command(BaseCommand):
         )
         if created:
             user.set_password("Demo1234!")
-            user.save(update_fields=["password"])
+            user.is_email_confirmed = True
+            user.is_demo = True
+            user.save(update_fields=["password", "is_email_confirmed", "is_demo"])
             self.stdout.write(f"  👤 Доп. блогер создан: {email}")
         # Обеспечиваем профиль с никнеймом
         from apps.profiles.models import BloggerProfile

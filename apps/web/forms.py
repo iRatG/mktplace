@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 from apps.campaigns.models import Campaign, DirectOffer
-from apps.platforms.models import Category, Platform
+from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.users.models import User
 
@@ -422,3 +422,40 @@ class CreativeSubmitForm(forms.Form):
         if not text and not media:
             raise forms.ValidationError("Укажите текст креатива или прикрепите медиафайл.")
         return cleaned_data
+
+
+class PermitDocumentForm(forms.ModelForm):
+    """Форма загрузки разрешительного документа пользователем (REQ-2).
+
+    Позволяет загрузить лицензию/разрешение/уведомление для регулируемой категории.
+    Категория ограничена только регулируемыми (is_regulated=True).
+    """
+
+    class Meta:
+        model = PermitDocument
+        fields = ["category", "doc_type", "doc_number", "issued_by", "issued_date", "expires_at", "file"]
+        widgets = {
+            "issued_date": forms.DateInput(attrs={"type": "date"}),
+            "expires_at": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["category"].queryset = Category.objects.filter(is_regulated=True)
+        self.fields["category"].label = "Регулируемая категория"
+        self.fields["doc_type"].label = "Тип документа"
+        self.fields["doc_number"].label = "Номер документа"
+        self.fields["issued_by"].label = "Орган, выдавший документ"
+        self.fields["issued_date"].label = "Дата выдачи"
+        self.fields["expires_at"].label = "Срок действия (оставьте пустым если бессрочный)"
+        self.fields["file"].label = "Файл документа (PDF, JPG, PNG)"
+
+
+class AdminPermitRejectForm(forms.Form):
+    """Форма отклонения разрешительного документа администратором (REQ-2)."""
+
+    rejection_reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Укажите причину отклонения..."}),
+        label="Причина отклонения",
+        max_length=1000,
+    )

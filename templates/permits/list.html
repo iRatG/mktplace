@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Разрешительные документы — Mktplace{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-white">Разрешительные документы</h1>
+            <p class="text-slate-400 text-sm mt-1">
+                Необходимы для регулируемых категорий согласно Приложению №1 к Закону РУз № ЗРУ-701 от 14.07.2021
+            </p>
+        </div>
+        <a href="{% url 'web:permit_upload' %}" class="btn-orange px-4 py-2 rounded-xl text-sm">
+            + Загрузить документ
+        </a>
+    </div>
+
+    {% if permits %}
+    <div class="space-y-3">
+        {% for permit in permits %}
+        <div class="card-dark rounded-xl p-5">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-sm font-semibold text-white">{{ permit.get_doc_type_display }}</span>
+                        <span class="text-xs text-slate-500">№ {{ permit.doc_number }}</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full
+                            {% if permit.status == 'approved' %}bg-green-500/15 text-green-400
+                            {% elif permit.status == 'pending' %}bg-yellow-500/15 text-yellow-400
+                            {% elif permit.status == 'rejected' %}bg-red-500/15 text-red-400
+                            {% else %}bg-slate-500/15 text-slate-400{% endif %}">
+                            {{ permit.get_status_display }}
+                        </span>
+                    </div>
+                    <div class="text-xs text-slate-400 space-y-0.5">
+                        <div>Категория: <span class="text-slate-300">{{ permit.category.name }}</span></div>
+                        <div>Выдан: <span class="text-slate-300">{{ permit.issued_by }}</span> · {{ permit.issued_date }}</div>
+                        {% if permit.expires_at %}
+                        <div>Срок действия: <span class="text-slate-300">до {{ permit.expires_at }}</span></div>
+                        {% else %}
+                        <div>Срок действия: <span class="text-slate-300">бессрочный</span></div>
+                        {% endif %}
+                    </div>
+                    {% if permit.rejection_reason %}
+                    <div class="mt-2 text-xs text-red-300 bg-red-500/5 border border-red-500/15 rounded-lg p-2">
+                        Причина отклонения: {{ permit.rejection_reason }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex flex-col items-end gap-2">
+                    {% if permit.file %}
+                    <a href="{{ permit.file.url }}" target="_blank"
+                       class="text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                        Открыть файл
+                    </a>
+                    {% endif %}
+                    {% if permit.status == 'pending' or permit.status == 'rejected' %}
+                    <form method="post" action="{% url 'web:permit_delete' permit.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" onclick="return confirm('Удалить документ?')"
+                                class="text-xs text-slate-500 hover:text-red-400 transition-colors">
+                            Удалить
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card-dark rounded-xl px-6 py-14 text-center">
+        <div class="text-4xl mb-4">📄</div>
+        <p class="text-slate-400 text-sm mb-4">Загруженных документов нет.</p>
+        <p class="text-xs text-slate-500 mb-6">
+            Документы нужны для публикации площадок в регулируемых категориях.
+        </p>
+        <a href="{% url 'web:permit_upload' %}" class="btn-orange px-5 py-2.5 rounded-xl text-sm">
+            Загрузить первый документ
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

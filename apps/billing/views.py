@@ -55,6 +55,11 @@ class WithdrawalRequestView(generics.ListCreateAPIView):
                 {"detail": "Only bloggers can request withdrawals."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        if request.user.is_demo:
+            return DRFResponse(
+                {"detail": "Withdrawals are disabled for demo accounts."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         withdrawal = serializer.save()

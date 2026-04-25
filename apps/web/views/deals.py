@@ -195,7 +195,8 @@ def deal_confirm(request, pk):
         )
         BillingService.complete_deal_payment(deal)
         deal.status = Deal.Status.COMPLETED
-        deal.save(update_fields=["status", "updated_at"])
+        deal.last_distributed_at = timezone.now()
+        deal.save(update_fields=["status", "last_distributed_at", "updated_at"])
 
     NotificationService.notify_deal_completed(deal.blogger, deal)
     messages.success(request, "Сделка завершена. Блогер получил оплату.")

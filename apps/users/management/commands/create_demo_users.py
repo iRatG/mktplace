@@ -96,8 +96,9 @@ class Command(BaseCommand):
             user.is_staff = data["is_staff"]
             user.is_superuser = data["is_superuser"]
             user.is_email_confirmed = True
+            user.is_demo = True
             user.status = User.Status.ACTIVE
-            user.save(update_fields=["is_staff", "is_superuser", "is_email_confirmed", "status"])
+            user.save(update_fields=["is_staff", "is_superuser", "is_email_confirmed", "is_demo", "status"])
 
             self.stdout.write(
                 self.style.SUCCESS(f"  ✓ {data['label']:20s}  {email}  /  {data['password']}")

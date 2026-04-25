@@ -46,6 +46,7 @@ class Transaction(models.Model):
         WITHDRAWAL = "withdrawal", "Withdrawal"
         REFUND = "refund", "Refund"
         CORRECTION = "correction", "Correction"
+        TEST_CREDIT = "test_credit", "Test Credit (Demo)"
 
     wallet = models.ForeignKey(
         Wallet,
@@ -108,3 +109,37 @@ class WithdrawalRequest(models.Model):
 
     def __str__(self):
         return f"WithdrawalRequest({self.blogger.email}, {self.amount}, {self.status})"
+
+
+class TestBalanceGrant(models.Model):
+    """Records of test balance grants issued by admin to demo accounts."""
+
+    MAX_TOTAL = 500_000  # max cumulative test credits per user
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="test_balance_grants",
+        limit_choices_to={"is_demo": True},
+    )
+    amount = models.DecimalField(
+        max_digits=14, decimal_places=2,
+        validators=[MinValueValidator(1)],
+    )
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="issued_test_grants",
+        limit_choices_to={"is_staff": True},
+    )
+    note = models.TextField(blank=True)
+    granted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Test Balance Grant"
+        verbose_name_plural = "Test Balance Grants"
+        ordering = ["-granted_at"]
+
+    def __str__(self):
+        return f"TestGrant({self.user.email}, +{self.amount}) by {self.granted_by_id}"

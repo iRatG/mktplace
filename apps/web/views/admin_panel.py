@@ -13,7 +13,7 @@ from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign
 from apps.deals.models import Deal, DealStatusLog
 from apps.notifications.service import NotificationService
-from apps.platforms.models import Category, Platform
+from apps.platforms.models import Category, PermitDocument, Platform
 from apps.users.models import User
 
 from ..forms import CategoryForm
@@ -75,6 +75,7 @@ def admin_dashboard(request):
         "platforms_pending": Platform.objects.filter(status=Platform.Status.PENDING).count(),
         "deals_disputed": Deal.objects.filter(status=Deal.Status.DISPUTED).count(),
         "withdrawals_pending": WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING).count(),
+        "permits_pending": PermitDocument.objects.filter(status=PermitDocument.Status.PENDING).count(),
         "users_total": User.objects.count(),
         "users_active": User.objects.filter(status=User.Status.ACTIVE).count(),
         "new_users_month": User.objects.filter(date_joined__gte=last_30).count(),
@@ -205,16 +206,16 @@ def admin_dispute_resolve(request, pk):
 
         if resolution == "complete":
             DealStatusLog.log(locked, Deal.Status.COMPLETED, changed_by=request.user,
-                              comment=f"Спор решён администратором: оплата блогеру. {comment}")
+                              comment=f"Досудебное урегулирование: оплата переведена блогеру по итогам рассмотрения. {comment}")
             BillingService.complete_deal_payment(locked)
             locked.status = Deal.Status.COMPLETED
-            msg = "Спор решён — оплата переведена блогеру."
+            msg = "Досудебное урегулирование завершено — оплата переведена блогеру."
         else:
             DealStatusLog.log(locked, Deal.Status.CANCELLED, changed_by=request.user,
-                              comment=f"Спор решён администратором: возврат рекламодателю. {comment}")
+                              comment=f"Досудебное урегулирование: средства возвращены рекламодателю по итогам рассмотрения. {comment}")
             BillingService.release_funds(locked)
             locked.status = Deal.Status.CANCELLED
-            msg = "Спор решён — средства возвращены рекламодателю."
+            msg = "Досудебное урегулирование завершено — средства возвращены рекламодателю."
 
         locked.save(update_fields=["status", "dispute_resolved_at", "dispute_resolution", "updated_at"])
 

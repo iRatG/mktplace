@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Загрузить документ — Mktplace{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+    <div class="mb-6">
+        <a href="{% url 'web:permit_list' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Мои документы</a>
+    </div>
+
+    <div class="card-dark rounded-2xl p-6">
+        <h1 class="text-xl font-bold text-white mb-2">Загрузить разрешительный документ</h1>
+        <p class="text-xs text-slate-400 mb-6 leading-relaxed">
+            Перечень видов деятельности, требующих лицензирования, определяется
+            <strong class="text-slate-300">Приложением №1 к Закону РУз от 14.07.2021 № ЗРУ-701</strong>.
+            После загрузки документ будет проверен администратором.
+        </p>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            {% for field in form %}
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">
+                    {{ field.label }}{% if field.field.required %} *{% endif %}
+                </label>
+                {% if field.errors %}
+                <div class="text-xs text-red-400 mb-1">{{ field.errors|join:", " }}</div>
+                {% endif %}
+                <div class="[&>input]:input-dark [&>select]:input-dark [&>textarea]:input-dark">
+                    {{ field }}
+                </div>
+                {% if field.help_text %}
+                <p class="text-xs text-slate-500 mt-1">{{ field.help_text }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <div class="pt-2">
+                <button type="submit" class="btn-orange w-full py-3 rounded-xl text-sm font-semibold">
+                    Загрузить и отправить на проверку
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

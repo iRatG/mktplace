@@ -1,9 +1,9 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
-from django.db import transaction as db_transaction
+from django.db import models, transaction as db_transaction
 
-from .models import Transaction, Wallet, WithdrawalRequest
+from .models import TestBalanceGrant, Transaction, Wallet, WithdrawalRequest
 
 
 class BillingService:
@@ -167,6 +167,56 @@ class BillingService:
             balance_after=wallet.available_balance,
             description=f"Refund for rejected withdrawal request #{withdrawal.pk}",
         )
+        return wallet
+
+    # ── Test Balance (Demo) ──────────────────────────────────────────────────
+
+    @classmethod
+    @db_transaction.atomic
+    def grant_test_balance(cls, user, amount, granted_by, note=""):
+        """
+        Credit test balance to a demo account.
+        Only allowed for users with is_demo=True.
+        Cumulative limit: TestBalanceGrant.MAX_TOTAL per user.
+        """
+        if not user.is_demo:
+            raise ValueError("Test balance can only be granted to demo accounts.")
+
+        amount = Decimal(str(amount))
+        if amount <= 0:
+            raise ValueError("Amount must be positive.")
+
+        already_granted = (
+            TestBalanceGrant.objects.filter(user=user)
+            .aggregate(total=models.Sum("amount"))["total"]
+            or Decimal("0")
+        )
+        limit = Decimal(str(TestBalanceGrant.MAX_TOTAL))
+        if already_granted + amount > limit:
+            remaining = limit - already_granted
+            raise ValueError(
+                f"Limit exceeded. This account can receive at most {remaining} more test credits."
+            )
+
+        wallet = cls._get_or_create_wallet(user)
+        wallet.available_balance += amount
+        wallet.save(update_fields=["available_balance", "updated_at"])
+
+        Transaction.objects.create(
+            wallet=wallet,
+            type=Transaction.Type.TEST_CREDIT,
+            amount=amount,
+            balance_after=wallet.available_balance,
+            description=f"Test credit granted by admin ({granted_by.email}). {note}".strip(),
+        )
+
+        TestBalanceGrant.objects.create(
+            user=user,
+            amount=amount,
+            granted_by=granted_by,
+            note=note,
+        )
+
         return wallet
 
     # ── CPA (Sprint 8) ──────────────────────────────────────────────────────

@@ -122,6 +122,8 @@ class DealViewSet(
         # Trigger payment
         from apps.billing.services import BillingService
         BillingService.complete_deal_payment(deal)
+        deal.last_distributed_at = timezone.now()
+        deal.save(update_fields=["last_distributed_at"])
         return DRFResponse({"detail": "Publication confirmed. Deal completed."})
 
     @action(detail=True, methods=["post"])
@@ -140,7 +142,8 @@ class DealViewSet(
             raise ValidationError({"reason": "Dispute reason is required."})
         deal.dispute_reason = reason
         deal.dispute_opened_at = timezone.now()
-        deal.save(update_fields=["dispute_reason", "dispute_opened_at"])
+        deal.is_frozen = True
+        deal.save(update_fields=["dispute_reason", "dispute_opened_at", "is_frozen"])
         _log_status_change(deal, Deal.Status.DISPUTED, user=user, comment=reason)
         return DRFResponse({"detail": "Dispute opened."})
 

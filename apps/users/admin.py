@@ -10,12 +10,13 @@ class UserAdmin(BaseUserAdmin):
     list_display = (
         "email",
         "role",
+        "is_demo",
         "status",
         "is_email_confirmed",
         "is_staff",
         "date_joined",
     )
-    list_filter = ("role", "status", "is_email_confirmed", "is_staff")
+    list_filter = ("role", "status", "is_demo", "is_email_confirmed", "is_staff")
     search_fields = ("email",)
     ordering = ("-date_joined",)
     readonly_fields = ("date_joined", "last_login", "login_attempts", "blocked_until")
@@ -24,7 +25,7 @@ class UserAdmin(BaseUserAdmin):
         (None, {"fields": ("email", "password")}),
         (
             _("Personal info"),
-            {"fields": ("role", "status", "is_email_confirmed")},
+            {"fields": ("role", "status", "is_email_confirmed", "is_demo")},
         ),
         (
             _("Security"),

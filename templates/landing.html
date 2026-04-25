@@ -81,7 +81,7 @@
                     <span class="text-gradient">сторон сделки</span>
                 </h1>
                 <p class="text-slate-400 text-lg leading-relaxed mb-8 max-w-lg">
-                    Рекламодатели находят блогеров, деньги замораживаются в эскроу и поступают блогеру только после подтверждения публикации. Споры решает администратор.
+                    Рекламодатели находят блогеров, деньги замораживаются в эскроу и поступают блогеру только после подтверждения публикации. При разногласиях — досудебное урегулирование через Платформу.
                 </p>
                 <div class="flex flex-col sm:flex-row gap-3 mb-10">
                     <a href="{% url 'web:register' %}?role=advertiser"
@@ -268,7 +268,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
             <div>
                 <h2 class="text-3xl font-bold text-white mb-5">Полный контроль над рекламной кампанией</h2>
-                <p class="text-slate-400 leading-relaxed mb-8">Деньги списываются только после того, как вы лично подтвердили публикацию. До этого — заморожены в системе. Не устраивает результат — откройте спор, администратор разберётся.</p>
+                <p class="text-slate-400 leading-relaxed mb-8">Деньги списываются только после того, как вы лично подтвердили публикацию. До этого — заморожены в системе. Не устраивает результат — откройте спор, Платформа проведёт досудебное рассмотрение.</p>
                 <div class="space-y-4">
                     {% for feature in advertiser_features %}
                     <div class="flex gap-4">
@@ -321,7 +321,7 @@
                 <div class="card-dark rounded-xl p-4">
                     <div class="text-2xl mb-2">⚖️</div>
                     <div class="text-sm font-semibold text-white">Разбор споров</div>
-                    <div class="text-xs text-slate-500 mt-1">Администраторы рассмотрят ситуацию</div>
+                    <div class="text-xs text-slate-500 mt-1">Досудебное урегулирование через Платформу</div>
                 </div>
             </div>
         </div>

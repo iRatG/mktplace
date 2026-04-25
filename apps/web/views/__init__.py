@@ -9,6 +9,8 @@ from .auth import (
 from .pages import (
     landing,
     faq,
+    terms_view,
+    oferta_view,
     _redirect_dashboard,
     advertiser_dashboard,
     blogger_dashboard,
@@ -88,4 +90,12 @@ from .analytics import (
 from .cpa import (
     cpa_click_track,
     cpa_postback,
+)
+from .permits import (
+    permit_list,
+    permit_upload,
+    permit_delete,
+    admin_permits,
+    admin_permit_approve,
+    admin_permit_reject,
 )

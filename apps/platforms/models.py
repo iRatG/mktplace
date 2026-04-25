@@ -7,6 +7,14 @@ class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     description = models.TextField(blank=True)
+    is_regulated = models.BooleanField(
+        default=False,
+        help_text="Деятельность требует лицензии/разрешения по Приложению №1 к Закону РУз № ЗРУ-701 от 14.07.2021",
+    )
+    regulated_doc_hint = models.TextField(
+        blank=True,
+        help_text="Описание документов, необходимых для данной регулируемой категории",
+    )
 
     class Meta:
         verbose_name = "Category"
@@ -15,6 +23,68 @@ class Category(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class PermitDocument(models.Model):
+    """Разрешительный документ пользователя для регулируемой категории (REQ-2).
+
+    Хранит лицензию/разрешение/уведомление, статус проверки и срок действия.
+    При истечении срока — площадки пользователя в регулируемой категории приостанавливаются.
+    """
+
+    class DocType(models.TextChoices):
+        LICENSE = "license", "Лицензия"
+        PERMIT = "permit", "Разрешение"
+        NOTIFICATION = "notification", "Уведомление"
+        OTHER = "other", "Иное"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "На проверке"
+        APPROVED = "approved", "Подтверждён"
+        REJECTED = "rejected", "Отклонён"
+        EXPIRED = "expired", "Истёк"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="permit_documents",
+    )
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name="permit_documents",
+        limit_choices_to={"is_regulated": True},
+    )
+    doc_type = models.CharField(max_length=20, choices=DocType.choices)
+    doc_number = models.CharField(max_length=100)
+    issued_by = models.CharField(max_length=255, help_text="Орган, выдавший документ")
+    issued_date = models.DateField()
+    expires_at = models.DateField(
+        null=True, blank=True, help_text="Оставьте пустым если документ бессрочный"
+    )
+    file = models.FileField(upload_to="permits/%Y/%m/", help_text="PDF, JPG или PNG")
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+    rejection_reason = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_permits",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Разрешительный документ"
+        verbose_name_plural = "Разрешительные документы"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.email} — {self.category.name} ({self.get_status_display()})"
 
 
 class Platform(models.Model):

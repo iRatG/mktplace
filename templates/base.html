@@ -82,6 +82,7 @@
                 <a href="{% url 'web:analytics' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Аналитика</a>
                 <a href="{% url 'web:wallet' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кошелёк</a>
                 <a href="{% url 'web:profile' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Профиль</a>
+                <a href="{% url 'web:permit_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Документы</a>
                 {% endif %}
                 <a href="{% url 'web:faq' %}" class="text-sm text-slate-400 hover:text-white transition-colors">FAQ</a>
             </div>
@@ -144,7 +145,11 @@
 <footer class="border-t border-white/5 mt-auto" style="background:rgba(6,11,24,0.8);">
     <div class="max-w-6xl mx-auto px-5 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600">
         <span>© 2026 Mkt<span class="text-orange-500">place</span> — платформа для рекламы у блогеров</span>
-        <span>Комиссия 15% · Вывод от {{ currency.min_withdrawal|floatformat:"0" }} {{ currency.symbol }}</span>
+        <div class="flex items-center gap-4">
+            <a href="{% url 'web:terms' %}" class="hover:text-slate-400 transition-colors">Пользовательское соглашение</a>
+            <a href="{% url 'web:oferta' %}" class="hover:text-slate-400 transition-colors">Оферта</a>
+            <span>Комиссия 15% · Вывод от {{ currency.min_withdrawal|floatformat:"0" }} {{ currency.symbol }}</span>
+        </div>
     </div>
 </footer>
 

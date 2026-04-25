@@ -32,7 +32,15 @@ def campaign_list(request):
 @login_required
 def campaign_detail(request, pk):
     user = request.user
-    if user.role == User.Role.ADVERTISER:
+    if user.is_staff:
+        campaign = get_object_or_404(Campaign, pk=pk)
+        responses = campaign.responses.select_related("blogger", "platform").order_by("-created_at")
+        context = {
+            "campaign": campaign,
+            "is_owner": True,
+            "responses": responses,
+        }
+    elif user.role == User.Role.ADVERTISER:
         campaign = get_object_or_404(Campaign, pk=pk, advertiser=user)
         responses = campaign.responses.select_related("blogger", "platform").order_by("-created_at")
         context = {
@@ -41,7 +49,7 @@ def campaign_detail(request, pk):
             "responses": responses,
         }
     else:
-        campaign = get_object_or_404(Campaign, pk=pk)
+        campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)
         already_responded = CampaignResponse.objects.filter(
             campaign=campaign, blogger=user
         ).exclude(status=CampaignResponse.Status.WITHDRAWN).exists()

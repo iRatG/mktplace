@@ -104,4 +104,18 @@ urlpatterns = [
     # CPA Tracking (Sprint 8) — public endpoints, no login required
     path("t/<slug:slug>/", views.cpa_click_track, name="cpa_click_track"),
     path("pb/", views.cpa_postback, name="cpa_postback"),
+
+    # Permit documents — user (REQ-2)
+    path("profile/permits/", views.permit_list, name="permit_list"),
+    path("profile/permits/upload/", views.permit_upload, name="permit_upload"),
+    path("profile/permits/<int:pk>/delete/", views.permit_delete, name="permit_delete"),
+
+    # Permit documents — admin (REQ-2)
+    path("panel/permits/", views.admin_permits, name="admin_permits"),
+    path("panel/permits/<int:pk>/approve/", views.admin_permit_approve, name="admin_permit_approve"),
+    path("panel/permits/<int:pk>/reject/", views.admin_permit_reject, name="admin_permit_reject"),
+
+    # Legal pages (REQ-6)
+    path("legal/terms/", views.terms_view, name="terms"),
+    path("legal/oferta/", views.oferta_view, name="oferta"),
 ]
