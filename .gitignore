@@ -56,3 +56,9 @@ coverage.xml
 #user files
 key_param
 tz.md
+
+#presentation
+presentation*.*
+
+# задания
+uridic_review.md
