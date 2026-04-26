@@ -242,12 +242,7 @@ docker logs mktplace-celery-1 --tail 20
 
 Сайт: `http://SERVER_IP:8080`
 
-Демо-логины:
-| Роль | Email | Пароль |
-|---|---|---|
-| Админ | admin@demo.com | ! |
-| Рекламодатель | advertiser@demo.com | ! |
-| Блогер | blogger@demo.com | ! |
+Демо-логины: см. `key_param` файл (не в git).
 
 ---
 
