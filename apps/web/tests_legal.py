@@ -8,10 +8,12 @@ REQ-6: Юридические страницы (/legal/terms/, /legal/oferta/)
 
 Run: docker compose run --rm web python manage.py test apps.web.tests_legal -v 2
 """
+import io
 from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -267,6 +269,122 @@ class REQ2PermitUserViewsTest(TestCase):
         resp = self.client.post(url)
         self.assertTrue(PermitDocument.objects.filter(pk=p.pk).exists())
 
+    # ── Upload POST ───────────────────────────────────────────────────────────
+
+    def _upload_file(self, content=b"%PDF-1.4 fake", name="license.pdf"):
+        return SimpleUploadedFile(name, content, content_type="application/pdf")
+
+    def _valid_upload_data(self, doc_number="LIC-POST-001", extra=None):
+        data = {
+            "category": self.cat.pk,
+            "doc_type": PermitDocument.DocType.LICENSE,
+            "doc_number": doc_number,
+            "issued_by": "Минздрав РУз",
+            "issued_date": "2025-01-01",
+            "expires_at": "2026-01-01",
+            "file": self._upload_file(),
+        }
+        if extra:
+            data.update(extra)
+        return data
+
+    def test_permit_upload_post_creates_permit_in_db(self):
+        """POST с корректными данными создаёт PermitDocument в БД."""
+        resp = self.client.post(reverse("web:permit_upload"), self._valid_upload_data())
+        self.assertEqual(resp.status_code, 302)
+        p = PermitDocument.objects.filter(user=self.user, doc_number="LIC-POST-001").first()
+        self.assertIsNotNone(p, "PermitDocument не был создан в БД")
+
+    def test_permit_upload_post_sets_status_pending(self):
+        """Новый документ всегда создаётся со статусом PENDING."""
+        self.client.post(reverse("web:permit_upload"), self._valid_upload_data("LIC-PEND"))
+        p = PermitDocument.objects.get(doc_number="LIC-PEND")
+        self.assertEqual(p.status, PermitDocument.Status.PENDING)
+
+    def test_permit_upload_post_assigns_current_user(self):
+        """user на созданном документе === залогиненный пользователь."""
+        self.client.post(reverse("web:permit_upload"), self._valid_upload_data("LIC-USER"))
+        p = PermitDocument.objects.get(doc_number="LIC-USER")
+        self.assertEqual(p.user, self.user)
+
+    def test_permit_upload_post_saves_correct_category(self):
+        """FK на категорию сохраняется верно."""
+        self.client.post(reverse("web:permit_upload"), self._valid_upload_data("LIC-CAT"))
+        p = PermitDocument.objects.get(doc_number="LIC-CAT")
+        self.assertEqual(p.category, self.cat)
+
+    def test_permit_upload_post_reviewed_fields_empty(self):
+        """reviewed_by и reviewed_at пустые у нового документа."""
+        self.client.post(reverse("web:permit_upload"), self._valid_upload_data("LIC-REV"))
+        p = PermitDocument.objects.get(doc_number="LIC-REV")
+        self.assertIsNone(p.reviewed_by)
+        self.assertIsNone(p.reviewed_at)
+        self.assertEqual(p.rejection_reason, "")
+
+    def test_permit_upload_post_without_file_returns_form_error(self):
+        """POST без файла возвращает форму (200) и не создаёт объект."""
+        data = {
+            "category": self.cat.pk,
+            "doc_type": PermitDocument.DocType.LICENSE,
+            "doc_number": "LIC-NOFILE",
+            "issued_by": "Минздрав",
+            "issued_date": "2025-01-01",
+        }
+        resp = self.client.post(reverse("web:permit_upload"), data)
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(PermitDocument.objects.filter(doc_number="LIC-NOFILE").exists())
+
+    def test_permit_upload_post_empty_doc_number_fails(self):
+        """POST с пустым номером документа не создаёт объект."""
+        data = self._valid_upload_data(doc_number="")
+        resp = self.client.post(reverse("web:permit_upload"), data)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(PermitDocument.objects.filter(user=self.user).count(), 0)
+
+    def test_permit_upload_post_unregulated_category_fails(self):
+        """Нерегулируемая категория не проходит валидацию формы."""
+        unregulated = Category.objects.create(name="Обычная", slug="unregulated-upload", is_regulated=False)
+        data = self._valid_upload_data("LIC-UNREG")
+        data["category"] = unregulated.pk
+        resp = self.client.post(reverse("web:permit_upload"), data)
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(PermitDocument.objects.filter(doc_number="LIC-UNREG").exists())
+
+    def test_permit_upload_anonymous_post_redirects_to_login(self):
+        """Анонимный POST → redirect на login, объект не создаётся."""
+        c = Client()
+        resp = c.post(reverse("web:permit_upload"), self._valid_upload_data("LIC-ANON"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/login", resp["Location"])
+        self.assertFalse(PermitDocument.objects.filter(doc_number="LIC-ANON").exists())
+
+    def test_permit_upload_redirects_to_permit_list_after_success(self):
+        """После успешной загрузки — редирект на страницу списка документов."""
+        resp = self.client.post(reverse("web:permit_upload"), self._valid_upload_data("LIC-REDIR"))
+        self.assertRedirects(resp, reverse("web:permit_list"), fetch_redirect_response=False)
+
+    def test_permit_upload_form_contains_only_regulated_categories(self):
+        """Форма upload не показывает нерегулируемые категории."""
+        unreg = Category.objects.create(name="Обычная2", slug="unregulated-form", is_regulated=False)
+        resp = self.client.get(reverse("web:permit_upload"))
+        form = resp.context["form"]
+        qs = form.fields["category"].queryset
+        self.assertIn(self.cat, qs)
+        self.assertNotIn(unreg, qs)
+
+    def test_permit_list_shows_uploaded_permit_after_post(self):
+        """После загрузки документ виден в списке."""
+        self.client.post(reverse("web:permit_upload"), self._valid_upload_data("LIC-VISIBLE"))
+        resp = self.client.get(reverse("web:permit_list"))
+        self.assertContains(resp, "LIC-VISIBLE")
+
+    def test_permit_list_shows_pending_badge(self):
+        """В списке у нового документа отображается статус 'На проверке'."""
+        self.client.post(reverse("web:permit_upload"), self._valid_upload_data("LIC-BADGE"))
+        resp = self.client.get(reverse("web:permit_list"))
+        # Статус PENDING должен быть отражён в шаблоне
+        self.assertContains(resp, "проверке", msg_prefix="Статус PENDING не отображается в списке")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # REQ-2 — Permit Documents: admin views
@@ -328,6 +446,56 @@ class REQ2PermitAdminViewsTest(TestCase):
         self.assertIn("permits_pending", resp.context)
         self.assertEqual(resp.context["permits_pending"], 1)
 
+    def test_admin_permit_approve_sets_reviewed_at(self):
+        """reviewed_at устанавливается при подтверждении."""
+        p = _make_permit(self.user, self.cat)
+        self.client.post(reverse("web:admin_permit_approve", kwargs={"pk": p.pk}))
+        p.refresh_from_db()
+        self.assertIsNotNone(p.reviewed_at)
+
+    def test_admin_permit_reject_sets_reviewed_at(self):
+        """reviewed_at устанавливается при отклонении."""
+        p = _make_permit(self.user, self.cat)
+        self.client.post(reverse("web:admin_permit_reject", kwargs={"pk": p.pk}),
+                         {"rejection_reason": "Не тот орган"})
+        p.refresh_from_db()
+        self.assertIsNotNone(p.reviewed_at)
+
+    def test_admin_permit_approve_already_approved_returns_404(self):
+        """Попытка подтвердить уже подтверждённый — 404 (фильтр по PENDING)."""
+        p = _make_permit(self.user, self.cat, status=PermitDocument.Status.APPROVED)
+        resp = self.client.post(reverse("web:admin_permit_approve", kwargs={"pk": p.pk}))
+        self.assertEqual(resp.status_code, 404)
+
+    def test_admin_permit_reject_already_rejected_returns_404(self):
+        """Попытка отклонить уже отклонённый — 404."""
+        p = _make_permit(self.user, self.cat, status=PermitDocument.Status.REJECTED)
+        resp = self.client.post(reverse("web:admin_permit_reject", kwargs={"pk": p.pk}),
+                                {"rejection_reason": "Повторно"})
+        self.assertEqual(resp.status_code, 404)
+
+    def test_admin_permits_list_shows_only_pending(self):
+        """Страница /panel/permits/ показывает только PENDING документы."""
+        _make_permit(self.user, self.cat, status=PermitDocument.Status.PENDING)
+        other = _make_user("other2@t.com", User.Role.BLOGGER)
+        _make_permit(other, self.cat, status=PermitDocument.Status.APPROVED)
+        resp = self.client.get(reverse("web:admin_permits"))
+        permits_in_ctx = list(resp.context["permits"])
+        self.assertTrue(all(p.status == PermitDocument.Status.PENDING for p in permits_in_ctx))
+
+    def test_admin_permits_list_contains_doc_number(self):
+        """В списке на проверке виден номер документа."""
+        p = _make_permit(self.user, self.cat)
+        resp = self.client.get(reverse("web:admin_permits"))
+        self.assertContains(resp, p.doc_number)
+
+    def test_admin_dashboard_pending_count_excludes_approved(self):
+        """После approve счётчик pending уменьшается до 0."""
+        p = _make_permit(self.user, self.cat)
+        self.client.post(reverse("web:admin_permit_approve", kwargs={"pk": p.pk}))
+        resp = self.client.get(reverse("web:admin_dashboard"))
+        self.assertEqual(resp.context["permits_pending"], 0)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # REQ-2 — Блокировка публикации площадки без разрешительного документа
@@ -369,6 +537,41 @@ class REQ2PlatformPublicationBlockTest(TestCase):
         data = self._platform_post_data("https://t.me/pharm_ok")
         self.client.post(reverse("web:platform_add"), data)
         # Platform should be created (PENDING for admin moderation)
+        self.assertTrue(Platform.objects.filter(blogger=self.blogger).exists())
+
+    def test_platform_add_blocked_with_pending_permit(self):
+        """PENDING документ (не подтверждён) — площадка не создаётся."""
+        _make_permit(self.blogger, self.cat, status=PermitDocument.Status.PENDING)
+        data = self._platform_post_data("https://t.me/pharm_pending")
+        self.client.post(reverse("web:platform_add"), data)
+        self.assertFalse(Platform.objects.filter(blogger=self.blogger).exists())
+
+    def test_platform_add_blocked_with_rejected_permit(self):
+        """REJECTED документ — площадка не создаётся."""
+        _make_permit(self.blogger, self.cat, status=PermitDocument.Status.REJECTED)
+        data = self._platform_post_data("https://t.me/pharm_rejected")
+        self.client.post(reverse("web:platform_add"), data)
+        self.assertFalse(Platform.objects.filter(blogger=self.blogger).exists())
+
+    def test_platform_add_blocked_with_expired_permit(self):
+        """EXPIRED документ — площадка не создаётся."""
+        _make_permit(self.blogger, self.cat, status=PermitDocument.Status.EXPIRED)
+        data = self._platform_post_data("https://t.me/pharm_expired")
+        self.client.post(reverse("web:platform_add"), data)
+        self.assertFalse(Platform.objects.filter(blogger=self.blogger).exists())
+
+    def test_platform_add_unregulated_category_no_permit_required(self):
+        """Нерегулируемая категория — площадка создаётся без permit."""
+        unregulated = Category.objects.create(name="Обычная3", slug="unreg-plat", is_regulated=False)
+        data = {
+            "social_type": Platform.SocialType.TELEGRAM,
+            "url": "https://t.me/normal_channel",
+            "subscribers": 5000,
+            "avg_views": 1000,
+            "engagement_rate": "3.5",
+            "categories": [unregulated.pk],
+        }
+        self.client.post(reverse("web:platform_add"), data)
         self.assertTrue(Platform.objects.filter(blogger=self.blogger).exists())
 
 
