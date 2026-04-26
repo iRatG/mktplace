@@ -22,7 +22,7 @@ systemctl restart docker
 git config --global http.version HTTP/1.1
 
 # 5. Скопировать .env.prod
-# С Windows: pscp c:/andr/.env.prod root@NEW_IP:/opt/mktplace/.env.prod
+# С Windows: pscp /.env.prod root@NEW_IP:/opt/mktplace/.env.prod
 
 # 6. Собрать и запустить
 cd /opt/mktplace
@@ -50,8 +50,8 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
 | Дата | IP | Имя | Статус | Причина смены |
 |---|---|---|---|---|
-| 2026-02-21 | 89.111.152.228 | — | УДАЛЁН 2026-04-25 | Не оплачен |
-| 2026-04-26 | 89.104.74.76 | Brown Hydrogenium | АКТИВЕН | Текущий |
+| 2026-02-21 | "."."." | — | УДАЛЁН 2026-04-25 | Не оплачен |
+| 2026-04-26 | "."."." | Brown Hydrogenium | АКТИВЕН | Текущий |
 
 ---
 
@@ -245,9 +245,9 @@ docker logs mktplace-celery-1 --tail 20
 Демо-логины:
 | Роль | Email | Пароль |
 |---|---|---|
-| Админ | admin@demo.com | Demo1234! |
-| Рекламодатель | advertiser@demo.com | Demo1234! |
-| Блогер | blogger@demo.com | Demo1234! |
+| Админ | admin@demo.com | ! |
+| Рекламодатель | advertiser@demo.com | ! |
+| Блогер | blogger@demo.com | ! |
 
 ---
 
