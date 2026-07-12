@@ -210,7 +210,7 @@ CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
 
 # API docs
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Mktplace API',
+    'TITLE': 'ublogers API',
     'DESCRIPTION': 'Платформа для размещения рекламы у блогеров',
     'VERSION': '1.0.0',
 }

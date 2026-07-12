@@ -23,7 +23,7 @@ def send_confirmation_email(self, user_id: int):
 
     confirmation_url = f"{settings.FRONTEND_URL}/confirm-email/{token.token}/"
 
-    subject = "Подтвердите email — Mktplace"
+    subject = "Подтвердите email — ublogers"
     html_message = render_to_string(
         "emails/email_confirmation.html",
         {"user": user, "confirmation_url": confirmation_url},
@@ -60,7 +60,7 @@ def send_password_reset_email(self, user_id: int):
 
     reset_url = f"{settings.FRONTEND_URL}/password-reset/{token.token}/"
 
-    subject = "Сброс пароля — Mktplace"
+    subject = "Сброс пароля — ublogers"
     html_message = render_to_string(
         "emails/password_reset.html",
         {"user": user, "reset_url": reset_url},
