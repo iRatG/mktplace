@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>404 — Страница не найдена | Mktplace</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    {% load static %}
+    <script src="{% static 'js/tailwind.cdn.js' %}"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: white; }
         .text-gradient { background: linear-gradient(135deg,#f97316,#fb923c); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
