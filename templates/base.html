@@ -58,9 +58,9 @@
     <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
         <div class="flex items-center gap-8">
             {% if user.is_staff %}
-            <a href="{% url 'web:admin_dashboard' %}" class="text-lg font-bold">Mkt<span class="text-gradient">place</span></a>
+            <a href="{% url 'web:admin_dashboard' %}" class="text-lg font-bold">ub<span class="text-gradient">logers</span></a>
             {% else %}
-            <a href="/" class="text-lg font-bold">Mkt<span class="text-gradient">place</span></a>
+            <a href="/" class="text-lg font-bold">ub<span class="text-gradient">logers</span></a>
             {% endif %}
             {% if user.is_authenticated %}
             <div class="hidden sm:flex gap-5">
@@ -146,7 +146,7 @@
 
 <footer class="border-t border-white/5 mt-auto" style="background:rgba(6,11,24,0.8);">
     <div class="max-w-6xl mx-auto px-5 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600">
-        <span>© 2026 Mkt<span class="text-orange-500">place</span> — платформа для рекламы у блогеров</span>
+        <span>© 2026 ub<span class="text-orange-500">logers</span> — платформа для рекламы у блогеров</span>
         <div class="flex items-center gap-4">
             <a href="{% url 'web:terms' %}" class="hover:text-slate-400 transition-colors">Пользовательское соглашение</a>
             <a href="{% url 'web:oferta' %}" class="hover:text-slate-400 transition-colors">Оферта</a>
