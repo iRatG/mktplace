@@ -104,7 +104,7 @@
             <span class="hidden sm:block text-sm text-slate-500">{{ user.email }}</span>
             <form method="post" action="{% url 'web:logout' %}">
                 {% csrf_token %}
-                <button type="submit" class="text-sm text-slate-500 hover:text-red-400 transition-colors">Выйти</button>
+                <button type="submit" class="text-sm text-slate-400 hover:text-white transition-colors px-3 py-2">Выйти</button>
             </form>
             {% else %}
             <a href="{% url 'web:login' %}" class="text-sm text-slate-400 hover:text-white transition-colors px-3 py-2">Войти</a>

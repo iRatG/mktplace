@@ -55,7 +55,10 @@ def register_view(request):
     if request.user.is_authenticated:
         return _redirect_dashboard(request.user)
 
-    form = RegisterForm(request.POST or None)
+    form = RegisterForm(
+        request.POST or None,
+        initial={"role": request.GET.get("role")},
+    )
     if request.method == "POST" and form.is_valid():
         user = User.objects.create_user(
             email=form.cleaned_data["email"],

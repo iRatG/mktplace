@@ -9,6 +9,7 @@ from .auth import (
 from .pages import (
     landing,
     faq,
+    support_view,
     terms_view,
     oferta_view,
     _redirect_dashboard,

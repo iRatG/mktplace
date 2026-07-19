@@ -5,31 +5,31 @@
 {% block content %}
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-white">Добро пожаловать, {{ user.email }}</h1>
-    <p class="text-slate-400 text-sm mt-1">Управляйте кампаниями и сделками</p>
+    <p class="text-slate-400 text-sm mt-1">Управляйте рекламными кампаниями и сделками</p>
 </div>
 
 <!-- Stats -->
 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
-    <div class="card-dark rounded-xl p-5">
+    <a href="{% url 'web:wallet' %}" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-slate-400">Баланс</div>
         <div class="text-2xl font-bold text-white mt-1">{{ wallet.available_balance|default:"0.00" }} {{ currency.symbol }}</div>
         <div class="text-xs text-slate-500 mt-1">Зарезервировано: {{ wallet.reserved_balance|default:"0.00" }} {{ currency.symbol }}</div>
-    </div>
-    <div class="card-dark rounded-xl p-5">
+    </a>
+    <a href="{% url 'web:campaign_list' %}" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-slate-400">Кампаний</div>
         <div class="text-2xl font-bold text-white mt-1">{{ campaigns_count }}</div>
         <div class="text-xs text-slate-500 mt-1">Активных: {{ active_campaigns_count }}</div>
-    </div>
-    <div class="card-dark rounded-xl p-5">
+    </a>
+    <a href="{% url 'web:campaign_list' %}" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-slate-400">Откликов</div>
         <div class="text-2xl font-bold text-white mt-1">{{ pending_responses_count }}</div>
         <div class="text-xs text-slate-500 mt-1">Ожидают рассмотрения</div>
-    </div>
-    <div class="card-dark rounded-xl p-5">
+    </a>
+    <a href="{% url 'web:deal_list' %}" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-slate-400">Сделок</div>
         <div class="text-2xl font-bold text-white mt-1">{{ active_deals_count }}</div>
         <div class="text-xs text-slate-500 mt-1">В работе</div>
-    </div>
+    </a>
 </div>
 
 <!-- Quick actions -->
@@ -54,7 +54,7 @@
         {% for campaign in recent_campaigns %}
         <div class="px-6 py-4 flex items-center justify-between">
             <div>
-                <div class="text-sm font-medium text-white">{{ campaign.name }}</div>
+                <a href="{% url 'web:campaign_detail' campaign.pk %}" class="text-sm font-medium text-white hover:text-orange-400 transition-colors">{{ campaign.name }}</a>
                 <div class="text-xs text-slate-500 mt-0.5">Бюджет: {{ campaign.budget }} {{ currency.symbol }} · {{ campaign.get_payment_type_display }}</div>
             </div>
             <div class="flex items-center gap-3">

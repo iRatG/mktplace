@@ -8,6 +8,12 @@ from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.users.models import User
 
 
+class SupportMessageForm(forms.Form):
+    name = forms.CharField(max_length=150)
+    email = forms.EmailField()
+    message = forms.CharField(widget=forms.Textarea)
+
+
 class CampaignForm(forms.ModelForm):
     CONTENT_TYPE_CHOICES = [
         ("post", "Пост"),

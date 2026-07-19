@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
@@ -32,8 +33,8 @@ def landing(request):
             ("Яндекс.Дзен", "🟡", "yellow"),
         ],
         "advertiser_steps": [
-            {"title": "Создайте кампанию", "desc": "Опишите продукт, требования к контенту, форматы и бюджет — черновик можно редактировать до готовности"},
-            {"title": "Пройдите модерацию", "desc": "Администраторы проверят кампанию за 24ч и опубликуют в ленте — блогеры начнут откликаться"},
+            {"title": "Создайте рекламную кампанию", "desc": "Опишите продукт, требования к контенту, форматы и бюджет — черновик можно редактировать до готовности"},
+            {"title": "Пройдите модерацию", "desc": "Администраторы проверят рекламную кампанию за 24ч и опубликуют в ленте — блогеры начнут откликаться"},
             {"title": "Выберите блогера по профилю", "desc": "Откройте профиль блогера — метрики площадок, тематики, аудитория, прайс и история сделок. Принимайте только тех, кто подходит"},
             {"title": "Подтвердите публикацию", "desc": "Блогер пришлёт ссылку. Нажмите «Подтвердить» — деньги поступят блогеру. Не согласны — откройте спор"},
         ],
@@ -41,7 +42,7 @@ def landing(request):
             {"title": "Заполните профиль", "desc": "Никнейм, описание аудитории, ниша — рекламодатель видит это при проверке вашего отклика. Сильный профиль = больше принятых откликов"},
             {"title": "Добавьте площадку", "desc": "Укажите ссылку, метрики и прайс для ВКонтакте, Telegram, YouTube, Instagram, TikTok или Яндекс.Дзен"},
             {"title": "Пройдите верификацию", "desc": "Администраторы проверят площадку за 24–48ч — один раз и навсегда. Одобренная площадка участвует в сделках"},
-            {"title": "Откликнитесь на кампанию", "desc": "Найдите подходящую кампанию, предложите свою цену, добавьте сообщение рекламодателю"},
+            {"title": "Откликнитесь на рекламную кампанию", "desc": "Найдите подходящую рекламную кампанию, предложите свою цену, добавьте сообщение рекламодателю"},
             {"title": "Согласуйте или публикуйте", "desc": "Опционально: отправьте черновик на согласование — рекламодатель одобрит до публикации. Или сразу прикрепите ссылку на готовый пост"},
             {"title": "Получите оплату", "desc": "Деньги заморожены с момента старта. Рекламодатель подтвердит публикацию или через 72ч — автозачисление на ваш баланс"},
         ],
@@ -84,6 +85,28 @@ def faq(request):
         ("Отменена", "bg-slate-500/15 text-slate-400", "Сделка отменена, зарезервированные средства возвращены рекламодателю"),
     ]
     return render(request, "faq.html", {"deal_statuses": deal_statuses})
+
+
+def support_view(request):
+    from ..forms import SupportMessageForm
+
+    initial = {}
+    if request.user.is_authenticated:
+        initial["email"] = request.user.email
+
+    form = SupportMessageForm(request.POST or None, initial=initial)
+    if request.method == "POST" and form.is_valid():
+        from apps.notifications.tasks import send_support_message_email
+
+        send_support_message_email.delay(
+            form.cleaned_data["name"],
+            form.cleaned_data["email"],
+            form.cleaned_data["message"],
+        )
+        messages.success(request, "Сообщение отправлено! Мы ответим в течение рабочего дня.")
+        return redirect("web:support")
+
+    return render(request, "support.html", {"form": form})
 
 
 def terms_view(request):

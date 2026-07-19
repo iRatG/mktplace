@@ -8,6 +8,7 @@ urlpatterns = [
     # Landing & static
     path("", views.landing, name="landing"),
     path("faq/", views.faq, name="faq"),
+    path("support/", views.support_view, name="support"),
 
     # Auth
     path("login/", views.login_view, name="login"),

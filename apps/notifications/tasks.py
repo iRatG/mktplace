@@ -69,6 +69,26 @@ def send_email_notification(self, user_id: int, subject: str, template_name: str
         raise self.retry(exc=exc)
 
 
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_support_message_email(self, name: str, email: str, message: str):
+    """Send a support form submission to the support mailbox."""
+    from django.core.mail import EmailMessage
+
+    subject = f"Обращение в поддержку от {name}"
+    body = f"От: {name} <{email}>\n\n{message}"
+
+    try:
+        EmailMessage(
+            subject=subject,
+            body=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[settings.SUPPORT_EMAIL],
+            reply_to=[email],
+        ).send(fail_silently=False)
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
+
 @shared_task
 def cleanup_old_notifications():
     """Удаляет уведомления старше 90 дней (Модуль 11).
