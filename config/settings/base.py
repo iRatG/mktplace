@@ -88,6 +88,11 @@ DATABASES = {
         'PASSWORD': env('POSTGRES_PASSWORD'),
         'HOST': env('POSTGRES_HOST', default='db'),
         'PORT': env('POSTGRES_PORT', default='5432'),
+        # statement_timeout: убивает зависшие запросы/lock-wait вместо бесконечного
+        # блокирования gunicorn-потока (см. инцидент simultaneous hang 2026-07-22).
+        'OPTIONS': {
+            'options': '-c statement_timeout=30000',
+        },
     }
 }
 
@@ -222,6 +227,9 @@ EMAIL_PORT = env.int('EMAIL_PORT', default=587)
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+# Без таймаута smtplib будет ждать ответа Gmail бесконечно, если письмо
+# отправляется из Celery-задачи, зависший воркер никогда не освободится.
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=10)
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@mktplace.com')
 SUPPORT_EMAIL = env('SUPPORT_EMAIL', default='support@ublogers.com')
 
