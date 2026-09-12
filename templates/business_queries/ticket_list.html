@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Тикеты — ublogers{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-3 flex-wrap">
+    <div class="flex items-center gap-3">
+        <h1 class="text-2xl font-bold text-white">Тикеты</h1>
+        <span class="text-sm text-slate-500">({{ tickets|length }})</span>
+    </div>
+    <a href="{% url 'web:ticket_create' %}" class="btn-orange text-sm px-4 py-2 rounded-lg">+ Новый тикет</a>
+</div>
+
+<div class="flex gap-2 mb-6 flex-wrap">
+    <a href="{% url 'web:ticket_list' %}"
+       class="text-xs px-3 py-1.5 rounded-full {% if not active_status %}bg-orange-500/20 text-orange-400{% else %}text-slate-400 hover:text-white{% endif %}">Все</a>
+    {% for value, label in statuses %}
+    <a href="?status={{ value }}"
+       class="text-xs px-3 py-1.5 rounded-full {% if active_status == value %}bg-orange-500/20 text-orange-400{% else %}text-slate-400 hover:text-white{% endif %}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+{% if tickets %}
+<div class="space-y-3">
+    {% for ticket in tickets %}
+    <a href="{% url 'web:ticket_detail' ticket.pk %}" class="card-dark rounded-xl p-5 flex items-center justify-between gap-4 block">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-white font-semibold">#{{ ticket.pk }} {{ ticket.title }}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400">{{ ticket.get_status_display }}</span>
+            </div>
+            <div class="text-xs text-slate-400">
+                {{ ticket.created_by.email }} · {{ ticket.created_at|date:"d.m.Y H:i" }}
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card-dark rounded-xl px-6 py-16 text-center">
+    <p class="text-slate-400 text-sm">Тикетов пока нет.</p>
+</div>
+{% endif %}
+{% endblock %}

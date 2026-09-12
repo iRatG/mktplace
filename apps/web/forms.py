@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
+from apps.business_queries.models import Ticket
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
@@ -464,4 +465,37 @@ class AdminPermitRejectForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Укажите причину отклонения..."}),
         label="Причина отклонения",
         max_length=1000,
+    )
+
+
+class TicketForm(forms.ModelForm):
+    """Форма создания внутреннего тикета участником ИТ-команды."""
+
+    class Meta:
+        model = Ticket
+        fields = ["title", "description"]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 6}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["title"].label = "Название"
+        self.fields["description"].label = "Что нужно сделать"
+
+
+class TicketStatusForm(forms.Form):
+    """Форма смены статуса тикета."""
+
+    status = forms.ChoiceField(choices=Ticket.Status.choices, label="Статус")
+    comment = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 2}), required=False, label="Комментарий",
+    )
+
+
+class BusinessQueryPasswordForm(forms.Form):
+    """Форма входа на страницу опросника для бизнеса — общий пароль без аккаунта."""
+
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={"class": "input-dark"}), label="Пароль",
     )

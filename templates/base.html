@@ -69,6 +69,7 @@
                 <a href="{% url 'web:campaign_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кампании</a>
                 <a href="{% url 'web:deal_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Сделки</a>
                 <a href="{% url 'web:admin_platforms' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Площадки</a>
+                <a href="{% url 'web:ticket_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Тикеты</a>
                 {% elif user.role == 'advertiser' %}
                 <a href="{% url 'web:advertiser_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Дашборд</a>
                 <a href="{% url 'web:campaign_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кампании</a>

@@ -116,6 +116,12 @@ urlpatterns = [
     path("panel/permits/<int:pk>/approve/", views.admin_permit_approve, name="admin_permit_approve"),
     path("panel/permits/<int:pk>/reject/", views.admin_permit_reject, name="admin_permit_reject"),
 
+    # Business queries — внутренние тикеты ИТ-команды + опросники для бизнеса без аккаунта
+    path("tickets/", views.ticket_list, name="ticket_list"),
+    path("tickets/new/", views.ticket_create, name="ticket_create"),
+    path("tickets/<int:pk>/", views.ticket_detail, name="ticket_detail"),
+    path("bq/<slug:token>/", views.business_query_view, name="business_query"),
+
     # Legal pages (REQ-6)
     path("legal/terms/", views.terms_view, name="terms"),
     path("legal/oferta/", views.oferta_view, name="oferta"),

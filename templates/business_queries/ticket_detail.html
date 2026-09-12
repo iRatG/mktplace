@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}#{{ ticket.pk }} {{ ticket.title }} — ublogers{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{% url 'web:ticket_list' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Тикеты</a>
+</div>
+
+<div class="card-dark rounded-2xl p-6 mb-6">
+    <div class="flex items-center gap-2 mb-2">
+        <h1 class="text-xl font-bold text-white">#{{ ticket.pk }} {{ ticket.title }}</h1>
+        <span class="text-xs px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400">{{ ticket.get_status_display }}</span>
+    </div>
+    <div class="text-xs text-slate-500 mb-4">
+        {{ ticket.created_by.email }} · {{ ticket.created_at|date:"d.m.Y H:i" }}
+    </div>
+    <p class="text-sm text-slate-300 whitespace-pre-line">{{ ticket.description }}</p>
+
+    {% if attachments %}
+    <div class="mt-4 flex flex-wrap gap-3">
+        {% for a in attachments %}
+        <a href="{{ a.file.url }}" target="_blank" class="text-xs text-orange-400 hover:text-orange-300 transition-colors">📎 {{ a.file.name|slice:"-40:" }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="card-dark rounded-2xl p-6 mb-6">
+    <h2 class="text-sm font-semibold text-white mb-4">Сменить статус</h2>
+    <form method="post" class="space-y-3">
+        {% csrf_token %}
+        {% for field in status_form %}
+        <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">{{ field.label }}</label>
+            {% if field.errors %}
+            <div class="text-xs text-red-400 mb-1">{{ field.errors|join:", " }}</div>
+            {% endif %}
+            <div class="[&>input]:input-dark [&>select]:input-dark [&>textarea]:input-dark">{{ field }}</div>
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn-orange px-4 py-2 rounded-xl text-sm font-semibold">Сохранить</button>
+    </form>
+</div>
+
+{% if queries %}
+<div class="card-dark rounded-2xl p-6 mb-6">
+    <h2 class="text-sm font-semibold text-white mb-4">Опросники для бизнеса</h2>
+    <div class="space-y-2">
+        {% for q in queries %}
+        <div class="flex items-center justify-between text-sm">
+            <span class="text-slate-300">{{ q.title }}</span>
+            <span class="text-xs text-slate-500">{{ q.submissions.count }} ответ(ов) · {% if q.is_active %}активен{% else %}закрыт{% endif %}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card-dark rounded-2xl p-6">
+    <h2 class="text-sm font-semibold text-white mb-4">История статусов</h2>
+    <div class="space-y-2">
+        {% for log in status_logs %}
+        <div class="text-xs text-slate-400">
+            {{ log.created_at|date:"d.m.Y H:i" }} — {{ log.changed_by.email|default:"система" }}: {{ log.old_status|default:"—" }} → {{ log.new_status }}
+            {% if log.comment %}<span class="text-slate-500">({{ log.comment }})</span>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

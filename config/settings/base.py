@@ -39,6 +39,7 @@ LOCAL_APPS = [
     'apps.billing',
     'apps.notifications',
     'apps.analytics',
+    'apps.business_queries',
     'apps.web',
 ]
 

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Новый тикет — ublogers{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+    <div class="mb-6">
+        <a href="{% url 'web:ticket_list' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Тикеты</a>
+    </div>
+
+    <div class="card-dark rounded-2xl p-6">
+        <h1 class="text-xl font-bold text-white mb-6">Новый тикет</h1>
+
+        {% if form.non_field_errors %}
+        <div class="alert-error mb-4">{{ form.non_field_errors|join:", " }}</div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            {% for field in form %}
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">
+                    {{ field.label }}{% if field.field.required %} *{% endif %}
+                </label>
+                {% if field.errors %}
+                <div class="text-xs text-red-400 mb-1">{{ field.errors|join:", " }}</div>
+                {% endif %}
+                <div class="[&>input]:input-dark [&>select]:input-dark [&>textarea]:input-dark">
+                    {{ field }}
+                </div>
+            </div>
+            {% endfor %}
+
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Скриншоты</label>
+                <input type="file" name="attachments" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" class="input-dark">
+                <p class="text-xs text-slate-500 mt-1">До {{ max_attachments }} файлов — JPG, PNG, WEBP или PDF.</p>
+            </div>
+
+            <div class="pt-2">
+                <button type="submit" class="btn-orange w-full py-3 rounded-xl text-sm font-semibold">
+                    Создать тикет
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
