@@ -1,5 +1,9 @@
 # CLAUDE.md — Шпаргалка по проекту Mktplace
 
+Это короткая шпаргалка для быстрого старта сессии. Подробные бизнес-правила
+и сценарии по каждому модулю — в `openspec/specs/<app>/spec.md` (источник
+истины после этой шпаргалки). История решений — в `openspec/changes/archive/`.
+
 ## Стек
 Django 5.0 + DRF + PostgreSQL + Redis + Celery + Tailwind CSS (CDN)
 
@@ -16,6 +20,7 @@ docker compose run --rm web python manage.py seed_demo_data
 - `ADVERTISER` — рекламодатель (создаёт кампании)
 - `BLOGGER` — блогер (площадки, отклики)
 - `is_staff=True` — администратор (видит всё, `/panel/`)
+- Группа Django `"IT Team"` (поверх `is_staff`) — доступ к внутренним тикетам `/tickets/`
 
 ## Демо-аккаунты
 | Роль | Email | Пароль |
@@ -62,10 +67,13 @@ apps/deals/         — Deal, DealStatusLog, Review, ChatMessage
 apps/billing/       — Wallet, Transaction, WithdrawalRequest, TestBalanceGrant
 apps/notifications/ — Notification, NotificationService
 apps/analytics/     — (views в apps/web)
+apps/business_queries/ — Ticket (внутр. тикеты ИТ), BusinessQuery/Question/Submission
+                          (опросники A/B для бизнеса без аккаунта, /bq/<token>/)
 apps/web/           — Django Templates frontend
   views/auth.py, campaigns.py, deals.py, platforms.py,
   profiles.py, billing.py, catalog.py, admin_panel.py,
-  notifications.py, analytics.py, cpa.py, pages.py, permits.py
+  notifications.py, analytics.py, cpa.py, pages.py, permits.py,
+  business_queries.py
 ```
 
 ## URL namespace: `web:`
@@ -80,7 +88,8 @@ apps/web/           — Django Templates frontend
 - CPA-модель (TrackingLink, ClickLog, Conversion)
 - Quality: Celery VPS, rate limiting, пагинация, views refactor
 - Legal: PermitDocument (ЗРУ-701), retention fields, terms/oferta страницы
-- Smoke-тесты по ролям (71 тест)
+- Smoke-тесты по ролям (520 тестов)
+- business_queries: внутренние тикеты ИТ + опросники A/B для бизнеса без аккаунта
 
 ## VPS
 **Сервер удалён (2026-04-25).** После нового:
