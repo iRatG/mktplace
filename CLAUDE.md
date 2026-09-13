@@ -92,17 +92,14 @@ apps/web/           — Django Templates frontend
 - business_queries: внутренние тикеты ИТ + опросники A/B для бизнеса без аккаунта
 
 ## VPS
-**Сервер удалён (2026-04-25).** После нового:
-```bash
-git clone https://github.com/iRatG/mktplace /opt/mktplace
-# скопировать .env.prod
-docker compose -f docker-compose.vps.yml build web
-docker compose -f docker-compose.vps.yml up -d
-docker compose -f docker-compose.vps.yml run --rm web python manage.py migrate
-```
+Текущий активный сервер: **Blue Hydrogenium**, `185.46.10.27` (Ubuntu, reg.ru), с 2026-06-26.
+Сайт: `http://185.46.10.27:8080`. Учётные данные (root-пароль, DNS-панель, email) — в
+`key_param.txt` (в репозиторий не попадает, см. `.gitignore`). Полная история серверов и
+все нюансы деплоя (MTU-фикс, SSH с Windows, swap и т.д.) — в `docs/DEPLOY.md`, обновлять
+там же при каждой смене сервера.
 
-## Деплой (когда будет новый сервер)
+## Деплой (обновление текущего сервера)
 ```bash
-plink -ssh -pw "ПАРОЛЬ" -hostkey "SHA256:..." root@NEW_IP \
+plink -ssh -pw "ПАРОЛЬ" -hostkey "SHA256:..." root@185.46.10.27 \
   "cd /opt/mktplace && git pull && docker compose -f docker-compose.vps.yml build web && docker compose -f docker-compose.vps.yml up -d"
 ```

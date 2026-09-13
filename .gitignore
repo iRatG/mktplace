@@ -59,6 +59,10 @@ key_param
 key_param.txt
 tz.md
 
+# QA-тестировщикам — рассылаются напрямую файлом, в репозиторий не попадают
+/blog_test_1.html
+/adv_test_2.html
+
 #presentation
 presentation*.*
 
