@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import Q
 
 
 class Campaign(models.Model):
@@ -135,7 +136,13 @@ class Response(models.Model):
     class Meta:
         verbose_name = "Campaign Response"
         verbose_name_plural = "Campaign Responses"
-        unique_together = [("blogger", "campaign", "platform")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["blogger", "campaign", "platform"],
+                condition=~Q(status="withdrawn"),
+                name="unique_active_response_per_platform",
+            ),
+        ]
         ordering = ["-created_at"]
 
     def __str__(self):
@@ -193,7 +200,13 @@ class DirectOffer(models.Model):
     class Meta:
         verbose_name = "Direct Offer"
         verbose_name_plural = "Direct Offers"
-        unique_together = [("advertiser", "campaign", "platform")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["advertiser", "campaign", "platform"],
+                condition=~Q(status="rejected"),
+                name="unique_active_direct_offer_per_platform",
+            ),
+        ]
         ordering = ["-created_at"]
 
     def __str__(self):

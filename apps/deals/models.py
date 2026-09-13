@@ -307,6 +307,12 @@ class Conversion(models.Model):
         verbose_name = "Conversion"
         verbose_name_plural = "Conversions"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["click_log", "conversion_type"],
+                name="unique_conversion_per_click_and_type",
+            ),
+        ]
 
     def __str__(self):
         return f"Conversion#{self.pk} type={self.conversion_type} amount={self.amount} credited={self.credited}"

@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from django.db import transaction as db_transaction
 
 from rest_framework import mixins, status, viewsets
@@ -151,42 +152,53 @@ class ResponseViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        campaign = response_obj.campaign
-
-        # Проверяем статус кампании
-        if campaign.status != Campaign.Status.ACTIVE:
-            return DRFResponse(
-                {"detail": "Cannot accept responses for a non-active campaign."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Проверяем лимит блогеров
-        if campaign.max_bloggers > 0:
-            active_deals_count = Deal.objects.filter(
-                campaign=campaign,
-                status__in=[
-                    Deal.Status.IN_PROGRESS,
-                    Deal.Status.CHECKING,
-                    Deal.Status.ON_APPROVAL,
-                    Deal.Status.WAITING_PUBLICATION,
-                    Deal.Status.COMPLETED,
-                ],
-            ).count()
-            if active_deals_count >= campaign.max_bloggers:
-                return DRFResponse(
-                    {"detail": f"Campaign has reached the maximum number of bloggers ({campaign.max_bloggers})."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        amount = response_obj.proposed_price or campaign.fixed_price
-        if not amount:
-            return DRFResponse(
-                {"detail": "Cannot determine deal amount: no price agreed upon."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
             with db_transaction.atomic():
+                # Перечитываем под блокировкой строки, чтобы исключить гонку
+                # между параллельными accept одного и того же отклика.
+                campaign = Campaign.objects.select_for_update().get(
+                    pk=response_obj.campaign_id
+                )
+                response_obj = CampaignResponse.objects.select_for_update().get(
+                    pk=response_obj.pk
+                )
+
+                if response_obj.status != CampaignResponse.Status.PENDING:
+                    return DRFResponse(
+                        {"detail": "Only pending responses can be accepted."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                if campaign.status != Campaign.Status.ACTIVE:
+                    return DRFResponse(
+                        {"detail": "Cannot accept responses for a non-active campaign."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                if campaign.max_bloggers > 0:
+                    active_deals_count = Deal.objects.filter(
+                        campaign=campaign,
+                        status__in=[
+                            Deal.Status.IN_PROGRESS,
+                            Deal.Status.CHECKING,
+                            Deal.Status.ON_APPROVAL,
+                            Deal.Status.WAITING_PUBLICATION,
+                            Deal.Status.COMPLETED,
+                        ],
+                    ).count()
+                    if active_deals_count >= campaign.max_bloggers:
+                        return DRFResponse(
+                            {"detail": f"Campaign has reached the maximum number of bloggers ({campaign.max_bloggers})."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                amount = response_obj.proposed_price or campaign.fixed_price
+                if not amount:
+                    return DRFResponse(
+                        {"detail": "Cannot determine deal amount: no price agreed upon."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 response_obj.status = CampaignResponse.Status.ACCEPTED
                 response_obj.save(update_fields=["status"])
 
@@ -202,14 +214,19 @@ class ResponseViewSet(
 
                 BillingService.reserve_funds(deal)
 
-                deal.status = Deal.Status.IN_PROGRESS
-                deal.save(update_fields=["status"])
                 DealStatusLog.log(
                     deal,
                     Deal.Status.IN_PROGRESS,
                     changed_by=request.user,
                     comment="Deal created, funds reserved.",
                 )
+                deal.status = Deal.Status.IN_PROGRESS
+                deal.save(update_fields=["status"])
+        except IntegrityError:
+            return DRFResponse(
+                {"detail": "This response has already been accepted."},
+                status=status.HTTP_409_CONFLICT,
+            )
         except ValueError as e:
             return DRFResponse({"detail": str(e)}, status=status.HTTP_402_PAYMENT_REQUIRED)
 

@@ -23,12 +23,36 @@ class TicketStatusLogInline(admin.TabularInline):
     can_delete = False
 
 
+def _is_it_team_member(user):
+    """Тикеты видит только группа "IT Team" — даже суперпользователь, если не состоит в ней.
+
+    Обычная проверка is_staff/has_perm автоматически пропускает суперпользователей,
+    поэтому здесь группа проверяется явно, в обход этого шортката.
+    """
+    return user.is_active and user.is_staff and user.groups.filter(name="IT Team").exists()
+
+
 @admin.register(Ticket)
 class TicketAdmin(admin.ModelAdmin):
     list_display = ("id", "title", "status", "created_by", "created_at")
     list_filter = ("status",)
     search_fields = ("title", "description", "created_by__email")
     inlines = [TicketAttachmentInline, TicketStatusLogInline]
+
+    def has_module_permission(self, request):
+        return _is_it_team_member(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        return _is_it_team_member(request.user)
+
+    def has_add_permission(self, request):
+        return _is_it_team_member(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        return _is_it_team_member(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        return _is_it_team_member(request.user)
 
 
 class BusinessQuestionInline(admin.TabularInline):

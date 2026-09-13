@@ -76,6 +76,8 @@ def cpa_postback(request):
     Rate limit: 100 постбэков в час с одного IP.
     """
     from django.core.cache import cache
+    from django.db import IntegrityError
+    from django.db import transaction as db_transaction
     from django.http import JsonResponse
     from apps.deals.models import ClickLog, Conversion
     from apps.billing.services import BillingService
@@ -105,13 +107,6 @@ def cpa_postback(request):
     except ValueError:
         return JsonResponse({"status": "error", "detail": "invalid click_id"}, status=400)
 
-    try:
-        click = ClickLog.objects.select_related(
-            "tracking_link__deal__campaign"
-        ).get(click_id=click_id)
-    except ClickLog.DoesNotExist:
-        return JsonResponse({"status": "error", "detail": "click not found"}, status=404)
-
     # Map goal → ConversionType
     goal_map = {
         "lead": Conversion.ConversionType.LEAD,
@@ -120,30 +115,44 @@ def cpa_postback(request):
     }
     conv_type = goal_map.get(goal, Conversion.ConversionType.LEAD)
 
-    # Idempotency: one credited conversion per click per goal
-    already = Conversion.objects.filter(
-        click_log=click, conversion_type=conv_type, credited=True
-    ).exists()
-    if already:
-        return JsonResponse({"status": "ok", "detail": "already credited"})
-
-    campaign = click.tracking_link.deal.campaign
-    cpa_rate = campaign.cpa_rate
-    if not cpa_rate:
-        return JsonResponse({"status": "error", "detail": "no cpa_rate on campaign"}, status=400)
-
     import json as _json
-    postback_raw = _json.dumps(dict(params))
 
-    conversion = Conversion.objects.create(
-        tracking_link=click.tracking_link,
-        click_log=click,
-        conversion_type=conv_type,
-        amount=cpa_rate,
-        postback_raw=postback_raw,
-    )
     try:
-        BillingService.credit_cpa_conversion(conversion)
-        return JsonResponse({"status": "ok", "conversion_id": conversion.pk})
+        with db_transaction.atomic():
+            # Блокируем строку клика — параллельные постбэки с тем же click_id
+            # сериализуются, второй увидит уже созданную конверсию.
+            click = ClickLog.objects.select_for_update().select_related(
+                "tracking_link__deal__campaign"
+            ).get(click_id=click_id)
+
+            conversion = Conversion.objects.filter(
+                click_log=click, conversion_type=conv_type
+            ).first()
+
+            if conversion is not None:
+                if conversion.credited:
+                    return JsonResponse({"status": "ok", "detail": "already credited"})
+            else:
+                campaign = click.tracking_link.deal.campaign
+                cpa_rate = campaign.cpa_rate
+                if not cpa_rate:
+                    return JsonResponse(
+                        {"status": "error", "detail": "no cpa_rate on campaign"}, status=400
+                    )
+                postback_raw = _json.dumps(dict(params))
+                conversion = Conversion.objects.create(
+                    tracking_link=click.tracking_link,
+                    click_log=click,
+                    conversion_type=conv_type,
+                    amount=cpa_rate,
+                    postback_raw=postback_raw,
+                )
+
+            BillingService.credit_cpa_conversion(conversion)
+            return JsonResponse({"status": "ok", "conversion_id": conversion.pk})
+    except ClickLog.DoesNotExist:
+        return JsonResponse({"status": "error", "detail": "click not found"}, status=404)
+    except IntegrityError:
+        return JsonResponse({"status": "ok", "detail": "already credited"})
     except ValueError as e:
         return JsonResponse({"status": "error", "detail": str(e)}, status=402)

@@ -1,3 +1,4 @@
+from django.db import transaction as db_transaction
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -113,17 +114,19 @@ class DealViewSet(
         deal = self.get_object()
         if deal.advertiser != request.user:
             raise PermissionDenied("Only the advertiser can confirm a publication.")
-        if deal.status != Deal.Status.CHECKING:
-            return DRFResponse(
-                {"detail": "Deal is not in checking status."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        _log_status_change(deal, Deal.Status.COMPLETED, user=request.user)
-        # Trigger payment
-        from apps.billing.services import BillingService
-        BillingService.complete_deal_payment(deal)
-        deal.last_distributed_at = timezone.now()
-        deal.save(update_fields=["last_distributed_at"])
+        with db_transaction.atomic():
+            deal = Deal.objects.select_for_update().get(pk=deal.pk)
+            if deal.status != Deal.Status.CHECKING:
+                return DRFResponse(
+                    {"detail": "Deal is not in checking status."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            _log_status_change(deal, Deal.Status.COMPLETED, user=request.user)
+            # Trigger payment
+            from apps.billing.services import BillingService
+            BillingService.complete_deal_payment(deal)
+            deal.last_distributed_at = timezone.now()
+            deal.save(update_fields=["last_distributed_at"])
         return DRFResponse({"detail": "Publication confirmed. Deal completed."})
 
     @action(detail=True, methods=["post"])
@@ -132,19 +135,21 @@ class DealViewSet(
         user = request.user
         if deal.blogger != user and deal.advertiser != user:
             raise PermissionDenied("You are not a participant in this deal.")
-        if deal.status not in (Deal.Status.CHECKING, Deal.Status.PUBLISHED):
-            return DRFResponse(
-                {"detail": "Dispute can only be opened in checking or published status."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
         reason = request.data.get("reason", "")
         if not reason:
             raise ValidationError({"reason": "Dispute reason is required."})
-        deal.dispute_reason = reason
-        deal.dispute_opened_at = timezone.now()
-        deal.is_frozen = True
-        deal.save(update_fields=["dispute_reason", "dispute_opened_at", "is_frozen"])
-        _log_status_change(deal, Deal.Status.DISPUTED, user=user, comment=reason)
+        with db_transaction.atomic():
+            deal = Deal.objects.select_for_update().get(pk=deal.pk)
+            if deal.status not in (Deal.Status.CHECKING, Deal.Status.PUBLISHED):
+                return DRFResponse(
+                    {"detail": "Dispute can only be opened in checking or published status."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            deal.dispute_reason = reason
+            deal.dispute_opened_at = timezone.now()
+            deal.is_frozen = True
+            deal.save(update_fields=["dispute_reason", "dispute_opened_at", "is_frozen"])
+            _log_status_change(deal, Deal.Status.DISPUTED, user=user, comment=reason)
         return DRFResponse({"detail": "Dispute opened."})
 
     @action(detail=True, methods=["post"])
@@ -157,15 +162,17 @@ class DealViewSet(
             Deal.Status.WAITING_PAYMENT,
             Deal.Status.IN_PROGRESS,
         )
-        if deal.status not in cancellable_statuses:
-            return DRFResponse(
-                {"detail": "Deal cannot be cancelled at this stage."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        _log_status_change(deal, Deal.Status.CANCELLED, user=user)
-        # Release reserved funds
-        from apps.billing.services import BillingService
-        BillingService.release_funds(deal)
+        with db_transaction.atomic():
+            deal = Deal.objects.select_for_update().get(pk=deal.pk)
+            if deal.status not in cancellable_statuses:
+                return DRFResponse(
+                    {"detail": "Deal cannot be cancelled at this stage."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            _log_status_change(deal, Deal.Status.CANCELLED, user=user)
+            # Release reserved funds
+            from apps.billing.services import BillingService
+            BillingService.release_funds(deal)
         return DRFResponse({"detail": "Deal cancelled."})
 
     @action(detail=True, methods=["get"], url_path="status-log")
