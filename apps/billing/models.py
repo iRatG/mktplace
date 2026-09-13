@@ -114,7 +114,7 @@ class WithdrawalRequest(models.Model):
 class TestBalanceGrant(models.Model):
     """Records of test balance grants issued by admin to demo accounts."""
 
-    MAX_TOTAL = 50_000_000  # max cumulative test credits per user (raised for QA testing, 2026-07-19)
+    MAX_TOTAL = 150_000_000  # max cumulative test credits per user (raised to cover 100M QA tester grants, 2026-09-13)
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
