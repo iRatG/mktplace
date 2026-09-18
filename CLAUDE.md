@@ -69,11 +69,15 @@ apps/notifications/ — Notification, NotificationService
 apps/analytics/     — (views в apps/web)
 apps/business_queries/ — Ticket (внутр. тикеты ИТ), BusinessQuery/Question/Submission
                           (опросники A/B для бизнеса без аккаунта, /bq/<token>/)
+apps/registration/  — LegalEntityApplication, IdentityVerification (OneID),
+                       IPApplication — регистрация юрлиц + подтверждение
+                       статуса ИП блогера. Ддокс/OneID/SMS — заглушки
+                       (apps/registration/services.py), реальных интеграций нет.
 apps/web/           — Django Templates frontend
   views/auth.py, campaigns.py, deals.py, platforms.py,
   profiles.py, billing.py, catalog.py, admin_panel.py,
   notifications.py, analytics.py, cpa.py, pages.py, permits.py,
-  business_queries.py
+  business_queries.py, registration.py
 ```
 
 ## URL namespace: `web:`
@@ -90,6 +94,11 @@ apps/web/           — Django Templates frontend
 - Legal: PermitDocument (ЗРУ-701), retention fields, terms/oferta страницы
 - Smoke-тесты по ролям (520 тестов)
 - business_queries: внутренние тикеты ИТ + опросники A/B для бизнеса без аккаунта
+- registration: регистрация юрлиц (ИНН, закрепление за сотрудником, ручной Ддокс,
+  одноразовая выдача пароля) + подтверждение личности блогера через OneID и статуса
+  ИП по документу. Внешние сервисы (Ддокс/OneID/MyID/SMS) — заглушки до реальных
+  доступов; известный открытый пробел — нет способа пополнить кошелёк реальными
+  деньгами для не-демо пользователей (см. openspec/changes/archive/2026-09-18-*)
 
 ## VPS
 IP, пароли, логины и всё остальное про текущий сервер — **только** в `key_param.txt`
