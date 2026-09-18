@@ -330,7 +330,6 @@ class Command(BaseCommand):
             application, created = LegalEntityApplication.objects.get_or_create(
                 inn=inn,
                 defaults={
-                    "user": advertiser,
                     "company_name": f"ООО Демо-Компания {inn[-3:]}",
                 },
             )

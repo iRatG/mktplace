@@ -126,8 +126,8 @@ urlpatterns = [
     path("legal/terms/", views.terms_view, name="terms"),
     path("legal/oferta/", views.oferta_view, name="oferta"),
 
-    # Регистрация юрлиц — рекламодатель
-    path("profile/legal-entity/", views.legal_entity_submit, name="legal_entity_submit"),
+    # Регистрация юрлиц — рекламодатель (точка входа с нуля, без email/пароля)
+    path("register/legal-entity/", views.legal_entity_submit, name="legal_entity_submit"),
     path("panel/legal-entities/", views.admin_legal_entities, name="admin_legal_entities"),
     path("panel/legal-entities/<int:pk>/approve/", views.admin_legal_entity_approve, name="admin_legal_entity_approve"),
     path("panel/legal-entities/<int:pk>/reject/", views.admin_legal_entity_reject, name="admin_legal_entity_reject"),

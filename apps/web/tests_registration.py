@@ -8,7 +8,10 @@ Covers:
   - admin_legal_entities: staff-only, personal per-reviewer queue (not shared)
   - admin_legal_entity_approve/reject: status log before status change, reject
     requires a reason, rejection sets retention_anchor_at
-  - admin_legal_entity_issue_access: password shown once, never emailed/SMSed
+  - admin_legal_entity_issue_access: password shown once, never emailed/SMSed;
+    creates the User+AdvertiserProfile lazily on first grant (no account exists
+    before that — legal_entity_submit is a from-scratch entry point, no login)
+  - legal_entity_submit: works without any prior login/account (public entry point)
   - admin_ip_applications: staff-only shared PENDING queue
   - admin_ip_application_approve: sets BloggerProfile.is_ip_confirmed
   - blogger_identity_submit: creates User+BloggerProfile+IdentityVerification
@@ -165,6 +168,47 @@ class LegalEntityQueueTests(TestCase):
         self.advertiser.refresh_from_db()
         self.assertNotEqual(self.advertiser.password, old_password_hash)
         self.assertTrue(self.advertiser.check_password(raw_password))
+
+
+class LegalEntityPublicSubmitTests(TestCase):
+    """Регистрация юрлица — точка входа с нуля, без предварительного аккаунта."""
+
+    def test_submit_without_login_creates_unassigned_user_application(self):
+        response = self.client.post(reverse("web:legal_entity_submit"), {
+            "company_name": "ООО Ромашка",
+            "inn": "123456789",
+        })
+        self.assertEqual(response.status_code, 200)
+
+        application = LegalEntityApplication.objects.get(inn="123456789")
+        self.assertIsNone(application.user)
+        self.assertEqual(application.status, LegalEntityApplication.Status.PENDING)
+
+    def test_issue_access_creates_user_on_first_grant(self):
+        reviewer = _make_reviewer("reviewer_public@demo.com")
+        application = LegalEntityApplication.objects.create(
+            company_name="ООО Ромашка", inn="987654321",
+            status=LegalEntityApplication.Status.APPROVED, assigned_to=reviewer,
+        )
+        self.assertIsNone(application.user)
+
+        self.client.force_login(reviewer)
+        response = self.client.post(
+            reverse("web:admin_legal_entity_issue_access", args=[application.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        raw_password = response.context["issued_password"]
+
+        application.refresh_from_db()
+        self.assertIsNotNone(application.user)
+        self.assertEqual(application.user.email, "legal.987654321@ddocs.internal")
+        self.assertEqual(application.user.role, User.Role.ADVERTISER)
+        self.assertTrue(application.user.check_password(raw_password))
+
+        from apps.profiles.models import AdvertiserProfile
+        profile = AdvertiserProfile.objects.get(user=application.user)
+        self.assertEqual(profile.company_name, "ООО Ромашка")
+        self.assertEqual(profile.inn, "987654321")
 
 
 class IPApplicationQueueTests(TestCase):

@@ -1,7 +1,7 @@
 """Views модуля регистрации юрлиц и блогеров (ИП).
 
 Рекламодатель (юрлицо):
-    /profile/legal-entity/             — подать заявку (название + ИНН)
+    /register/legal-entity/            — подать заявку (название + ИНН), точка входа с нуля
     /panel/legal-entities/             — очередь заявок, закреплённых за текущим сотрудником
     /panel/legal-entities/<pk>/approve/
     /panel/legal-entities/<pk>/reject/
@@ -26,7 +26,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.notifications.service import NotificationService
-from apps.profiles.models import BloggerProfile
+from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.registration.models import (
     IdentityVerification,
     IPApplication,
@@ -50,19 +50,20 @@ from .admin_panel import _staff_required
 
 # ── Юрлицо: рекламодатель ────────────────────────────────────────────────────
 
-@login_required
 def legal_entity_submit(request):
-    """Подать заявку на регистрацию юрлица (название + ИНН)."""
-    if request.user.role != User.Role.ADVERTISER:
-        messages.error(request, "Доступно только рекламодателям.")
-        return redirect("web:advertiser_dashboard")
+    """Точка входа юрлица с нуля: только название + ИНН, без email/пароля.
 
-    applications = LegalEntityApplication.objects.filter(user=request.user).order_by("-created_at")
+    По макету бизнеса (task/bloger 12092026) аккаунта в этот момент ещё нет —
+    он появится позже, когда сотрудник выдаст доступ после обмена договором
+    через «Ддокс» (см. admin_legal_entity_issue_access). Здесь заявка просто
+    создаётся и автоматически закрепляется за сотрудником.
+    """
+    if request.user.is_authenticated:
+        return redirect("web:landing" if request.user.role != User.Role.ADVERTISER else "web:advertiser_dashboard")
 
     form = LegalEntityApplicationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         application = form.save(commit=False)
-        application.user = request.user
         application.save()
 
         reviewer = assign_reviewer()
@@ -71,13 +72,9 @@ def legal_entity_submit(request):
             application.save(update_fields=["assigned_to"])
             NotificationService.notify_legal_entity_assigned(reviewer, application)
 
-        messages.success(request, "Заявка отправлена на проверку.")
-        return redirect("web:legal_entity_submit")
+        return render(request, "registration/legal_entity_submit.html", {"form": LegalEntityApplicationForm(), "submitted": True})
 
-    return render(
-        request, "registration/legal_entity_submit.html",
-        {"form": form, "applications": applications},
-    )
+    return render(request, "registration/legal_entity_submit.html", {"form": form})
 
 
 def _legal_entity_queue(user):
@@ -121,7 +118,8 @@ def admin_legal_entity_approve(request, pk):
     application.reviewed_at = timezone.now()
     application.rejection_reason = ""
     application.save(update_fields=["status", "reviewed_by", "reviewed_at", "rejection_reason", "updated_at"])
-    NotificationService.notify_legal_entity_approved(application.user, application)
+    if application.user:
+        NotificationService.notify_legal_entity_approved(application.user, application)
     messages.success(request, f"Заявка «{application.company_name}» подтверждена.")
     return redirect("web:admin_legal_entities")
 
@@ -147,7 +145,8 @@ def admin_legal_entity_reject(request, pk):
             "status", "reviewed_by", "reviewed_at", "rejection_reason",
             "retention_anchor_at", "updated_at",
         ])
-        NotificationService.notify_legal_entity_rejected(application.user, application)
+        if application.user:
+            NotificationService.notify_legal_entity_rejected(application.user, application)
         messages.success(request, f"Заявка «{application.company_name}» отклонена.")
     else:
         messages.error(request, "Укажите причину отклонения.")
@@ -176,23 +175,39 @@ def admin_legal_entity_ddocs_update(request, pk):
 @_staff_required
 @require_POST
 def admin_legal_entity_issue_access(request, pk):
-    """Сгенерировать пароль юрлицу и показать его один раз в интерфейсе сотрудника.
+    """Создать (при первой выдаче) или обновить пароль аккаунта юрлица.
 
-    Пароль никогда не отправляется по email/SMS — только для вставки в документ Ддокс.
+    Аккаунт для юрлица не существует до этого момента — заявка подавалась
+    без email/пароля (см. legal_entity_submit). Логин генерируется здесь же,
+    показывается сотруднику ровно один раз для вставки в документ «Ддокс».
+    Пароль никогда не отправляется по email/SMS.
     """
     application = get_object_or_404(
         LegalEntityApplication, pk=pk, status=LegalEntityApplication.Status.APPROVED,
     )
     raw_password = User.objects.make_random_password()
-    user = application.user
-    user.set_password(raw_password)
-    user.status = User.Status.ACTIVE
-    user.is_email_confirmed = True
-    user.save(update_fields=["password", "status", "is_email_confirmed"])
+
+    if application.user:
+        user = application.user
+        user.set_password(raw_password)
+        user.status = User.Status.ACTIVE
+        user.is_email_confirmed = True
+        user.save(update_fields=["password", "status", "is_email_confirmed"])
+    else:
+        login = f"legal.{application.inn}@ddocs.internal"
+        user = User.objects.create_user(email=login, password=raw_password, role=User.Role.ADVERTISER)
+        user.status = User.Status.ACTIVE
+        user.is_email_confirmed = True
+        user.save(update_fields=["status", "is_email_confirmed"])
+        profile, _created = AdvertiserProfile.objects.get_or_create(user=user)
+        profile.company_name = application.company_name
+        profile.inn = application.inn
+        profile.save(update_fields=["company_name", "inn"])
+        application.user = user
 
     application.ddocs_status = LegalEntityApplication.DdocsStatus.ACCESS_ISSUED
     application.retention_anchor_at = timezone.now()
-    application.save(update_fields=["ddocs_status", "retention_anchor_at", "updated_at"])
+    application.save(update_fields=["user", "ddocs_status", "retention_anchor_at", "updated_at"])
 
     return render(
         request, "admin_panel/legal_entities.html",

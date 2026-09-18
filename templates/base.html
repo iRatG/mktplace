@@ -80,7 +80,6 @@
                 <a href="{% url 'web:analytics' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Аналитика</a>
                 <a href="{% url 'web:wallet' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кошелёк</a>
                 <a href="{% url 'web:profile' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Профиль</a>
-                <a href="{% url 'web:legal_entity_submit' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Юрлицо</a>
                 {% elif user.role == 'blogger' %}
                 <a href="{% url 'web:blogger_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Дашборд</a>
                 <a href="{% url 'web:catalog' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Каталог</a>

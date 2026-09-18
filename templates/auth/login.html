@@ -15,11 +15,12 @@
         <form method="post" class="space-y-4">
             {% csrf_token %}
             <div>
-                <label for="id_email" class="block text-sm font-medium text-slate-300 mb-1">Email</label>
+                <label for="id_email" class="block text-sm font-medium text-slate-300 mb-1">Логин</label>
                 <input type="email" name="email" id="id_email"
                     value="{{ form.email.value|default:'' }}"
                     class="input-dark"
-                    placeholder="you@example.com" required autofocus>
+                    placeholder="Логин, который вам прислали" required autofocus>
+                <p class="text-xs text-slate-500 mt-1">Ваша почта — если регистрировались по email, или логин из SMS / документа «Ддокс».</p>
                 {% if form.email.errors %}
                 <p class="text-red-400 text-xs mt-1">{{ form.email.errors.0 }}</p>
                 {% endif %}

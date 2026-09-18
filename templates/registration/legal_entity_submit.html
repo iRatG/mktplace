@@ -3,7 +3,16 @@
 
 {% block content %}
 <div class="max-w-xl mx-auto">
-    <div class="card-dark rounded-2xl p-6 mb-6">
+    <div class="card-dark rounded-2xl p-6">
+        {% if submitted %}
+        <h1 class="text-xl font-bold text-white mb-2">Заявка отправлена</h1>
+        <p class="text-sm text-slate-400 leading-relaxed mb-4">
+            Заявку проверит сотрудник вручную. Договор и доступ к аккаунту придут
+            через «Ддокс» после подписания — отдельно свяжемся с вами по указанным
+            в заявке реквизитам.
+        </p>
+        <a href="{% url 'web:landing' %}" class="text-orange-400 hover:text-orange-300 transition-colors text-sm">На главную</a>
+        {% else %}
         <h1 class="text-xl font-bold text-white mb-2">Регистрация юрлица</h1>
         <p class="text-xs text-slate-400 mb-6 leading-relaxed">
             Укажите название компании и ИНН. Заявку проверит сотрудник вручную.
@@ -30,32 +39,7 @@
                 </button>
             </div>
         </form>
+        {% endif %}
     </div>
-
-    {% if applications %}
-    <h2 class="text-sm font-semibold text-slate-300 mb-3">Мои заявки</h2>
-    <div class="space-y-3">
-        {% for app in applications %}
-        <div class="card-dark rounded-xl p-4">
-            <div class="flex items-center gap-2 mb-1">
-                <span class="text-sm font-semibold text-white">{{ app.company_name }}</span>
-                <span class="text-xs text-slate-500">ИНН {{ app.inn }}</span>
-                <span class="text-xs px-2 py-0.5 rounded-full
-                    {% if app.status == 'approved' %}bg-green-500/15 text-green-400
-                    {% elif app.status == 'pending' %}bg-yellow-500/15 text-yellow-400
-                    {% else %}bg-red-500/15 text-red-400{% endif %}">
-                    {{ app.get_status_display }}
-                </span>
-            </div>
-            <div class="text-xs text-slate-400">Ддокс: {{ app.get_ddocs_status_display }}</div>
-            {% if app.rejection_reason %}
-            <div class="mt-2 text-xs text-red-300 bg-red-500/5 border border-red-500/15 rounded-lg p-2">
-                Причина отклонения: {{ app.rejection_reason }}
-            </div>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

@@ -8,10 +8,11 @@ from apps.users.models import PasswordResetToken, User
 from apps.users.tasks import send_password_reset_email
 
 from ..forms import (
+    BloggerIdentitySubmitForm,
+    LegalEntityApplicationForm,
     LoginForm,
     PasswordResetConfirmForm,
     PasswordResetRequestForm,
-    RegisterForm,
 )
 from .pages import _redirect_dashboard
 
@@ -52,29 +53,24 @@ def login_view(request):
 
 
 def register_view(request):
+    """Точка входа в регистрацию — не создаёт аккаунт сама.
+
+    По макету бизнеса (task/bloger 12092026) ни у юрлица, ни у блогера нет
+    email/пароля на этом шаге. Страница показывает два таба, каждый со своей
+    формой, которая отправляется на свой отдельный обработчик:
+    - Рекламодатель → LegalEntityApplicationForm → web:legal_entity_submit
+      (название + ИНН, аккаунт появится позже, при выдаче доступа);
+    - Блогер → BloggerIdentitySubmitForm → web:blogger_identity_submit
+      (ФИО/телефон/ПИНФЛ, подтверждение через OneID).
+    """
     if request.user.is_authenticated:
         return _redirect_dashboard(request.user)
 
-    form = RegisterForm(
-        request.POST or None,
-        initial={"role": request.GET.get("role")},
-    )
-    if request.method == "POST" and form.is_valid():
-        user = User.objects.create_user(
-            email=form.cleaned_data["email"],
-            password=form.cleaned_data["password1"],
-            role=form.cleaned_data["role"],
-        )
-        # Send confirmation email via Celery
-        from apps.users.tasks import send_confirmation_email
-        send_confirmation_email.delay(user.pk)
-        messages.success(
-            request,
-            "Аккаунт создан! Проверьте почту и подтвердите email.",
-        )
-        return redirect("web:login")
-
-    return render(request, "auth/register.html", {"form": form})
+    return render(request, "auth/register.html", {
+        "legal_entity_form": LegalEntityApplicationForm(),
+        "blogger_form": BloggerIdentitySubmitForm(),
+        "initial_role": request.GET.get("role", "advertiser"),
+    })
 
 
 @require_POST

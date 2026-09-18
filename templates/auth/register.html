@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Регистрация — ublogers{% endblock %}
 
@@ -8,75 +8,85 @@
         <h1 class="text-2xl font-bold text-white mb-2">Создать аккаунт</h1>
         <p class="text-sm text-slate-400 mb-6">Уже есть аккаунт? <a href="{% url 'web:login' %}" class="text-orange-400 hover:text-orange-300 transition-colors">Войти</a></p>
 
-        {% if form.non_field_errors %}
-        <div class="alert-error mb-4">{{ form.non_field_errors.0 }}</div>
-        {% endif %}
-
-        <form method="post" class="space-y-4">
-            {% csrf_token %}
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-2">Я регистрируюсь как</label>
-                <div class="grid grid-cols-2 gap-3">
-                    <label class="flex items-center gap-3 border border-white/10 rounded-xl px-4 py-3 cursor-pointer hover:border-orange-500/40 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10">
-                        <input type="radio" name="role" value="advertiser"
-                            {% if form.role.value == 'advertiser' or not form.role.value %}checked{% endif %}>
-                        <div>
-                            <div class="text-sm font-medium text-white">Рекламодатель</div>
-                            <div class="text-xs text-slate-500">Размещаю рекламу</div>
-                        </div>
-                    </label>
-                    <label class="flex items-center gap-3 border border-white/10 rounded-xl px-4 py-3 cursor-pointer hover:border-orange-500/40 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10">
-                        <input type="radio" name="role" value="blogger"
-                            {% if form.role.value == 'blogger' %}checked{% endif %}>
-                        <div>
-                            <div class="text-sm font-medium text-white">Блогер</div>
-                            <div class="text-xs text-slate-500">Принимаю рекламу</div>
-                        </div>
-                    </label>
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <label class="flex items-center gap-3 border border-white/10 rounded-xl px-4 py-3 cursor-pointer hover:border-orange-500/40 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10">
+                <input type="radio" name="role_tab" value="advertiser" id="tab-advertiser"
+                    {% if initial_role == 'advertiser' %}checked{% endif %}>
+                <div>
+                    <div class="text-sm font-medium text-white">Рекламодатель</div>
+                    <div class="text-xs text-slate-500">Юрлицо, размещаю рекламу</div>
                 </div>
-                {% if form.role.errors %}
-                <p class="text-red-400 text-xs mt-1">{{ form.role.errors.0 }}</p>
-                {% endif %}
-                <p class="text-xs text-slate-500 mt-2">
-                    Блогер? Можно зарегистрироваться без email — через
-                    <a href="{% url 'web:blogger_identity_submit' %}" class="text-orange-400 hover:text-orange-300 transition-colors">подтверждение личности OneID</a>.
-                </p>
-            </div>
-            <div>
-                <label for="id_email" class="block text-sm font-medium text-slate-300 mb-1">Email</label>
-                <input type="email" name="email" id="id_email"
-                    value="{{ form.email.value|default:'' }}"
-                    class="input-dark"
-                    placeholder="you@example.com" required autofocus>
-                {% if form.email.errors %}
-                <p class="text-red-400 text-xs mt-1">{{ form.email.errors.0 }}</p>
-                {% endif %}
-            </div>
-            <div>
-                <label for="id_password1" class="block text-sm font-medium text-slate-300 mb-1">Пароль</label>
-                <input type="password" name="password1" id="id_password1"
-                    class="input-dark"
-                    placeholder="Минимум 8 символов" required>
-                {% if form.password1.errors %}
-                <p class="text-red-400 text-xs mt-1">{{ form.password1.errors.0 }}</p>
-                {% endif %}
-            </div>
-            <div>
-                <label for="id_password2" class="block text-sm font-medium text-slate-300 mb-1">Повторите пароль</label>
-                <input type="password" name="password2" id="id_password2"
-                    class="input-dark"
-                    placeholder="••••••••" required>
-                {% if form.password2.errors %}
-                <p class="text-red-400 text-xs mt-1">{{ form.password2.errors.0 }}</p>
-                {% endif %}
-            </div>
-            <p class="text-xs text-slate-500">
-                Регистрируясь, вы соглашаетесь с условиями использования платформы.
+            </label>
+            <label class="flex items-center gap-3 border border-white/10 rounded-xl px-4 py-3 cursor-pointer hover:border-orange-500/40 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10">
+                <input type="radio" name="role_tab" value="blogger" id="tab-blogger"
+                    {% if initial_role == 'blogger' %}checked{% endif %}>
+                <div>
+                    <div class="text-sm font-medium text-white">Блогер</div>
+                    <div class="text-xs text-slate-500">Принимаю рекламу</div>
+                </div>
+            </label>
+        </div>
+
+        <!-- Рекламодатель: название юрлица + ИНН, без email/пароля -->
+        <div id="panel-advertiser">
+            <p class="text-xs text-slate-500 mb-4">
+                Аккаунт для юрлица создаётся не сразу: заявку проверит сотрудник, договор и
+                доступ придут через «Ддокс» после подписания.
             </p>
-            <button type="submit" class="btn-orange w-full py-2.5 px-4 text-sm">
-                Создать аккаунт
-            </button>
-        </form>
+            <form method="post" action="{% url 'web:legal_entity_submit' %}" class="space-y-4">
+                {% csrf_token %}
+                {% for field in legal_entity_form %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1">{{ field.label }} *</label>
+                    <div class="[&>input]:input-dark">{{ field }}</div>
+                    {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
+                </div>
+                {% endfor %}
+                <button type="submit" class="btn-orange w-full py-2.5 px-4 text-sm">Отправить на проверку</button>
+            </form>
+        </div>
+
+        <!-- Блогер: ФИО/телефон/ПИНФЛ, подтверждение через OneID -->
+        <div id="panel-blogger">
+            <p class="text-xs text-slate-500 mb-4">
+                Подтвердите личность через OneID. После подтверждения логин и пароль придут на
+                телефон по SMS.
+            </p>
+            {% if blogger_form.non_field_errors %}
+            <div class="alert-error mb-4">{{ blogger_form.non_field_errors.0 }}</div>
+            {% endif %}
+            <form method="post" action="{% url 'web:blogger_identity_submit' %}" class="space-y-4">
+                {% csrf_token %}
+                {% for field in blogger_form %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1">{{ field.label }} *</label>
+                    <div class="[&>input]:input-dark">{{ field }}</div>
+                    {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
+                </div>
+                {% endfor %}
+                <button type="submit" class="btn-orange w-full py-2.5 px-4 text-sm">Подтвердить через OneID</button>
+            </form>
+        </div>
+
+        <p class="text-xs text-slate-500 mt-6">
+            Регистрируясь, вы соглашаетесь с условиями использования платформы.
+        </p>
     </div>
 </div>
+
+<script>
+(function(){
+  var advTab = document.getElementById('tab-advertiser');
+  var blogTab = document.getElementById('tab-blogger');
+  var advPanel = document.getElementById('panel-advertiser');
+  var blogPanel = document.getElementById('panel-blogger');
+  function sync(){
+    advPanel.hidden = !advTab.checked;
+    blogPanel.hidden = !blogTab.checked;
+  }
+  advTab.addEventListener('change', sync);
+  blogTab.addEventListener('change', sync);
+  sync();
+})();
+</script>
 {% endblock %}

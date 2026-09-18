@@ -3,14 +3,19 @@ from django.db import models
 
 
 class LegalEntityApplication(models.Model):
-    """Заявка рекламодателя на регистрацию юрлица (название + ИНН).
+    """Заявка юрлица на регистрацию (название + ИНН) — точка входа с нуля.
 
-    Проверка ИНН вручную (временное решение, см. task/bloger 12092026) —
-    поле оставлено простым CharField без внешней валидации, чтобы включить
+    По макету бизнеса (task/bloger 12092026) это первый контакт компании с
+    платформой: аккаунта ещё не существует, регистрация — это Название+ИНН,
+    без email и пароля. Проверка ИНН вручную (временное решение) — поле
+    оставлено простым CharField без внешней валидации, чтобы включить
     автоматическую проверку позже было доработкой, а не переделкой.
 
     Обмен договором идёт вне платформы через сервис «Ддокс» — ddocs_status
-    сотрудник переключает вручную, интеграции с Ддокс нет.
+    сотрудник переключает вручную, интеграции с Ддокс нет. Аккаунт (`user`)
+    создаётся только при выдаче доступа сотрудником (см.
+    apps.web.views.registration.admin_legal_entity_issue_access) — до этого
+    момента `user` пуст: заявка ещё не привязана ни к какому логину.
     """
 
     class Status(models.TextChoices):
@@ -29,6 +34,9 @@ class LegalEntityApplication(models.Model):
         on_delete=models.CASCADE,
         related_name="legal_entity_applications",
         limit_choices_to={"role": "advertiser"},
+        null=True,
+        blank=True,
+        help_text="Заполняется только при выдаче доступа — до этого аккаунта не существует",
     )
     company_name = models.CharField(max_length=255)
     inn = models.CharField(max_length=20, verbose_name="ИНН")
