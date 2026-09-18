@@ -126,17 +126,17 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 
 # ── Currency / локализация ─────────────────────────────────────────────────────
-# Чтобы переключить страну — поменяйте эти переменные в .env
-# Пример для Узбекистана:
-#   CURRENCY_SYMBOL=so'm
+# Платформа для Узбекистана — валюта по умолчанию сум (UZS). Переопределяется
+# через .env, если понадобится другая страна:
+#   CURRENCY_SYMBOL=сум
 #   CURRENCY_CODE=UZS
 #   CURRENCY_MIN_WITHDRAWAL=65000
 #   CURRENCY_MIN_DEPOSIT=130000
 #   PLATFORM_COMMISSION_PERCENT=15
-CURRENCY_SYMBOL          = env('CURRENCY_SYMBOL',          default='₽')
-CURRENCY_CODE            = env('CURRENCY_CODE',            default='RUB')
-CURRENCY_MIN_WITHDRAWAL  = env.int('CURRENCY_MIN_WITHDRAWAL',  default=500)
-CURRENCY_MIN_DEPOSIT     = env.int('CURRENCY_MIN_DEPOSIT',     default=1000)
+CURRENCY_SYMBOL          = env('CURRENCY_SYMBOL',          default='сум')
+CURRENCY_CODE            = env('CURRENCY_CODE',            default='UZS')
+CURRENCY_MIN_WITHDRAWAL  = env.int('CURRENCY_MIN_WITHDRAWAL',  default=65000)
+CURRENCY_MIN_DEPOSIT     = env.int('CURRENCY_MIN_DEPOSIT',     default=130000)
 
 # Redis
 REDIS_URL = env('REDIS_URL', default='redis://redis:6379/0')
