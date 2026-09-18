@@ -23,6 +23,11 @@ class Notification(models.Model):
         DIRECT_OFFER_RECEIVED = "direct_offer_received", "Direct Offer Received"
         DIRECT_OFFER_ACCEPTED = "direct_offer_accepted", "Direct Offer Accepted"
         DIRECT_OFFER_REJECTED = "direct_offer_rejected", "Direct Offer Rejected"
+        LEGAL_ENTITY_ASSIGNED = "legal_entity_assigned", "Legal Entity Assigned"
+        LEGAL_ENTITY_APPROVED = "legal_entity_approved", "Legal Entity Approved"
+        LEGAL_ENTITY_REJECTED = "legal_entity_rejected", "Legal Entity Rejected"
+        IP_APPLICATION_APPROVED = "ip_application_approved", "IP Application Approved"
+        IP_APPLICATION_REJECTED = "ip_application_rejected", "IP Application Rejected"
         SYSTEM = "system", "System"
 
     user = models.ForeignKey(

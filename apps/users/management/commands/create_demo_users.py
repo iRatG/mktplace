@@ -100,6 +100,13 @@ class Command(BaseCommand):
             user.status = User.Status.ACTIVE
             user.save(update_fields=["is_staff", "is_superuser", "is_email_confirmed", "is_demo", "status"])
 
+            if data["is_staff"]:
+                from django.contrib.auth.models import Group
+                from apps.registration.services import REGISTRATION_REVIEWERS_GROUP
+
+                group, _ = Group.objects.get_or_create(name=REGISTRATION_REVIEWERS_GROUP)
+                user.groups.add(group)
+
             self.stdout.write(
                 self.style.SUCCESS(f"  ✓ {data['label']:20s}  {email}  /  {data['password']}")
             )

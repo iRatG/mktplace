@@ -106,3 +106,17 @@ from .business_queries import (
     ticket_detail,
     business_query_view,
 )
+from .registration import (
+    legal_entity_submit,
+    admin_legal_entities,
+    admin_legal_entity_approve,
+    admin_legal_entity_reject,
+    admin_legal_entity_ddocs_update,
+    admin_legal_entity_issue_access,
+    blogger_identity_submit,
+    ip_application_list,
+    ip_application_upload,
+    admin_ip_applications,
+    admin_ip_application_approve,
+    admin_ip_application_reject,
+)

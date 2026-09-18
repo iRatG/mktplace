@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Мои заявки на статус ИП — ublogers{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">Статус ИП</h1>
+        <a href="{% url 'web:ip_application_upload' %}" class="btn-orange px-4 py-2 rounded-xl text-sm">
+            + Загрузить документ
+        </a>
+    </div>
+
+    {% if applications %}
+    <div class="space-y-3">
+        {% for app in applications %}
+        <div class="card-dark rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-sm font-semibold text-white">{{ app.get_document_type_display }}</span>
+                {% if app.document_number %}<span class="text-xs text-slate-500">№ {{ app.document_number }}</span>{% endif %}
+                <span class="text-xs px-2 py-0.5 rounded-full
+                    {% if app.status == 'approved' %}bg-green-500/15 text-green-400
+                    {% elif app.status == 'pending' %}bg-yellow-500/15 text-yellow-400
+                    {% else %}bg-red-500/15 text-red-400{% endif %}">
+                    {{ app.get_status_display }}
+                </span>
+            </div>
+            {% if app.file %}
+            <a href="{{ app.file.url }}" target="_blank" class="text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                Открыть файл
+            </a>
+            {% endif %}
+            {% if app.rejection_reason %}
+            <div class="mt-2 text-xs text-red-300 bg-red-500/5 border border-red-500/15 rounded-lg p-2">
+                Причина отклонения: {{ app.rejection_reason }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card-dark rounded-xl px-6 py-14 text-center">
+        <div class="text-4xl mb-4">🪪</div>
+        <p class="text-slate-400 text-sm mb-4">Заявок на статус ИП пока нет.</p>
+        <a href="{% url 'web:ip_application_upload' %}" class="btn-orange px-5 py-2.5 rounded-xl text-sm">
+            Загрузить документ
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -36,6 +36,16 @@
         <div class="text-xs text-slate-400 mt-1">Документов на проверке</div>
         {% if permits_pending %}<div class="text-xs text-blue-400 mt-1">Требует действия</div>{% endif %}
     </a>
+    <a href="{% url 'web:admin_legal_entities' %}" class="card-dark rounded-xl p-5 hover:border-orange-500/30 transition-colors block">
+        <div class="text-2xl font-bold text-white">🏢</div>
+        <div class="text-xs text-slate-400 mt-1">Заявки юрлиц</div>
+        <div class="text-xs text-slate-600 mt-0.5">Закреплённые за вами</div>
+    </a>
+    <a href="{% url 'web:admin_ip_applications' %}" class="card-dark rounded-xl p-5 hover:border-orange-500/30 transition-colors block">
+        <div class="text-2xl font-bold text-white">🪪</div>
+        <div class="text-xs text-slate-400 mt-1">Заявки на статус ИП</div>
+        <div class="text-xs text-slate-600 mt-0.5">Блогеры</div>
+    </a>
 </div>
 
 <!-- Platform stats -->

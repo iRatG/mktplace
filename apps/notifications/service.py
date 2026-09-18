@@ -288,3 +288,62 @@ class NotificationService:
             title="Заявка на вывод отклонена",
             body=f"Ваша заявка на вывод {amount:,.0f} отклонена.{reason} Средства возвращены на баланс.",
         )
+
+    # ── Регистрация юрлиц ─────────────────────────────────────────────────────
+
+    @staticmethod
+    def notify_legal_entity_assigned(staff, application):
+        """Заявка юрлица закреплена за сотрудником → сотруднику."""
+        NotificationService.notify(
+            user=staff,
+            notification_type=Notification.Type.LEGAL_ENTITY_ASSIGNED,
+            title="Новая заявка юрлица на проверку",
+            body=(
+                f"За вами закреплена заявка «{application.company_name}» "
+                f"(ИНН {application.inn}) на регистрацию."
+            ),
+        )
+
+    @staticmethod
+    def notify_legal_entity_approved(advertiser, application):
+        """Заявка юрлица подтверждена → рекламодателю."""
+        NotificationService.notify(
+            user=advertiser,
+            notification_type=Notification.Type.LEGAL_ENTITY_APPROVED,
+            title="Заявка юрлица подтверждена",
+            body=f"Регистрация «{application.company_name}» подтверждена.",
+        )
+
+    @staticmethod
+    def notify_legal_entity_rejected(advertiser, application):
+        """Заявка юрлица отклонена → рекламодателю."""
+        reason = application.rejection_reason or "причина не указана"
+        NotificationService.notify(
+            user=advertiser,
+            notification_type=Notification.Type.LEGAL_ENTITY_REJECTED,
+            title="Заявка юрлица отклонена",
+            body=f"Регистрация «{application.company_name}» отклонена. Причина: {reason}",
+        )
+
+    # ── Подтверждение статуса ИП ─────────────────────────────────────────────
+
+    @staticmethod
+    def notify_ip_application_approved(blogger, application):
+        """Заявка на статус ИП подтверждена → блогеру."""
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.IP_APPLICATION_APPROVED,
+            title="Статус ИП подтверждён",
+            body="Ваш документ (патент/справка) проверен, статус ИП подтверждён.",
+        )
+
+    @staticmethod
+    def notify_ip_application_rejected(blogger, application):
+        """Заявка на статус ИП отклонена → блогеру."""
+        reason = application.rejection_reason or "причина не указана"
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.IP_APPLICATION_REJECTED,
+            title="Заявка на статус ИП отклонена",
+            body=f"Ваш документ отклонён. Причина: {reason}",
+        )

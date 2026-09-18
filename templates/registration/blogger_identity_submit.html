@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Подтверждение личности — ublogers{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+    <div class="card-dark rounded-2xl p-6">
+        <h1 class="text-xl font-bold text-white mb-2">Регистрация блогера</h1>
+        <p class="text-xs text-slate-400 mb-6 leading-relaxed">
+            Подтвердите личность через OneID — укажите Фамилию Имя, телефон и ПИНФЛ.
+            После подтверждения логин и пароль придут на телефон по SMS.
+        </p>
+
+        {% if form.non_field_errors %}
+        <div class="text-xs text-red-400 mb-4 bg-red-500/5 border border-red-500/15 rounded-lg p-3">
+            {{ form.non_field_errors|join:", " }}
+        </div>
+        {% endif %}
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            {% for field in form %}
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">
+                    {{ field.label }}{% if field.field.required %} *{% endif %}
+                </label>
+                {% if field.errors %}
+                <div class="text-xs text-red-400 mb-1">{{ field.errors|join:", " }}</div>
+                {% endif %}
+                <div class="[&>input]:input-dark">{{ field }}</div>
+            </div>
+            {% endfor %}
+
+            <div class="pt-2">
+                <button type="submit" class="btn-orange w-full py-3 rounded-xl text-sm font-semibold">
+                    Подтвердить через OneID
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

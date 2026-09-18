@@ -24,6 +24,8 @@ from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
 from apps.deals.models import Deal, DealStatusLog
 from apps.platforms.models import Category, Platform
+from apps.registration.models import IdentityVerification, IPApplication, LegalEntityApplication
+from apps.registration.services import assign_reviewer
 from apps.users.models import User
 
 
@@ -36,6 +38,10 @@ BLOGGER3_EMAIL = "blogger3@demo.com"   # YouTube-блогер (каталог)
 
 INITIAL_BALANCE = Decimal("2_000_000")  # 2 млн UZS на кошельке рекламодателя
 BLOGGER_INITIAL = Decimal("150_000")    # стартовый баланс блогера
+
+# Тестовые ИНН для очереди проверки юрлиц (присланы бизнесом,
+# task/bloger 12092026/ответ_18-09-2026.txt, вопрос 5)
+TEST_INNS = ["310591115", "306912807", "303814574"]
 
 CAMPAIGNS = [
     {
@@ -317,6 +323,51 @@ class Command(BaseCommand):
         )
         self.stdout.write(f"     DirectOffer #{offer_g.pk} → статус: {offer_g.status}")
 
+        # ── Сценарий H: регистрация юрлиц и статуса ИП ───────────────────────
+        self.stdout.write("\n  └─ Сценарий H: заявки юрлица (ИНН) и статуса ИП блогера")
+        legal_entity_apps = []
+        for inn in TEST_INNS:
+            application, created = LegalEntityApplication.objects.get_or_create(
+                inn=inn,
+                defaults={
+                    "user": advertiser,
+                    "company_name": f"ООО Демо-Компания {inn[-3:]}",
+                },
+            )
+            if created or not application.assigned_to:
+                reviewer = assign_reviewer()
+                if reviewer:
+                    application.assigned_to = reviewer
+                    application.save(update_fields=["assigned_to"])
+            legal_entity_apps.append(application)
+        self.stdout.write(
+            f"     LegalEntityApplication: {len(legal_entity_apps)} заявок с тестовыми ИНН "
+            f"({', '.join(TEST_INNS)})"
+        )
+
+        verification, _ = IdentityVerification.objects.get_or_create(
+            user=blogger,
+            defaults={
+                "full_name": "Демо Блогеров",
+                "phone": "+998901234567",
+                "pinfl": "12345678901234",
+                "status": IdentityVerification.Status.VERIFIED,
+                "verified_at": timezone.now(),
+            },
+        )
+        ip_application, _ = IPApplication.objects.get_or_create(
+            user=blogger,
+            defaults={
+                "identity_verification": verification,
+                "document_type": IPApplication.DocType.PATENT,
+                "document_number": "DEMO-IP-001",
+            },
+        )
+        self.stdout.write(
+            f"     IdentityVerification #{verification.pk} → {verification.status}, "
+            f"IPApplication #{ip_application.pk} → {ip_application.status}"
+        )
+
         # ── Итог ──────────────────────────────────────────────────────────────
         adv_wallet.refresh_from_db()
         blogger_wallet.refresh_from_db()
@@ -337,6 +388,9 @@ class Command(BaseCommand):
         self.stdout.write(f"    E) DirectOffer #{offer_e.pk} → PENDING  (блогер видит в дашборде)")
         self.stdout.write(f"    F) DirectOffer #{offer_f.pk} → ACCEPTED (сделка создана)")
         self.stdout.write(f"    G) DirectOffer #{offer_g.pk} → REJECTED (отклонено)")
+        self.stdout.write("\n  Сценарии (регистрация юрлиц и ИП):")
+        self.stdout.write(f"    H) {len(legal_entity_apps)} заявки юрлиц (тестовые ИНН) → /panel/legal-entities/")
+        self.stdout.write(f"       IPApplication #{ip_application.pk} блогера → /panel/ip-applications/")
         self.stdout.write("\n  Каталог блогеров (для advertiser@demo.com):")
         self.stdout.write(f"    • blogger@demo.com  — Instagram 12k, ER 6.2%")
         self.stdout.write(f"    • blogger2@demo.com — Telegram  45k, ER 4.8%")
@@ -528,6 +582,7 @@ class Command(BaseCommand):
             DirectOffer.objects.filter(advertiser=advertiser).delete()
             Deal.objects.filter(advertiser=advertiser).delete()
             Campaign.objects.filter(advertiser=advertiser).delete()
+            LegalEntityApplication.objects.filter(inn__in=TEST_INNS).delete()
             Wallet.objects.filter(user=advertiser).update(
                 available_balance=Decimal("0"),
                 reserved_balance=Decimal("0"),
@@ -540,6 +595,8 @@ class Command(BaseCommand):
             try:
                 blogger = User.objects.get(email=email)
                 Platform.objects.filter(blogger=blogger).delete()
+                IPApplication.objects.filter(user=blogger).delete()
+                IdentityVerification.objects.filter(user=blogger).delete()
                 Wallet.objects.filter(user=blogger).update(
                     available_balance=Decimal("0"),
                     reserved_balance=Decimal("0"),

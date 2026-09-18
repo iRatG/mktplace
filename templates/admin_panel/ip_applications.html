@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Заявки на статус ИП — ublogers{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center gap-3">
+    <a href="{% url 'web:admin_dashboard' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Панель</a>
+    <h1 class="text-2xl font-bold text-white">Заявки блогеров на статус ИП</h1>
+    <span class="text-sm text-slate-500">({{ applications|length }} на проверке)</span>
+</div>
+
+{% if applications %}
+<div class="space-y-4">
+    {% for app in applications %}
+    <div class="card-dark rounded-xl p-6">
+        <div class="flex items-start justify-between gap-4 mb-4">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-white font-semibold">{{ app.get_document_type_display }}</span>
+                    {% if app.document_number %}<span class="text-xs text-slate-500">№ {{ app.document_number }}</span>{% endif %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-400">На проверке</span>
+                </div>
+                <div class="text-xs text-slate-400 space-y-0.5 mt-2">
+                    <div>Пользователь: <span class="text-slate-300">{{ app.user.email }}</span></div>
+                    {% if app.identity_verification %}
+                    <div>OneID подтверждён: <span class="text-slate-300">{{ app.identity_verification.full_name }} / {{ app.identity_verification.phone }}</span></div>
+                    {% endif %}
+                    <div>Загружена: <span class="text-slate-300">{{ app.created_at|date:"d.m.Y H:i" }}</span></div>
+                </div>
+            </div>
+            {% if app.file %}
+            <a href="{{ app.file.url }}" target="_blank"
+               class="text-sm text-orange-400 hover:text-orange-300 transition-colors shrink-0">
+                Открыть файл →
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="pt-4 border-t border-white/5 flex flex-col sm:flex-row gap-4">
+            <form method="post" action="{% url 'web:admin_ip_application_approve' app.pk %}" class="flex-1">
+                {% csrf_token %}
+                <button type="submit" onclick="return confirm('Подтвердить статус ИП?')"
+                        class="w-full btn-orange px-4 py-2 text-sm rounded-xl">
+                    ✅ Подтвердить
+                </button>
+            </form>
+            <form method="post" action="{% url 'web:admin_ip_application_reject' app.pk %}" class="flex-1">
+                {% csrf_token %}
+                <textarea name="rejection_reason" rows="2" placeholder="Причина отклонения (обязательно)"
+                          class="input-dark mb-2 resize-none text-xs" required></textarea>
+                <button type="submit" onclick="return confirm('Отклонить заявку?')"
+                        class="w-full px-4 py-2 text-sm text-slate-300 border border-white/10 rounded-xl hover:border-white/20 transition-colors">
+                    ✗ Отклонить
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card-dark rounded-xl px-6 py-16 text-center">
+    <div class="text-4xl mb-4">✅</div>
+    <p class="text-slate-400 text-sm">Заявок на проверке нет.</p>
+</div>
+{% endif %}
+{% endblock %}

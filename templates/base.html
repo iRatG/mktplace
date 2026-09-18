@@ -69,6 +69,8 @@
                 <a href="{% url 'web:campaign_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кампании</a>
                 <a href="{% url 'web:deal_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Сделки</a>
                 <a href="{% url 'web:admin_platforms' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Площадки</a>
+                <a href="{% url 'web:admin_legal_entities' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Юрлица</a>
+                <a href="{% url 'web:admin_ip_applications' %}" class="text-sm text-slate-400 hover:text-white transition-colors">ИП блогеров</a>
                 <a href="{% url 'web:ticket_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Тикеты</a>
                 {% elif user.role == 'advertiser' %}
                 <a href="{% url 'web:advertiser_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Дашборд</a>
@@ -78,6 +80,7 @@
                 <a href="{% url 'web:analytics' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Аналитика</a>
                 <a href="{% url 'web:wallet' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кошелёк</a>
                 <a href="{% url 'web:profile' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Профиль</a>
+                <a href="{% url 'web:legal_entity_submit' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Юрлицо</a>
                 {% elif user.role == 'blogger' %}
                 <a href="{% url 'web:blogger_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Дашборд</a>
                 <a href="{% url 'web:catalog' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Каталог</a>
@@ -86,6 +89,7 @@
                 <a href="{% url 'web:wallet' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Кошелёк</a>
                 <a href="{% url 'web:profile' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Профиль</a>
                 <a href="{% url 'web:permit_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Документы</a>
+                <a href="{% url 'web:ip_application_list' %}" class="text-sm text-slate-400 hover:text-white transition-colors">Статус ИП</a>
                 {% endif %}
                 <a href="{% url 'web:faq' %}" class="text-sm text-slate-400 hover:text-white transition-colors">FAQ</a>
             </div>

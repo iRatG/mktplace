@@ -125,4 +125,20 @@ urlpatterns = [
     # Legal pages (REQ-6)
     path("legal/terms/", views.terms_view, name="terms"),
     path("legal/oferta/", views.oferta_view, name="oferta"),
+
+    # Регистрация юрлиц — рекламодатель
+    path("profile/legal-entity/", views.legal_entity_submit, name="legal_entity_submit"),
+    path("panel/legal-entities/", views.admin_legal_entities, name="admin_legal_entities"),
+    path("panel/legal-entities/<int:pk>/approve/", views.admin_legal_entity_approve, name="admin_legal_entity_approve"),
+    path("panel/legal-entities/<int:pk>/reject/", views.admin_legal_entity_reject, name="admin_legal_entity_reject"),
+    path("panel/legal-entities/<int:pk>/ddocs/", views.admin_legal_entity_ddocs_update, name="admin_legal_entity_ddocs_update"),
+    path("panel/legal-entities/<int:pk>/issue-access/", views.admin_legal_entity_issue_access, name="admin_legal_entity_issue_access"),
+
+    # Регистрация блогеров — подтверждение личности (OneID) + статус ИП
+    path("register/blogger/verify/", views.blogger_identity_submit, name="blogger_identity_submit"),
+    path("profile/ip-application/", views.ip_application_upload, name="ip_application_upload"),
+    path("profile/ip-application/list/", views.ip_application_list, name="ip_application_list"),
+    path("panel/ip-applications/", views.admin_ip_applications, name="admin_ip_applications"),
+    path("panel/ip-applications/<int:pk>/approve/", views.admin_ip_application_approve, name="admin_ip_application_approve"),
+    path("panel/ip-applications/<int:pk>/reject/", views.admin_ip_application_reject, name="admin_ip_application_reject"),
 ]

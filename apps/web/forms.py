@@ -6,6 +6,7 @@ from apps.business_queries.models import Ticket
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
+from apps.registration.models import IPApplication, LegalEntityApplication
 from apps.users.models import User
 
 
@@ -498,4 +499,59 @@ class BusinessQueryPasswordForm(forms.Form):
 
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={"class": "input-dark"}), label="Пароль",
+    )
+
+
+class LegalEntityApplicationForm(forms.ModelForm):
+    """Форма подачи заявки на регистрацию юрлица (название + ИНН)."""
+
+    class Meta:
+        model = LegalEntityApplication
+        fields = ["company_name", "inn"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["company_name"].label = "Название компании"
+        self.fields["inn"].label = "ИНН"
+
+
+class AdminLegalEntityRejectForm(forms.Form):
+    """Форма отклонения заявки юрлица администратором."""
+
+    rejection_reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Укажите причину отклонения..."}),
+        label="Причина отклонения",
+        max_length=1000,
+    )
+
+
+class BloggerIdentitySubmitForm(forms.Form):
+    """Форма подтверждения личности блогера (OneID/ПИНФЛ) перед регистрацией."""
+
+    full_name = forms.CharField(max_length=255, label="Фамилия Имя")
+    phone = forms.CharField(max_length=30, label="Телефон")
+    pinfl = forms.CharField(max_length=14, label="ПИНФЛ")
+
+
+class IPApplicationForm(forms.ModelForm):
+    """Форма подачи документа для подтверждения статуса ИП блогером."""
+
+    class Meta:
+        model = IPApplication
+        fields = ["document_type", "document_number", "file"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["document_type"].label = "Тип документа"
+        self.fields["document_number"].label = "Номер документа"
+        self.fields["file"].label = "Файл (PDF, JPG, PNG)"
+
+
+class AdminIPApplicationRejectForm(forms.Form):
+    """Форма отклонения заявки блогера на статус ИП администратором."""
+
+    rejection_reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Укажите причину отклонения..."}),
+        label="Причина отклонения",
+        max_length=1000,
     )
