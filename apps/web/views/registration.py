@@ -189,21 +189,26 @@ def admin_legal_entity_issue_access(request, pk):
 
     if application.user:
         user = application.user
-        user.set_password(raw_password)
-        user.status = User.Status.ACTIVE
-        user.is_email_confirmed = True
-        user.save(update_fields=["password", "status", "is_email_confirmed"])
     else:
+        # get_or_create, не create_user: тот же ИНН может уже иметь аккаунт
+        # (повторная выдача доступа, либо заявка была пересоздана после
+        # удаления старой — юрлицо не должно упереться в IntegrityError
+        # из-за детерминированного логина legal.<инн>@ddocs.internal).
         login = f"legal.{application.inn}@ddocs.internal"
-        user = User.objects.create_user(email=login, password=raw_password, role=User.Role.ADVERTISER)
-        user.status = User.Status.ACTIVE
-        user.is_email_confirmed = True
-        user.save(update_fields=["status", "is_email_confirmed"])
-        profile, _created = AdvertiserProfile.objects.get_or_create(user=user)
-        profile.company_name = application.company_name
-        profile.inn = application.inn
-        profile.save(update_fields=["company_name", "inn"])
+        user, _created = User.objects.get_or_create(
+            email=login, defaults={"role": User.Role.ADVERTISER},
+        )
         application.user = user
+
+    user.set_password(raw_password)
+    user.status = User.Status.ACTIVE
+    user.is_email_confirmed = True
+    user.save(update_fields=["password", "status", "is_email_confirmed"])
+
+    profile, _created = AdvertiserProfile.objects.get_or_create(user=user)
+    profile.company_name = application.company_name
+    profile.inn = application.inn
+    profile.save(update_fields=["company_name", "inn"])
 
     application.ddocs_status = LegalEntityApplication.DdocsStatus.ACCESS_ISSUED
     application.retention_anchor_at = timezone.now()
