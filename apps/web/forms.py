@@ -513,6 +513,8 @@ class LegalEntityApplicationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["company_name"].label = "Название компании"
         self.fields["inn"].label = "ИНН"
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input-dark"
 
 
 class AdminLegalEntityRejectForm(forms.Form):
@@ -532,6 +534,11 @@ class BloggerIdentitySubmitForm(forms.Form):
     phone = forms.CharField(max_length=30, label="Телефон")
     pinfl = forms.CharField(max_length=14, label="ПИНФЛ")
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input-dark"
+
 
 class IPApplicationForm(forms.ModelForm):
     """Форма подачи документа для подтверждения статуса ИП блогером."""
@@ -545,6 +552,8 @@ class IPApplicationForm(forms.ModelForm):
         self.fields["document_type"].label = "Тип документа"
         self.fields["document_number"].label = "Номер документа"
         self.fields["file"].label = "Файл (PDF, JPG, PNG)"
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input-dark"
 
 
 class AdminIPApplicationRejectForm(forms.Form):
