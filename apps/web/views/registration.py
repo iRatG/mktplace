@@ -256,16 +256,19 @@ def blogger_identity_submit(request):
             form.add_error(None, "Не удалось подтвердить личность. Проверьте данные и попробуйте снова.")
             return render(request, "registration/blogger_identity_submit.html", {"form": form})
 
+        # get_or_create, не create_user: тот же телефон может уже иметь
+        # аккаунт (повторная попытка OneID — SMS потерялось, опечатка в
+        # прошлый раз и т.п.) — тот же класс бага, что и с ИНН юрлица,
+        # см. fix-registration-entry-points.
         synthetic_email = f"blogger.{phone.lstrip('+')}@sms.internal"
         raw_password = User.objects.make_random_password()
-        user = User.objects.create_user(
-            email=synthetic_email,
-            password=raw_password,
-            role=User.Role.BLOGGER,
+        user, _created = User.objects.get_or_create(
+            email=synthetic_email, defaults={"role": User.Role.BLOGGER},
         )
+        user.set_password(raw_password)
         user.status = User.Status.ACTIVE
         user.is_email_confirmed = True
-        user.save(update_fields=["status", "is_email_confirmed"])
+        user.save(update_fields=["password", "status", "is_email_confirmed"])
 
         profile, _created = BloggerProfile.objects.get_or_create(user=user)
         profile.phone = phone

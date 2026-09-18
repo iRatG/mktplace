@@ -124,7 +124,7 @@ class AdminDashboardView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         pending_withdrawals_agg = WithdrawalRequest.objects.filter(
             status=WithdrawalRequest.Status.PENDING

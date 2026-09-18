@@ -14,7 +14,7 @@ def check_permit_expiry():
     from apps.platforms.models import PermitDocument, Platform
     from apps.notifications.models import Notification
 
-    today = timezone.now().date()
+    today = timezone.localdate()
     warn_date = today + timedelta(days=30)
 
     # Уведомить об истекающих документах (expires_at через 30 дней)

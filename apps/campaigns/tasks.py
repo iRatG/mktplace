@@ -7,7 +7,7 @@ def auto_complete_expired_campaigns():
     """Automatically complete campaigns whose end_date has passed."""
     from .models import Campaign
 
-    now = timezone.now().date()
+    now = timezone.localdate()
     updated = Campaign.objects.filter(
         status=Campaign.Status.ACTIVE,
         end_date__lt=now,

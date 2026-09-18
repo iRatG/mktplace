@@ -210,6 +210,35 @@ class LegalEntityPublicSubmitTests(TestCase):
         self.assertEqual(profile.company_name, "ООО Ромашка")
         self.assertEqual(profile.inn, "987654321")
 
+    def test_issue_access_twice_for_same_inn_reuses_account_no_crash(self):
+        """Регрессия: IntegrityError при второй заявке с тем же ИНН (пойман вручную 18.09.2026)."""
+        reviewer = _make_reviewer("reviewer_dup_inn@demo.com")
+        first = LegalEntityApplication.objects.create(
+            company_name="ООО Первая", inn="555555555",
+            status=LegalEntityApplication.Status.APPROVED, assigned_to=reviewer,
+        )
+        second = LegalEntityApplication.objects.create(
+            company_name="ООО Вторая", inn="555555555",
+            status=LegalEntityApplication.Status.APPROVED, assigned_to=reviewer,
+        )
+
+        self.client.force_login(reviewer)
+        r1 = self.client.post(reverse("web:admin_legal_entity_issue_access", args=[first.pk]))
+        self.assertEqual(r1.status_code, 200)
+        password1 = r1.context["issued_password"]
+
+        r2 = self.client.post(reverse("web:admin_legal_entity_issue_access", args=[second.pk]))
+        self.assertEqual(r2.status_code, 200)
+        password2 = r2.context["issued_password"]
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.user_id, second.user_id)
+        self.assertNotEqual(password1, password2)
+        second.user.refresh_from_db()
+        self.assertTrue(second.user.check_password(password2))
+        self.assertFalse(second.user.check_password(password1))
+
 
 class IPApplicationQueueTests(TestCase):
     def setUp(self):
@@ -293,6 +322,27 @@ class BloggerIdentitySubmitTests(TestCase):
         verification = IdentityVerification.objects.get(pinfl="12345678901234")
         self.assertEqual(verification.status, IdentityVerification.Status.FAILED)
         self.assertIsNone(verification.user)
+
+    @patch("apps.web.views.registration.send_blogger_sms_credentials")
+    def test_second_submit_same_phone_reuses_account_no_crash(self, mock_task):
+        """Тот же класс бага, что и с ИНН юрлица: логин детерминирован по
+        телефону — повторная попытка OneID с тем же номером (потерянное SMS,
+        повтор после ошибки) не должна падать с IntegrityError."""
+        payload = {"full_name": "Иван Иванов", "phone": "+998901112233", "pinfl": "12345678901234"}
+        r1 = self.client.post(reverse("web:blogger_identity_submit"), payload)
+        self.assertEqual(r1.status_code, 302)
+        user1 = IdentityVerification.objects.get(pinfl="12345678901234").user
+
+        self.client.logout()
+        r2 = self.client.post(reverse("web:blogger_identity_submit"), {
+            **payload, "full_name": "Иван Иванов Повторно",
+        })
+        self.assertEqual(r2.status_code, 302)
+
+        verifications = IdentityVerification.objects.filter(phone="+998901112233")
+        self.assertEqual(verifications.count(), 2)
+        user2 = verifications.latest("created_at").user
+        self.assertEqual(user1.pk, user2.pk)
 
 
 class IPApplicationUploadTests(TestCase):
