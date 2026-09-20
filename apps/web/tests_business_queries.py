@@ -69,6 +69,25 @@ class ItTeamAccessTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class ItTeamGroupCheckTests(TestCase):
+    """Тот же класс риска, что и с группой "Регистрация юрлиц" (см.
+    apps.web.tests_registration.ReviewerPoolCheckTests): если "IT Team"
+    опустеет, /tickets/ и admin для Ticket станут недоступны всем молча."""
+
+    def test_warns_when_group_empty(self):
+        from apps.business_queries.checks import check_it_team_group
+
+        errors = check_it_team_group(None)
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0].id, "apps.business_queries.W001")
+
+    def test_no_warning_when_group_has_active_member(self):
+        from apps.business_queries.checks import check_it_team_group
+
+        _make_staff("it_member_for_check@demo.com", in_it_team=True)
+        self.assertEqual(check_it_team_group(None), [])
+
+
 class BusinessQueryViewTests(TestCase):
     def setUp(self):
         cache.clear()

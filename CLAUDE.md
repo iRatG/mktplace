@@ -57,6 +57,32 @@ with db_transaction.atomic():
 campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)
 ```
 
+### Round-robin по Django-группе — всегда с запасным вариантом в очереди
+Если что-то назначается автоматически по членству в группе (`assign_reviewer`
+и т.п.), пустая группа — не гипотетический случай, а то, что реально
+случилось на проде 19.09.2026: `assign_reviewer()` вернул `None`, заявки
+остались с `assigned_to=NULL` и не показывались никому и никогда (см.
+openspec/changes/archive/2026-09-20-fix-registration-reviewer-and-deploy-gaps).
+Очередь для такой сущности обязана иметь запасной вариант — показывать
+неназначенные записи участникам той же группы, а не только `assigned_to=user`
+без альтернативы (пример: `_legal_entity_queue` в
+`apps/web/views/registration.py`). Плюс — заводить Django system check
+(`django.core.checks`, см. `apps/registration/checks.py`), который
+предупреждает `manage.py check`/`migrate`, если группа пуста, а не полагаться
+на то, что кто-то заметит пустую очередь вручную.
+
+### web/celery/celery-beat — один и тот же образ, проверяй после каждого деплоя
+Все три сервиса в `docker-compose*.yml` держат общий тег `image:
+mktplace-app:latest` — без него `docker compose build web` тегирует только
+web, а celery/celery-beat тихо остаются на старом образе. Один раз это уже
+стоило продакшну потерянной Celery-задачи (`send_blogger_sms_credentials`,
+19.09.2026, см. тот же openspec change) — новые задачи на старом образе
+регистрируются брокером как unregistered и отбрасываются без единой видимой
+ошибки. После любого деплоя с новыми Celery-задачами — проверять
+`docker logs mktplace-celery-1 | grep "Apply all migrations"`: список
+приложений должен совпадать с тем, что видит `web` (см. `docs/DEPLOY.md`,
+раздел «Проверка работоспособности»).
+
 ## Структура приложений
 ```
 apps/users/         — Auth, роли, is_demo

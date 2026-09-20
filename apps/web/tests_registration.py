@@ -79,6 +79,25 @@ class AssignReviewerTests(TestCase):
         self.assertEqual(assign_reviewer(), free)
 
 
+class ReviewerPoolCheckTests(TestCase):
+    """Регрессия с прода 19.09.2026: пустая группа "Регистрация юрлиц"
+    ломала очередь молча, никто об этом не узнал бы без ручной диагностики.
+    Django system check должен предупреждать об этом сразу."""
+
+    def test_warns_when_pool_empty(self):
+        from apps.registration.checks import check_registration_reviewer_pool
+
+        errors = check_registration_reviewer_pool(None)
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0].id, "apps.registration.W001")
+
+    def test_no_warning_when_pool_has_active_reviewer(self):
+        from apps.registration.checks import check_registration_reviewer_pool
+
+        _make_reviewer("reviewer_for_check@demo.com")
+        self.assertEqual(check_registration_reviewer_pool(None), [])
+
+
 class StubBackendTests(TestCase):
     def test_oneid_stub_always_succeeds(self):
         result = StubOneIDVerificationBackend().verify("Ivan Ivanov", "+998901234567", "12345678901234")
