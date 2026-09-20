@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.urls import reverse
 
 
 class Notification(models.Model):
@@ -46,7 +47,23 @@ class Notification(models.Model):
         blank=True,
         related_name="notifications",
     )
+    url = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Относительный адрес страницы, где нужно действие по этому уведомлению",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Запасной адрес для уведомлений без сохранённого url (созданных до появления поля).
+    FALLBACK_URL_NAMES = {
+        Type.LEGAL_ENTITY_ASSIGNED: "web:admin_legal_entities",
+        Type.IP_APPLICATION_APPROVED: "web:ip_application_list",
+        Type.IP_APPLICATION_REJECTED: "web:ip_application_list",
+        Type.WITHDRAWAL_APPROVED: "web:wallet",
+        Type.WITHDRAWAL_REJECTED: "web:wallet",
+        Type.PAYMENT_RECEIVED: "web:wallet",
+    }
 
     class Meta:
         verbose_name = "Notification"
@@ -55,6 +72,16 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification({self.type}) for {self.user.email}"
+
+    @property
+    def target_url(self):
+        """Куда вести по клику: сохранённый url → сделка → запасной адрес по типу → ''."""
+        if self.url:
+            return self.url
+        if self.related_deal_id:
+            return reverse("web:deal_detail", kwargs={"pk": self.related_deal_id})
+        name = self.FALLBACK_URL_NAMES.get(self.type)
+        return reverse(name) if name else ""
 
     def mark_read(self):
         if not self.is_read:

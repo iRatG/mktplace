@@ -20,7 +20,8 @@
     {% if notifications %}
     <div class="space-y-2">
         {% for n in notifications %}
-        <div class="card-dark rounded-xl px-5 py-4 flex items-start gap-4">
+        {% with target=n.target_url %}
+        <{% if target %}a href="{{ target }}"{% else %}div{% endif %} class="card-dark rounded-xl px-5 py-4 flex items-start gap-4{% if target %} hover:border-orange-500/40 hover:bg-white/5 transition-colors{% endif %}">
 
             <!-- Иконка типа -->
             <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-base
@@ -44,15 +45,15 @@
                 <div class="text-xs text-slate-600 mt-1.5">{{ n.created_at|date:"d.m.Y H:i" }}</div>
             </div>
 
-            <!-- Ссылка на сделку -->
-            {% if n.related_deal %}
-            <a href="{% url 'web:deal_detail' pk=n.related_deal.pk %}"
-               class="flex-shrink-0 text-xs text-orange-400 hover:text-orange-300 transition-colors whitespace-nowrap">
-                Сделка #{{ n.related_deal.pk }} →
-            </a>
+            <!-- Переход к действию -->
+            {% if target %}
+            <span class="flex-shrink-0 text-xs text-orange-400 whitespace-nowrap">
+                {% if n.related_deal and not n.url %}Сделка #{{ n.related_deal.pk }}{% else %}Открыть{% endif %} →
+            </span>
             {% endif %}
 
-        </div>
+        </{% if target %}a{% else %}div{% endif %}>
+        {% endwith %}
         {% endfor %}
     </div>
 

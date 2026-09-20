@@ -245,6 +245,53 @@ class NotificationListPageTest(TestCase):
         self.assertEqual(Notification.objects.filter(user=self.user, is_read=False).count(), 0)
 
 
+# ── Переход из уведомления к действию ──────────────────────────────────────────
+
+class NotificationTargetLinkTest(TestCase):
+    """Клик по уведомлению ведёт туда, где нужно действие (заявка юрлица и т.п.)."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            email="staff@test.com", password="Test1234!", role=User.Role.ADVERTISER, is_staff=True,
+        )
+        self.staff.status = User.Status.ACTIVE
+        self.staff.save(update_fields=["status"])
+        self.advertiser = _make_user("adv@test.com", User.Role.ADVERTISER)
+        self.list_url = reverse("web:notifications")
+
+    def _application(self):
+        from apps.registration.models import LegalEntityApplication
+        return LegalEntityApplication.objects.create(
+            user=self.advertiser, company_name="ООО Тест", inn="123456789", assigned_to=self.staff,
+        )
+
+    def test_legal_entity_assigned_links_to_application_card(self):
+        app = self._application()
+        NotificationService.notify_legal_entity_assigned(self.staff, app)
+        n = Notification.objects.get(user=self.staff)
+        card_url = reverse("web:admin_legal_entity_detail", kwargs={"pk": app.pk})
+        self.assertEqual(n.url, card_url)
+        self.client.force_login(self.staff)
+        self.assertContains(self.client.get(self.list_url), f'href="{card_url}"')
+
+    def test_old_notification_without_url_falls_back_to_queue(self):
+        n = Notification.objects.create(
+            user=self.staff, type=Notification.Type.LEGAL_ENTITY_ASSIGNED, title="T", body="B",
+        )
+        self.assertEqual(n.target_url, reverse("web:admin_legal_entities"))
+
+    def test_deal_notification_still_links_to_deal(self):
+        n = Notification(type=Notification.Type.DEAL_UPDATED, related_deal_id=7)
+        self.assertEqual(n.target_url, reverse("web:deal_detail", kwargs={"pk": 7}))
+
+    def test_notification_without_target_renders_without_link(self):
+        Notification.objects.create(user=self.staff, type=Notification.Type.SYSTEM, title="Sys", body="B")
+        self.client.force_login(self.staff)
+        r = self.client.get(self.list_url)
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "Открыть →")
+
+
 # ── Trigger integration tests ──────────────────────────────────────────────────
 
 class NotificationTriggerTest(TestCase):

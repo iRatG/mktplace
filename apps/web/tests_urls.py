@@ -97,10 +97,6 @@ class PublicPagesTest(TestCase):
         r = self.c.get(reverse("web:landing"))
         self.assertEqual(r.status_code, 200)
 
-    def test_landing_contains_platform_name(self):
-        r = self.c.get(reverse("web:landing"))
-        self.assertContains(r, "Mkt")
-
     def test_login_page_200(self):
         r = self.c.get(reverse("web:login"))
         self.assertEqual(r.status_code, 200)

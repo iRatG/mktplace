@@ -27,6 +27,8 @@ NotificationService — синхронный сервис создания in-ap
     notify_withdrawal_rejected()    — вывод отклонён → блогеру
 """
 
+from django.urls import reverse
+
 from .models import Notification
 
 
@@ -37,7 +39,7 @@ class NotificationService:
     """
 
     @staticmethod
-    def notify(user, notification_type, title, body, deal=None):
+    def notify(user, notification_type, title, body, deal=None, url=""):
         """Базовый метод создания уведомления.
 
         Args:
@@ -46,6 +48,7 @@ class NotificationService:
             title (str):              заголовок (до 255 символов)
             body (str):               текст уведомления
             deal (Deal|None):         связанная сделка (если применимо)
+            url (str):                куда вести по клику на уведомление (относительный путь)
         """
         try:
             Notification.objects.create(
@@ -54,6 +57,7 @@ class NotificationService:
                 title=title,
                 body=body,
                 related_deal=deal,
+                url=url,
             )
         except Exception:
             # Уведомление не должно ломать основной флоу
@@ -69,6 +73,7 @@ class NotificationService:
             notification_type=Notification.Type.CAMPAIGN_RESPONSE,
             title="Новый отклик на кампанию",
             body=f"Блогер {blogger.email} откликнулся на кампанию «{campaign.name}».",
+            url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
         )
 
     @staticmethod
@@ -224,6 +229,7 @@ class NotificationService:
             notification_type=Notification.Type.CAMPAIGN_STATUS,
             title="Кампания опубликована",
             body=f"Ваша кампания «{campaign.name}» прошла модерацию и теперь активна.",
+            url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
         )
 
     @staticmethod
@@ -235,6 +241,7 @@ class NotificationService:
             notification_type=Notification.Type.CAMPAIGN_STATUS,
             title="Кампания отклонена",
             body=f"Кампания «{campaign.name}» отклонена модератором. Причина: {reason}",
+            url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
         )
 
     # ── Площадки ──────────────────────────────────────────────────────────────
@@ -250,6 +257,7 @@ class NotificationService:
                 f"Ваша площадка {platform.get_social_type_display()} "
                 f"({platform.url}) прошла проверку и теперь видна рекламодателям."
             ),
+            url=reverse("web:profile"),
         )
 
     @staticmethod
@@ -264,6 +272,7 @@ class NotificationService:
                 f"Ваша площадка {platform.get_social_type_display()} "
                 f"({platform.url}) отклонена. Причина: {reason}"
             ),
+            url=reverse("web:profile"),
         )
 
     # ── Вывод средств ─────────────────────────────────────────────────────────
@@ -276,6 +285,7 @@ class NotificationService:
             notification_type=Notification.Type.WITHDRAWAL_APPROVED,
             title="Выплата подтверждена",
             body=f"Ваша заявка на вывод {amount:,.0f} одобрена и обработана.",
+            url=reverse("web:wallet"),
         )
 
     @staticmethod
@@ -287,6 +297,7 @@ class NotificationService:
             notification_type=Notification.Type.WITHDRAWAL_REJECTED,
             title="Заявка на вывод отклонена",
             body=f"Ваша заявка на вывод {amount:,.0f} отклонена.{reason} Средства возвращены на баланс.",
+            url=reverse("web:wallet"),
         )
 
     # ── Регистрация юрлиц ─────────────────────────────────────────────────────
@@ -302,6 +313,7 @@ class NotificationService:
                 f"За вами закреплена заявка «{application.company_name}» "
                 f"(ИНН {application.inn}) на регистрацию."
             ),
+            url=reverse("web:admin_legal_entity_detail", kwargs={"pk": application.pk}),
         )
 
     @staticmethod
@@ -312,6 +324,7 @@ class NotificationService:
             notification_type=Notification.Type.LEGAL_ENTITY_APPROVED,
             title="Заявка юрлица подтверждена",
             body=f"Регистрация «{application.company_name}» подтверждена.",
+            url=reverse("web:advertiser_dashboard"),
         )
 
     @staticmethod
@@ -323,6 +336,7 @@ class NotificationService:
             notification_type=Notification.Type.LEGAL_ENTITY_REJECTED,
             title="Заявка юрлица отклонена",
             body=f"Регистрация «{application.company_name}» отклонена. Причина: {reason}",
+            url=reverse("web:advertiser_dashboard"),
         )
 
     # ── Подтверждение статуса ИП ─────────────────────────────────────────────
@@ -335,6 +349,7 @@ class NotificationService:
             notification_type=Notification.Type.IP_APPLICATION_APPROVED,
             title="Статус ИП подтверждён",
             body="Ваш документ (патент/справка) проверен, статус ИП подтверждён.",
+            url=reverse("web:ip_application_list"),
         )
 
     @staticmethod
@@ -346,4 +361,5 @@ class NotificationService:
             notification_type=Notification.Type.IP_APPLICATION_REJECTED,
             title="Заявка на статус ИП отклонена",
             body=f"Ваш документ отклонён. Причина: {reason}",
+            url=reverse("web:ip_application_list"),
         )
