@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Все юрлица — Панель администратора{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4 flex-wrap">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Юрлица — все заявки</h1>
+        <p class="text-slate-400 text-sm mt-1">
+            Полный реестр, независимо от статуса и ответственного · найдено: {{ page_obj.paginator.count }}
+        </p>
+    </div>
+    <div class="flex items-center gap-3 flex-wrap">
+        <a href="{% url 'web:admin_legal_entities' %}" class="text-sm text-slate-400 hover:text-white border border-white/10 rounded-xl px-4 py-2 transition-colors">Моя очередь</a>
+        <a href="?{{ export_querystring }}" class="btn-orange px-4 py-2 text-sm rounded-xl">⬇ Выгрузить в Excel</a>
+        <a href="{% url 'web:admin_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">← Панель</a>
+    </div>
+</div>
+
+<form method="get" class="mb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+    <input type="text" name="q" value="{{ f.q }}" placeholder="Название, ИНН или логин…" class="input-dark lg:col-span-2">
+    <select name="status" class="input-dark">
+        <option value="">Все статусы заявки</option>
+        {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if f.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="ddocs" class="input-dark">
+        <option value="">Любой статус Ддокс</option>
+        {% for value, label in ddocs_status_choices %}
+        <option value="{{ value }}" {% if f.ddocs == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="assigned" class="input-dark">
+        <option value="">Любой ответственный</option>
+        <option value="none" {% if f.assigned == 'none' %}selected{% endif %}>Не назначен</option>
+        {% for s in staff_users %}
+        <option value="{{ s.pk }}" {% if f.assigned == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.email }}</option>
+        {% endfor %}
+    </select>
+    <div class="flex gap-3 sm:col-span-2 lg:col-span-5">
+        <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">Применить</button>
+        <a href="{% url 'web:admin_legal_entity_registry' %}" class="px-4 py-2 text-sm text-slate-400 hover:text-white border border-white/10 rounded-xl transition-colors">Сбросить</a>
+    </div>
+</form>
+
+{% if page_obj %}
+<div class="card-dark rounded-xl overflow-x-auto">
+    <table class="w-full text-sm whitespace-nowrap">
+        <thead>
+            <tr class="border-b border-white/5">
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Компания</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">ИНН</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Заявка</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Ддокс</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Аккаунт</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Ответственный</th>
+                <th class="text-left px-4 py-3 text-slate-400 font-medium">Подана</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-white/5">
+            {% for a in page_obj %}
+            <tr class="hover:bg-white/5 transition-colors">
+                <td class="px-4 py-3">
+                    <a href="{% url 'web:admin_legal_entity_detail' a.pk %}" class="text-orange-400 hover:text-orange-300 font-medium">{{ a.company_name }}</a>
+                </td>
+                <td class="px-4 py-3 text-slate-300">{{ a.inn }}</td>
+                <td class="px-4 py-3">
+                    <span class="text-xs px-2 py-0.5 rounded-full
+                        {% if a.status == 'approved' %}bg-green-500/15 text-green-400
+                        {% elif a.status == 'rejected' %}bg-red-500/15 text-red-400
+                        {% else %}bg-yellow-500/15 text-yellow-400{% endif %}">{{ a.get_status_display }}</span>
+                </td>
+                <td class="px-4 py-3 text-slate-300">{{ a.get_ddocs_status_display }}</td>
+                <td class="px-4 py-3 text-slate-400">{{ a.user.email|default:"— не создан" }}</td>
+                <td class="px-4 py-3 text-slate-400">{{ a.assigned_to.email|default:"— не назначен" }}</td>
+                <td class="px-4 py-3 text-slate-500">{{ a.created_at|date:"d.m.Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="mt-4 flex items-center justify-center gap-4 text-sm">
+    {% if page_obj.has_previous %}
+    <a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}" class="text-slate-400 hover:text-white">← Назад</a>
+    {% endif %}
+    <span class="text-slate-500">Стр. {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a href="?{{ querystring }}&page={{ page_obj.next_page_number }}" class="text-slate-400 hover:text-white">Вперёд →</a>
+    {% endif %}
+</div>
+{% endif %}
+{% else %}
+<div class="card-dark rounded-xl p-8 text-center text-slate-500">Юрлиц по заданным условиям не найдено</div>
+{% endif %}
+{% endblock %}

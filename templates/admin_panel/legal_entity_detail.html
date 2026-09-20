@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ app.company_name }} — Юрлицо{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4 flex-wrap">
+    <div class="flex items-center gap-3 flex-wrap">
+        <a href="{% url 'web:admin_legal_entity_registry' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Все юрлица</a>
+        <h1 class="text-2xl font-bold text-white">{{ app.company_name }}</h1>
+        <span class="text-xs px-2 py-0.5 rounded-full
+            {% if app.status == 'approved' %}bg-green-500/15 text-green-400
+            {% elif app.status == 'rejected' %}bg-red-500/15 text-red-400
+            {% else %}bg-yellow-500/15 text-yellow-400{% endif %}">{{ app.get_status_display }}</span>
+    </div>
+    {% if in_my_queue %}
+    <a href="{% url 'web:admin_legal_entities' %}" class="btn-orange px-4 py-2 text-sm rounded-xl">Обработать в моей очереди →</a>
+    {% endif %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <div class="card-dark rounded-xl p-6">
+        <h2 class="text-white font-semibold mb-3">Заявка</h2>
+        <dl class="text-sm space-y-2">
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">ИНН</dt><dd class="text-slate-200">{{ app.inn }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Статус Ддокс</dt><dd class="text-slate-200">{{ app.get_ddocs_status_display }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Подана</dt><dd class="text-slate-200">{{ app.created_at|date:"d.m.Y H:i" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Обновлена</dt><dd class="text-slate-200">{{ app.updated_at|date:"d.m.Y H:i" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Ответственный</dt><dd class="text-slate-200">{{ app.assigned_to.email|default:"не назначен" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Проверил</dt><dd class="text-slate-200">{{ app.reviewed_by.email|default:"—" }}{% if app.reviewed_at %} · {{ app.reviewed_at|date:"d.m.Y H:i" }}{% endif %}</dd></div>
+            {% if app.rejection_reason %}
+            <div><dt class="text-slate-400">Причина отклонения</dt><dd class="text-red-300 mt-1">{{ app.rejection_reason }}</dd></div>
+            {% endif %}
+            {% if app.ddocs_note %}
+            <div><dt class="text-slate-400">Комментарий по Ддокс</dt><dd class="text-slate-200 mt-1 whitespace-pre-line">{{ app.ddocs_note }}</dd></div>
+            {% endif %}
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Хранение до</dt>
+                <dd class="text-slate-200">
+                    {% if app.retention_anchor_at %}от {{ app.retention_anchor_at|date:"d.m.Y" }} (3 года){% else %}не начато{% endif %}
+                    {% if app.is_frozen %}<span class="ml-1 text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">заморожено</span>{% endif %}
+                </dd>
+            </div>
+        </dl>
+    </div>
+
+    <div class="card-dark rounded-xl p-6">
+        <h2 class="text-white font-semibold mb-3">Аккаунт и профиль</h2>
+        {% if app.user %}
+        <dl class="text-sm space-y-2">
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Логин</dt><dd class="text-slate-200">{{ app.user.email }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Статус аккаунта</dt><dd class="text-slate-200">{{ app.user.get_status_display }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Создан</dt><dd class="text-slate-200">{{ app.user.date_joined|date:"d.m.Y H:i" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Последний вход</dt><dd class="text-slate-200">{{ app.user.last_login|date:"d.m.Y H:i"|default:"ни разу" }}</dd></div>
+            {% if profile %}
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Контактное лицо</dt><dd class="text-slate-200">{{ profile.contact_name|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Телефон</dt><dd class="text-slate-200">{{ profile.phone|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Сфера</dt><dd class="text-slate-200">{{ profile.industry|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Сайт</dt><dd class="text-slate-200">{{ profile.website|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Профиль заполнен</dt><dd class="text-slate-200">{% if profile.is_complete %}да{% else %}нет{% endif %}</dd></div>
+            {% endif %}
+        </dl>
+        {% else %}
+        <p class="text-sm text-slate-500">Аккаунт ещё не создан — он появляется при выдаче доступа после обмена договором.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card-dark rounded-xl p-6">
+    <h2 class="text-white font-semibold mb-3">История статусов заявки</h2>
+    {% if status_logs %}
+    <ul class="text-sm divide-y divide-white/5">
+        {% for log in status_logs %}
+        <li class="py-2 flex flex-wrap gap-x-4 gap-y-1">
+            <span class="text-slate-500">{{ log.created_at|date:"d.m.Y H:i" }}</span>
+            <span class="text-slate-300">{{ log.old_status|default:"—" }} → {{ log.new_status }}</span>
+            <span class="text-slate-400">{{ log.changed_by.email|default:"система" }}</span>
+            {% if log.comment %}<span class="text-slate-400">«{{ log.comment }}»</span>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-slate-500">Смен статуса пока не было.</p>
+    {% endif %}
+</div>
+{% endblock %}

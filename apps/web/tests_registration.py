@@ -214,6 +214,96 @@ class LegalEntityQueueTests(TestCase):
         self.assertTrue(self.advertiser.check_password(raw_password))
 
 
+class LegalEntityRegistryTests(TestCase):
+    """Реестр «все юрлица» — в отличие от личной очереди, видит всё: любой статус,
+    любой ответственный, включая уже завершённые и отклонённые заявки."""
+
+    def setUp(self):
+        self.reviewer_a = _make_reviewer("reg_a@demo.com")
+        self.reviewer_b = _make_reviewer("reg_b@demo.com")
+        self.done = LegalEntityApplication.objects.create(
+            company_name="Done LLC", inn="111", assigned_to=self.reviewer_b,
+            status=LegalEntityApplication.Status.APPROVED,
+            ddocs_status=LegalEntityApplication.DdocsStatus.ACCESS_ISSUED,
+        )
+        self.rejected = LegalEntityApplication.objects.create(
+            company_name="Rejected LLC", inn="222", assigned_to=self.reviewer_b,
+            status=LegalEntityApplication.Status.REJECTED, rejection_reason="bad inn",
+        )
+        self.pending = LegalEntityApplication.objects.create(
+            company_name="Pending LLC", inn="333", assigned_to=self.reviewer_a,
+        )
+        self.url = reverse("web:admin_legal_entity_registry")
+
+    def _shown(self, **params):
+        self.client.force_login(self.reviewer_a)
+        response = self.client.get(self.url, params)
+        self.assertEqual(response.status_code, 200)
+        return [a.pk for a in response.context["page_obj"]]
+
+    def test_non_staff_denied(self):
+        self.client.force_login(_make_user(role=User.Role.ADVERTISER))
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+        self.assertEqual(
+            self.client.get(reverse("web:admin_legal_entity_detail", args=[self.done.pk])).status_code, 302,
+        )
+
+    def test_shows_everything_regardless_of_status_and_assignee(self):
+        self.assertCountEqual(self._shown(), [self.done.pk, self.rejected.pk, self.pending.pk])
+
+    def test_filters(self):
+        self.assertEqual(self._shown(status="rejected"), [self.rejected.pk])
+        self.assertEqual(self._shown(ddocs="access_issued"), [self.done.pk])
+        self.assertEqual(self._shown(q="333"), [self.pending.pk])
+        self.assertEqual(self._shown(q="rejected llc"), [self.rejected.pk])
+        self.assertCountEqual(self._shown(assigned=self.reviewer_b.pk), [self.done.pk, self.rejected.pk])
+
+    def test_filter_unassigned(self):
+        orphan = LegalEntityApplication.objects.create(company_name="Orphan", inn="444")
+        self.assertEqual(self._shown(assigned="none"), [orphan.pk])
+
+    def test_excel_export_respects_filters(self):
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        self.client.force_login(self.reviewer_a)
+        response = self.client.get(self.url, {"export": "xlsx", "status": "rejected"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("spreadsheetml", response["Content-Type"])
+        rows = list(load_workbook(BytesIO(response.content)).active.iter_rows(values_only=True))
+        self.assertEqual(len(rows), 2)  # заголовок + одна отклонённая заявка
+        self.assertEqual(rows[1][1], "Rejected LLC")
+        self.assertEqual(rows[1][9], "bad inn")
+
+    def test_excel_export_does_not_create_formulas_from_user_input(self):
+        """company_name приходит из публичной формы: значение с "=" в начале не должно
+        стать формулой в Excel администратора."""
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        LegalEntityApplication.objects.create(
+            company_name='=HYPERLINK("http://evil.example","x")', inn="555", ddocs_note="=1+1",
+        )
+        self.client.force_login(self.reviewer_a)
+        response = self.client.get(self.url, {"export": "xlsx", "q": "555"})
+        ws = load_workbook(BytesIO(response.content)).active
+        company, note = ws.cell(row=2, column=2), ws.cell(row=2, column=11)
+        self.assertEqual(company.data_type, "s")
+        self.assertEqual(company.value, '=HYPERLINK("http://evil.example","x")')
+        self.assertEqual(note.data_type, "s")
+        self.assertEqual(note.value, "=1+1")
+
+    def test_detail_page_renders_without_account(self):
+        self.client.force_login(self.reviewer_a)
+        response = self.client.get(reverse("web:admin_legal_entity_detail", args=[self.rejected.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Rejected LLC")
+        self.assertContains(response, "bad inn")
+        self.assertContains(response, "Аккаунт ещё не создан")
+
+
 class LegalEntityPublicSubmitTests(TestCase):
     """Регистрация юрлица — точка входа с нуля, без предварительного аккаунта."""
 

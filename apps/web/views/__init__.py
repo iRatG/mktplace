@@ -109,6 +109,8 @@ from .business_queries import (
 from .registration import (
     legal_entity_submit,
     admin_legal_entities,
+    admin_legal_entity_registry,
+    admin_legal_entity_detail,
     admin_legal_entity_approve,
     admin_legal_entity_reject,
     admin_legal_entity_ddocs_update,

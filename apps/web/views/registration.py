@@ -116,6 +116,132 @@ def admin_legal_entities(request):
     )
 
 
+def _legal_entity_registry_qs(params):
+    """Все заявки юрлиц (любой статус, любой сотрудник) с фильтрами из GET.
+
+    В отличие от `_legal_entity_queue` (личная очередь «что нужно сделать»),
+    это справочник для просмотра: staff видит всё, без привязки к assigned_to.
+    """
+    qs = LegalEntityApplication.objects.select_related("user", "assigned_to", "reviewed_by")
+
+    q = params.get("q", "").strip()
+    if q:
+        qs = qs.filter(Q(company_name__icontains=q) | Q(inn__icontains=q) | Q(user__email__icontains=q))
+
+    status = params.get("status", "")
+    if status in LegalEntityApplication.Status.values:
+        qs = qs.filter(status=status)
+
+    ddocs = params.get("ddocs", "")
+    if ddocs in LegalEntityApplication.DdocsStatus.values:
+        qs = qs.filter(ddocs_status=ddocs)
+
+    assigned = params.get("assigned", "")
+    if assigned == "none":
+        qs = qs.filter(assigned_to__isnull=True)
+    elif assigned.isdigit():
+        qs = qs.filter(assigned_to_id=int(assigned))
+
+    return qs.order_by("-created_at")
+
+
+def _legal_entities_xlsx(applications):
+    from io import BytesIO
+
+    from django.http import HttpResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    def naive(dt):
+        return timezone.localtime(dt).replace(tzinfo=None) if dt else None
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Юрлица"
+    headers = [
+        "ID", "Компания", "ИНН", "Статус заявки", "Статус Ддокс", "Аккаунт (логин)",
+        "Ответственный сотрудник", "Проверил", "Дата проверки", "Причина отклонения",
+        "Комментарий Ддокс", "Подана", "Обновлена",
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    ws.freeze_panes = "A2"
+
+    for a in applications:
+        ws.append([
+            a.pk, a.company_name, a.inn, a.get_status_display(), a.get_ddocs_status_display(),
+            a.user.email if a.user else "",
+            a.assigned_to.email if a.assigned_to else "",
+            a.reviewed_by.email if a.reviewed_by else "",
+            naive(a.reviewed_at), a.rejection_reason, a.ddocs_note,
+            naive(a.created_at), naive(a.updated_at),
+        ])
+    for col, width in enumerate([6, 32, 14, 16, 22, 34, 30, 30, 18, 36, 36, 18, 18], start=1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            # company_name/ddocs_note/rejection_reason — недоверенный ввод (публичная
+            # форма без входа); openpyxl превращает строку, начинающуюся с "=", в
+            # формулу, которая выполнится в Excel у администратора.
+            if isinstance(cell.value, str):
+                cell.data_type = "s"
+        for idx in (8, 11, 12):
+            row[idx].number_format = "DD.MM.YYYY HH:MM"
+
+    buf = BytesIO()
+    wb.save(buf)
+    response = HttpResponse(
+        buf.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="legal_entities_{timezone.localdate():%Y-%m-%d}.xlsx"'
+    )
+    return response
+
+
+@_staff_required
+def admin_legal_entity_registry(request):
+    """Реестр всех юрлиц: таблица с фильтрами и выгрузкой в Excel (?export=xlsx)."""
+    from django.core.paginator import Paginator
+
+    applications = _legal_entity_registry_qs(request.GET)
+    if request.GET.get("export") == "xlsx":
+        return _legal_entities_xlsx(applications)
+
+    querystring = request.GET.copy()
+    querystring.pop("page", None)
+    export_qs = querystring.copy()
+    export_qs["export"] = "xlsx"
+
+    return render(request, "admin_panel/legal_entity_registry.html", {
+        "page_obj": Paginator(applications, 25).get_page(request.GET.get("page", 1)),
+        "status_choices": LegalEntityApplication.Status.choices,
+        "ddocs_status_choices": LegalEntityApplication.DdocsStatus.choices,
+        "staff_users": User.objects.filter(assigned_legal_entity_applications__isnull=False).distinct().order_by("email"),
+        "f": {k: request.GET.get(k, "") for k in ("q", "status", "ddocs", "assigned")},
+        "querystring": querystring.urlencode(),
+        "export_querystring": export_qs.urlencode(),
+    })
+
+
+@_staff_required
+def admin_legal_entity_detail(request, pk):
+    """Карточка юрлица: заявка, аккаунт/профиль, история смен статуса."""
+    application = get_object_or_404(
+        LegalEntityApplication.objects.select_related("user", "assigned_to", "reviewed_by"), pk=pk,
+    )
+    profile = AdvertiserProfile.objects.filter(user=application.user).first() if application.user else None
+    return render(request, "admin_panel/legal_entity_detail.html", {
+        "app": application,
+        "profile": profile,
+        "status_logs": application.status_logs.select_related("changed_by"),
+        "in_my_queue": _legal_entity_queue(request.user).filter(pk=pk).exists(),
+    })
+
+
 @_staff_required
 @require_POST
 def admin_legal_entity_approve(request, pk):

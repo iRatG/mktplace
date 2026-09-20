@@ -129,6 +129,8 @@ urlpatterns = [
     # Регистрация юрлиц — рекламодатель (точка входа с нуля, без email/пароля)
     path("register/legal-entity/", views.legal_entity_submit, name="legal_entity_submit"),
     path("panel/legal-entities/", views.admin_legal_entities, name="admin_legal_entities"),
+    path("panel/legal-entities/all/", views.admin_legal_entity_registry, name="admin_legal_entity_registry"),
+    path("panel/legal-entities/<int:pk>/", views.admin_legal_entity_detail, name="admin_legal_entity_detail"),
     path("panel/legal-entities/<int:pk>/approve/", views.admin_legal_entity_approve, name="admin_legal_entity_approve"),
     path("panel/legal-entities/<int:pk>/reject/", views.admin_legal_entity_reject, name="admin_legal_entity_reject"),
     path("panel/legal-entities/<int:pk>/ddocs/", views.admin_legal_entity_ddocs_update, name="admin_legal_entity_ddocs_update"),

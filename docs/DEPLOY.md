@@ -220,6 +220,16 @@ cmd = "cd /opt/mktplace && git pull && docker compose -f docker-compose.vps.yml 
 plink -ssh -pw "PASS" -hostkey "SHA256:FINGERPRINT" root@IP "cd /opt/mktplace && git pull && docker compose -f docker-compose.vps.yml build web && docker compose -f docker-compose.vps.yml up -d"
 ```
 
+**Когда `build web` обязателен, а не «на всякий случай»:** любое изменение
+`requirements/base.txt` (новая зависимость) применяется только пересборкой образа —
+`git pull` + `restart` её не подтянет. Пример: `openpyxl` для выгрузки реестра юрлиц в Excel
+(`/panel/legal-entities/all/?export=xlsx`) — без пересборки страница реестра работает, а
+выгрузка падает с `ModuleNotFoundError`. Проверка после деплоя:
+
+```bash
+docker exec mktplace-web-1 python -c "import openpyxl; print(openpyxl.__version__)"
+```
+
 ---
 
 ## Проверка работоспособности

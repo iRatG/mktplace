@@ -6,6 +6,7 @@
     <a href="{% url 'web:admin_dashboard' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Панель</a>
     <h1 class="text-2xl font-bold text-white">Заявки юрлиц на регистрацию</h1>
     <span class="text-sm text-slate-500">({{ applications|length }} закреплено за вами)</span>
+    <a href="{% url 'web:admin_legal_entity_registry' %}" class="ml-auto btn-orange px-4 py-2 text-sm rounded-xl">Все юрлица (таблица, Excel) →</a>
 </div>
 
 {% if issued_password %}
