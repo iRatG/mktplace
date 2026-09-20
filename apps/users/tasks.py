@@ -1,3 +1,5 @@
+import logging
+
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
@@ -78,3 +80,41 @@ def send_password_reset_email(self, user_id: int):
         )
     except Exception as exc:
         raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_welcome_email(self, user_id: int):
+    """Приветственное письмо после подтверждения email (см. templates/emails/welcome.*).
+
+    Без ссылок в теле — письмо не должно выглядеть как рассылка. Блогерам с
+    синтетическим адресом (@sms.internal, регистрация по SMS) письмо не шлём.
+    """
+    from .models import User
+
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return
+    if not user.email or user.email.endswith("@sms.internal"):
+        return
+
+    try:
+        send_mail(
+            subject="Добро пожаловать в ublogers",
+            message=render_to_string("emails/welcome.txt"),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=render_to_string("emails/welcome.html"),
+            fail_silently=False,
+        )
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
+
+def queue_welcome_email(user_id: int) -> None:
+    """Ставит приветственное письмо в очередь. Сбой очереди (например, Redis
+    недоступен) не должен ломать подтверждение email — только пишется в лог."""
+    try:
+        send_welcome_email.delay(user_id)
+    except Exception:
+        logging.getLogger(__name__).exception("Не удалось поставить welcome-письмо в очередь (user %s)", user_id)

@@ -273,6 +273,106 @@ docker logs mktplace-celery-1 2>&1 | grep -A3 "Apply all migrations"
 
 ---
 
+## Защита от ботов и перегрузки
+
+Защита состоит из слоёв; каждый работает и без остальных.
+
+| Слой | Где | Что делает |
+|---|---|---|
+| Лимиты в приложении | `apps/users/security.py`, `apps/users/throttling.py` | попытки входа, сброс пароля, заявки юрлиц и блогеров, API `/api/v1/` |
+| Honeypot | `templates/partials/bot_protection.html` | скрытое поле; заполнил — значит бот |
+| Капча Turnstile | тот же partial + `TURNSTILE_*` в `.env.prod` | включается только когда заданы ключи |
+| Лимиты в nginx | `deploy/nginx/` | отсекают поток запросов до того, как он дойдёт до Django |
+| fail2ban | `deploy/fail2ban/` | банит IP, которые упорно упираются в лимиты nginx |
+| Блок по IP | `apps/users/blocklist.py`, Django admin → «Заблокированные IP» | 403 на любой запрос с заблокированного адреса: вручную и (по флагу) автоматически |
+
+### Включить лимиты в nginx на VPS
+
+Хостовой nginx (не контейнер) стоит перед приложением на порту 8080.
+
+```bash
+cd /opt/mktplace && git pull
+cp deploy/nginx/ublogers-ratelimit.conf /etc/nginx/conf.d/
+mkdir -p /etc/nginx/snippets
+cp deploy/nginx/ublogers-limits.conf /etc/nginx/snippets/
+# В /etc/nginx/sites-enabled/ublogers.uz внутри server { ... } на 443 добавить строку:
+#     include /etc/nginx/snippets/ublogers-limits.conf;
+# Существующий location / оставить как есть: он обслуживает все остальные пути.
+# Сниппет добавляет общий лимит на сервер и отдельный location для входа/регистрации.
+nginx -t && systemctl reload nginx
+```
+
+Порядок важен: `nginx -t` до `reload`. Если проверка не прошла — reload не делать.
+
+### Включить джейл fail2ban
+
+```bash
+cp deploy/fail2ban/ublogers-nginx.local /etc/fail2ban/jail.d/
+systemctl reload fail2ban
+fail2ban-client status nginx-limit-req
+```
+
+### Закрыть порт 8080 и включить файрвол
+
+Лимиты по IP работают, только если до приложения нельзя достучаться в обход nginx:
+`X-Real-IP` приложение берёт на веру. Поэтому порт приложения не должен быть открыт
+наружу. В `docker-compose.vps.yml` привязать порт к localhost:
+`"127.0.0.1:8080:8000"` — хостовой nginx ходит на `127.0.0.1:8080` и продолжит работать.
+Файрвол: **сначала** разрешить SSH, потом включать.
+
+```bash
+ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp
+ufw enable
+```
+
+### Капча Cloudflare Turnstile
+
+1. Cloudflare → Turnstile → Add site (домен `ublogers.uz`), взять Site key и Secret key.
+2. Записать в `.env.prod` на сервере `TURNSTILE_SITE_KEY` и `TURNSTILE_SECRET_KEY`
+   (в репозиторий не попадают), затем `docker compose -f docker-compose.vps.yml up -d`.
+3. Проверить регистрацию юрлица и блогера, сброс пароля: виджет должен появиться,
+   отправка без прохождения капчи — отклоняться.
+
+Капча не должна ломать регистрацию: если Cloudflare недоступен из сети сервера или ключи
+неверны, проверка пропускается, а в логе `web` появляется запись `Turnstile ... captcha
+skipped` (остальная защита продолжает работать). Блокируется только отправка без токена
+или с токеном, который Cloudflare отклонил. Вход (`/login/`) капчей не закрыт вовсе.
+Откат: очистить `TURNSTILE_*` в `.env.prod` и перезапустить `web`.
+
+### Блок по IP (вручную и автоматически)
+
+**Вручную.** Django admin (`/admin/`) → «Заблокированные IP» → добавить адрес, причину и,
+если нужно, срок («Заблокирован до»; пусто — бессрочно). Снять блокировку — удалить запись.
+Изменение действует сразу. Залогиненный сотрудник (`is_staff`) не блокируется никогда.
+Если админ заблокировал сам себя и не может войти:
+
+```bash
+docker compose -f docker-compose.vps.yml run --rm web python manage.py unblock_ip           # показать действующие
+docker compose -f docker-compose.vps.yml run --rm web python manage.py unblock_ip 1.2.3.4   # снять
+```
+
+**Автоматически (по правилу).** Каждое срабатывание защиты — превышен лимит, сработал
+honeypot (весит 5), не пройдена капча — даёт IP «штраф». 10 штрафов за час — блокировка на
+24 часа; в админке такая запись помечена «Автоматически», причина содержит последний
+сработавший механизм. Приватные и локальные адреса (10.x, 172.16-31.x, 192.168.x, 127.x)
+не блокируются никогда, ручную блокировку автоблок не перезаписывает.
+
+Автоблок **выключен** (`AUTOBLOCK_ENABLED=False`). Включать в `.env.prod` только после
+пункта «Закрыть порт 8080»: адрес клиента берётся из заголовка `X-Real-IP`, и пока порт
+приложения открыт наружу, любой может подставить в заголовок чужой IP и заблокировать его.
+Порядок: закрыть 8080 → проверить, что сайт открывается через nginx → `AUTOBLOCK_ENABLED=True`
+→ `docker compose -f docker-compose.vps.yml up -d`.
+
+### Приветственное письмо
+
+Отправляется один раз, после подтверждения email (`templates/emails/welcome.html` и
+`welcome.txt`, задача `send_welcome_email`). В теле нет ссылок; вкладка «FAQ» выделена
+жирным. Получают его только пользователи с настоящим email: регистрация юрлица (нет email)
+и блогера по SMS (адрес `@sms.internal`) письма не получают. Сбой очереди (Redis) не мешает
+подтверждению email — пишется в лог `web`.
+
+---
+
 ## Частые ошибки и решения
 
 ### manage.py: No such file or directory

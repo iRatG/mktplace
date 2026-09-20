@@ -12,7 +12,7 @@ from .serializers import (
     PasswordResetSerializer,
     RegisterSerializer,
 )
-from .tasks import send_confirmation_email, send_password_reset_email
+from .tasks import queue_welcome_email, send_confirmation_email, send_password_reset_email
 
 
 def get_tokens_for_user(user):
@@ -26,6 +26,7 @@ def get_tokens_for_user(user):
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
+    throttle_scope = "auth_email"
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -45,6 +46,7 @@ class RegisterView(generics.CreateAPIView):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth"
 
     def post(self, request):
         serializer = LoginSerializer(
@@ -69,6 +71,7 @@ class LoginView(APIView):
 
 class EmailConfirmView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth"
 
     def get(self, request, token):
         try:
@@ -92,6 +95,7 @@ class EmailConfirmView(APIView):
         user.status = User.Status.ACTIVE
         user.save(update_fields=["is_email_confirmed", "status"])
         token_obj.mark_used()
+        queue_welcome_email(user.pk)
 
         tokens = get_tokens_for_user(user)
         return Response(
@@ -102,6 +106,7 @@ class EmailConfirmView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth_email"
 
     def post(self, request):
         serializer = PasswordResetSerializer(data=request.data)
@@ -124,6 +129,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth"
 
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
@@ -161,6 +167,7 @@ class PasswordResetConfirmView(APIView):
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = "auth"
 
     def post(self, request):
         serializer = ChangePasswordSerializer(

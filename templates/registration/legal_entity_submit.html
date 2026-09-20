@@ -33,6 +33,11 @@
             </div>
             {% endfor %}
 
+            {% if form.non_field_errors %}
+            <div class="text-xs text-red-400 bg-red-500/5 border border-red-500/15 rounded-lg p-3">{{ form.non_field_errors|join:", " }}</div>
+            {% endif %}
+            {% include "partials/bot_protection.html" with load_script=True %}
+
             <div class="pt-2">
                 <button type="submit" class="btn-orange w-full py-3 rounded-xl text-sm font-semibold">
                     Отправить на проверку

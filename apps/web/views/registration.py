@@ -37,6 +37,7 @@ from apps.registration.models import (
 )
 from apps.registration.services import REGISTRATION_REVIEWERS_GROUP, assign_reviewer, get_oneid_backend
 from apps.registration.tasks import send_blogger_sms_credentials
+from apps.users import security
 from apps.users.models import User
 
 from ..forms import (
@@ -47,6 +48,17 @@ from ..forms import (
     LegalEntityApplicationForm,
 )
 from .admin_panel import _staff_required
+
+# Лимиты защиты публичных форм от ботов (см. apps/users/security.py).
+PUBLIC_FORM_IP_LIMIT, PUBLIC_FORM_WINDOW = 20, 60 * 60  # отправок с одного IP в час (за IP бывают офисы и операторы)
+BLOGGER_PHONE_LIMIT = 5                                  # попыток на один телефон/ПИНФЛ в час
+
+
+def _reject_public_form(request, form, problem):
+    """Добавляет к форме ошибку по причине из security.check_public_form."""
+    form.is_valid()
+    form.add_error(None, security.MSG_CAPTCHA if problem == "captcha" else security.MSG_TOO_MANY)
+    return 400 if problem == "captcha" else 429
 
 
 # ── Юрлицо: рекламодатель ────────────────────────────────────────────────────
@@ -63,6 +75,15 @@ def legal_entity_submit(request):
         return redirect("web:landing" if request.user.role != User.Role.ADVERTISER else "web:advertiser_dashboard")
 
     form = LegalEntityApplicationForm(request.POST or None)
+    if request.method == "POST":
+        problem = security.check_public_form(request, "legal_entity_ip", PUBLIC_FORM_IP_LIMIT, PUBLIC_FORM_WINDOW)
+        if problem == "honeypot":
+            # Бот: показываем «успех», но заявку не создаём и сотрудников не беспокоим.
+            return render(request, "registration/legal_entity_submit.html", {"form": LegalEntityApplicationForm(), "submitted": True})
+        if problem:
+            status = _reject_public_form(request, form, problem)
+            return render(request, "registration/legal_entity_submit.html", {"form": form}, status=status)
+
     if request.method == "POST" and form.is_valid():
         application = form.save(commit=False)
         application.save()
@@ -377,10 +398,30 @@ def blogger_identity_submit(request):
         return redirect("web:landing" if request.user.role != User.Role.BLOGGER else "web:blogger_dashboard")
 
     form = BloggerIdentitySubmitForm(request.POST or None)
+    if request.method == "POST":
+        problem = security.check_public_form(request, "blogger_identity_ip", PUBLIC_FORM_IP_LIMIT, PUBLIC_FORM_WINDOW)
+        if problem == "honeypot":
+            form.is_valid()
+            form.add_error(None, "Не удалось подтвердить личность. Проверьте данные и попробуйте снова.")
+            return render(request, "registration/blogger_identity_submit.html", {"form": form})
+        if problem:
+            status = _reject_public_form(request, form, problem)
+            return render(request, "registration/blogger_identity_submit.html", {"form": form}, status=status)
+
     if request.method == "POST" and form.is_valid():
         full_name = form.cleaned_data["full_name"]
         phone = form.cleaned_data["phone"]
         pinfl = form.cleaned_data["pinfl"]
+
+        # Лимит по «личным» данным: иначе один и тот же телефон можно бесконечно
+        # заваливать SMS с логином и паролем, а ПИНФЛ — перебирать через OneID
+        # с разных IP.
+        if (
+            security.hit("blogger_phone", phone, BLOGGER_PHONE_LIMIT, PUBLIC_FORM_WINDOW)
+            or security.hit("blogger_pinfl", pinfl, BLOGGER_PHONE_LIMIT, PUBLIC_FORM_WINDOW)
+        ):
+            form.add_error(None, security.MSG_TOO_MANY)
+            return render(request, "registration/blogger_identity_submit.html", {"form": form}, status=429)
 
         verification = IdentityVerification.objects.create(
             full_name=full_name, phone=phone, pinfl=pinfl,

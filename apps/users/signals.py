@@ -1,7 +1,8 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from .models import User
+from . import blocklist
+from .models import BlockedIP, User
 
 
 @receiver(post_save, sender=User)
@@ -26,3 +27,8 @@ def create_user_related_objects(sender, instance, created, **kwargs):
     # Create wallet for every user
     from apps.billing.models import Wallet
     Wallet.objects.get_or_create(user=instance)
+
+
+@receiver([post_save, post_delete], sender=BlockedIP)
+def invalidate_blocked_ip_cache(sender, instance, **kwargs):
+    blocklist.invalidate(instance.ip)

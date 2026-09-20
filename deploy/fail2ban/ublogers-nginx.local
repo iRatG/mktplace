@@ -1,0 +1,16 @@
+# Джейл fail2ban: банит IP, которые упорно бьются в лимиты nginx.
+# Кладётся в /etc/fail2ban/jail.d/ublogers-nginx.local, затем: systemctl reload fail2ban
+# Фильтр nginx-limit-req входит в стандартную поставку fail2ban (Ubuntu/Debian):
+# он ловит строки «limiting requests, excess: ...» из error.log nginx.
+#
+# ВНИМАНИЕ: если перед nginx стоит прокси (например, Cloudflare), а real_ip не настроен,
+# в логе будут адреса прокси — и бан ударит по ним, то есть по всем посетителям.
+
+[nginx-limit-req]
+enabled  = true
+port     = http,https
+logpath  = /var/log/nginx/error.log
+# 30 превышений лимита за минуту — это уже не человек и не браузер.
+findtime = 60
+maxretry = 30
+bantime  = 3600

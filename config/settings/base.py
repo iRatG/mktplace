@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 import environ
 
@@ -57,6 +58,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.users.middleware.BlockedIPMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -74,6 +76,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'apps.web.context_processors.currency',
                 'apps.web.context_processors.notifications',
+                'apps.web.context_processors.bot_protection',
             ],
         },
     },
@@ -199,6 +202,21 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # Защита от ботов и перебора (см. apps/users/throttling.py).
+    'DEFAULT_THROTTLE_CLASSES': (
+        'apps.users.throttling.AnonThrottle',
+        'apps.users.throttling.UserThrottle',
+        'apps.users.throttling.ScopedThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '60/min',
+        'user': '300/min',
+        'auth': '10/min',        # вход, подтверждение email, смена пароля
+        'auth_email': '5/hour',  # регистрация и сброс пароля — шлют письма
+    },
+    # Перед приложением ровно один прокси (nginx): IP клиента — последний
+    # элемент X-Forwarded-For, а не подделываемый клиентом первый.
+    'NUM_PROXIES': 1,
 }
 
 # JWT
@@ -244,6 +262,25 @@ MIN_WITHDRAWAL_AMOUNT = env.int('MIN_WITHDRAWAL_AMOUNT', default=500)
 MIN_DEPOSIT_AMOUNT = env.int('MIN_DEPOSIT_AMOUNT', default=1000)
 MAX_LOGIN_ATTEMPTS = 5
 LOGIN_BLOCK_DURATION_MINUTES = 15
+
+# Защита от ботов (apps/users/security.py). В тестах лимиты выключены по
+# умолчанию, чтобы счётчики в Redis не копились между тестами.
+TESTING = 'test' in sys.argv
+RATELIMIT_ENABLED = env.bool('RATELIMIT_ENABLED', default=not TESTING)
+# Множитель всех лимитов приложения (кроме DRF /api/v1/): на время массового тестирования
+# можно поставить RATELIMIT_MULTIPLIER=10 в .env и перезапустить web, без правок кода.
+RATELIMIT_MULTIPLIER = env.int('RATELIMIT_MULTIPLIER', default=1)
+# Cloudflare Turnstile: пока ключи пустые, капча выключена, остальная защита работает.
+TURNSTILE_SITE_KEY = env('TURNSTILE_SITE_KEY', default='')
+TURNSTILE_SECRET_KEY = env('TURNSTILE_SECRET_KEY', default='')
+
+# Блок по IP (apps/users/blocklist.py). Ручные блокировки (Django admin) работают
+# всегда. Автоблок включать ТОЛЬКО когда порт приложения закрыт для интернета
+# (см. docs/DEPLOY.md): иначе подменой заголовка X-Real-IP можно заблокировать чужой IP.
+AUTOBLOCK_ENABLED = env.bool('AUTOBLOCK_ENABLED', default=False)
+AUTOBLOCK_STRIKES = env.int('AUTOBLOCK_STRIKES', default=10)    # штрафов...
+AUTOBLOCK_WINDOW = env.int('AUTOBLOCK_WINDOW', default=3600)    # ...за столько секунд
+AUTOBLOCK_HOURS = env.int('AUTOBLOCK_HOURS', default=24)        # блокировка на столько часов
 DEAL_AUTO_COMPLETE_HOURS = 72
 CREATIVE_APPROVAL_TIMEOUT_HOURS = 48
 MAX_CREATIVE_ITERATIONS = 3

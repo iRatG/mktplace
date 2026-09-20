@@ -30,6 +30,8 @@
             </div>
             {% endfor %}
 
+            {% include "partials/bot_protection.html" with load_script=True %}
+
             <div class="pt-2">
                 <button type="submit" class="btn-orange w-full py-3 rounded-xl text-sm font-semibold">
                     Подтвердить через OneID

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 
-from .models import EmailConfirmationToken, PasswordResetToken, User
+from .models import BlockedIP, EmailConfirmationToken, PasswordResetToken, User
 
 
 @admin.register(User)
@@ -97,3 +97,21 @@ class PasswordResetTokenAdmin(admin.ModelAdmin):
     list_filter = ("is_used",)
     search_fields = ("user__email", "ip_address")
     readonly_fields = ("token", "created_at")
+
+
+@admin.register(BlockedIP)
+class BlockedIPAdmin(admin.ModelAdmin):
+    list_display = ("ip", "source", "reason", "blocked_until", "is_active", "created_at", "created_by")
+    list_filter = ("source",)
+    search_fields = ("ip", "reason")
+    readonly_fields = ("created_at", "created_by")
+    date_hierarchy = "created_at"
+
+    @admin.display(boolean=True, description="Действует")
+    def is_active(self, obj):
+        return obj.is_active
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)

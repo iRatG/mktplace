@@ -42,6 +42,7 @@
                     {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
                 </div>
                 {% endfor %}
+                {% include "partials/bot_protection.html" with load_script=True %}
                 <button type="submit" class="btn-orange w-full py-2.5 px-4 text-sm">Отправить на проверку</button>
             </form>
         </div>
@@ -64,6 +65,7 @@
                     {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
                 </div>
                 {% endfor %}
+                {% include "partials/bot_protection.html" %}
                 <button type="submit" class="btn-orange w-full py-2.5 px-4 text-sm">Подтвердить через OneID</button>
             </form>
         </div>

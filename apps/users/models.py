@@ -134,3 +134,41 @@ class PasswordResetToken(models.Model):
     def mark_used(self):
         self.is_used = True
         self.save(update_fields=["is_used"])
+
+
+class BlockedIP(models.Model):
+    """IP-адрес, которому закрыт доступ к сайту (403 на любой запрос).
+
+    Записи заводит сотрудник вручную (Django admin) или приложение автоматически
+    по правилу (apps/users/blocklist.py: много срабатываний защиты за час).
+    blocked_until=NULL — бессрочно; у автоблокировок срок всегда задан.
+    """
+
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Вручную"
+        AUTO = "auto", "Автоматически"
+
+    ip = models.GenericIPAddressField(unique=True, verbose_name="IP-адрес")
+    source = models.CharField(max_length=10, choices=Source.choices, default=Source.MANUAL, verbose_name="Источник")
+    reason = models.CharField(max_length=255, blank=True, verbose_name="Причина")
+    blocked_until = models.DateTimeField(
+        null=True, blank=True, verbose_name="Заблокирован до",
+        help_text="Пусто — блокировка бессрочная.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создана")
+    created_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="+", verbose_name="Кто добавил",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Заблокированный IP"
+        verbose_name_plural = "Заблокированные IP"
+
+    def __str__(self):
+        return self.ip
+
+    @property
+    def is_active(self):
+        return self.blocked_until is None or self.blocked_until > timezone.now()

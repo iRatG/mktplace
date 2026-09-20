@@ -13,6 +13,11 @@ def currency(request):
     }
 
 
+def bot_protection(request):
+    """Публичный ключ Turnstile для виджета капчи (пусто — капча выключена)."""
+    return {"turnstile_site_key": getattr(settings, "TURNSTILE_SITE_KEY", "")}
+
+
 def notifications(request):
     """Inject unread notifications count into every template context (Module 11).
 
