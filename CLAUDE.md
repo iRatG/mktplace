@@ -147,6 +147,10 @@ apps/web/           — Django Templates frontend
   `/panel/legal-entities/` осталась отдельно. Excel — через `openpyxl`, поэтому после
   деплоя образ надо пересобирать; строки в ячейки пишутся как текст (защита от формул
   из публичной формы). См. openspec/changes/archive/2026-09-20-add-legal-entity-registry
+- Уведомления кликабельны: у `Notification` есть поле `url`, `NotificationService.notify(..., url=...)`
+  сохраняет цель (заявка юрлица → `/panel/legal-entities/<pk>/`, кампания, кошелёк и т.д.),
+  свойство `target_url` даёт запасной адрес для старых записей. Новый тип уведомления —
+  передавать `url` через `reverse("web:...")`.
 
 ## VPS
 IP, пароли, логины и всё остальное про текущий сервер — **только** в `key_param.txt`
