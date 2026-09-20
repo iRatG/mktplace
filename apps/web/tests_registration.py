@@ -114,6 +114,31 @@ class LegalEntityQueueTests(TestCase):
         self.assertIn(self.app_for_a, apps_shown)
         self.assertNotIn(self.app_for_b, apps_shown)
 
+    def test_reviewer_sees_unassigned_application_as_fallback(self):
+        """Регрессия с прода 19.09.2026: assign_reviewer() не нашёл ревьюера
+        (группа была пуста), assigned_to остался NULL — заявка не появлялась
+        ни у кого. Любой участник группы "Регистрация юрлиц" должен видеть
+        такие неназначенные заявки, а не только свои."""
+        unassigned = LegalEntityApplication.objects.create(
+            user=self.advertiser, company_name="Никому не назначена", inn="333333333",
+        )
+        self.client.force_login(self.reviewer_a)
+        response = self.client.get(reverse("web:admin_legal_entities"))
+        apps_shown = list(response.context["applications"])
+        self.assertIn(unassigned, apps_shown)
+        self.assertIn(self.app_for_a, apps_shown)
+        self.assertNotIn(self.app_for_b, apps_shown)
+
+    def test_staff_not_in_reviewers_group_does_not_see_unassigned_application(self):
+        unassigned = LegalEntityApplication.objects.create(
+            user=self.advertiser, company_name="Никому не назначена", inn="333333333",
+        )
+        outsider = _make_user(role=User.Role.ADVERTISER, is_staff=True)
+        self.client.force_login(outsider)
+        response = self.client.get(reverse("web:admin_legal_entities"))
+        apps_shown = list(response.context["applications"])
+        self.assertNotIn(unassigned, apps_shown)
+
     def test_approve_logs_status_before_change_and_notifies(self):
         self.client.force_login(self.reviewer_a)
         self.client.post(reverse("web:admin_legal_entity_approve", args=[self.app_for_a.pk]))
@@ -183,6 +208,25 @@ class LegalEntityPublicSubmitTests(TestCase):
         application = LegalEntityApplication.objects.get(inn="123456789")
         self.assertIsNone(application.user)
         self.assertEqual(application.status, LegalEntityApplication.Status.PENDING)
+
+    def test_submit_rejects_inn_with_wrong_length(self):
+        """Регрессия с прода 19.09.2026: 8-значный ИНН был принят формой."""
+        response = self.client.post(reverse("web:legal_entity_submit"), {
+            "company_name": "Горыныч",
+            "inn": "89562126",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(LegalEntityApplication.objects.filter(inn="89562126").exists())
+        self.assertContains(response, "ровно из 9 цифр")
+
+    def test_submit_rejects_inn_with_non_digits(self):
+        response = self.client.post(reverse("web:legal_entity_submit"), {
+            "company_name": "Горыныч",
+            "inn": "abcdefghi",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(LegalEntityApplication.objects.filter(inn="abcdefghi").exists())
+        self.assertContains(response, "ровно из 9 цифр")
 
     def test_issue_access_creates_user_on_first_grant(self):
         reviewer = _make_reviewer("reviewer_public@demo.com")

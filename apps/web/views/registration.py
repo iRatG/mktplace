@@ -21,6 +21,7 @@
 """
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -34,7 +35,7 @@ from apps.registration.models import (
     LegalEntityApplication,
     LegalEntityApplicationStatusLog,
 )
-from apps.registration.services import assign_reviewer, get_oneid_backend
+from apps.registration.services import REGISTRATION_REVIEWERS_GROUP, assign_reviewer, get_oneid_backend
 from apps.registration.tasks import send_blogger_sms_credentials
 from apps.users.models import User
 
@@ -83,9 +84,20 @@ def _legal_entity_queue(user):
     Включает PENDING (нужно одобрить/отклонить) и APPROVED, доступ по которым
     ещё не выдан (нужно довести обмен через «Ддокс» до конца) — заявка не
     исчезает из личной очереди сотрудника, пока доступ не выдан.
+
+    Персональное закрепление (assigned_to) — по требованию бизнеса, не общая
+    очередь. Но если assign_reviewer() не нашёл ревьюера на момент подачи
+    (например в группе "Регистрация юрлиц" временно никого не было),
+    assigned_to остаётся NULL навсегда — такую неназначенную заявку не должен
+    видеть никто. Поэтому любому участнику этой группы дополнительно
+    показываем неназначенные заявки, чтобы они не терялись молча.
     """
+    scope = Q(assigned_to=user)
+    if user.groups.filter(name=REGISTRATION_REVIEWERS_GROUP).exists():
+        scope |= Q(assigned_to__isnull=True)
+
     return (
-        LegalEntityApplication.objects.filter(assigned_to=user)
+        LegalEntityApplication.objects.filter(scope)
         .exclude(ddocs_status=LegalEntityApplication.DdocsStatus.ACCESS_ISSUED)
         .filter(status__in=[LegalEntityApplication.Status.PENDING, LegalEntityApplication.Status.APPROVED])
         .select_related("user")

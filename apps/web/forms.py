@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -515,6 +517,12 @@ class LegalEntityApplicationForm(forms.ModelForm):
         self.fields["inn"].label = "ИНН"
         for field in self.fields.values():
             field.widget.attrs["class"] = "input-dark"
+
+    def clean_inn(self):
+        inn = self.cleaned_data["inn"].strip()
+        if not re.fullmatch(r"\d{9}", inn):
+            raise ValidationError("ИНН должен состоять ровно из 9 цифр.")
+        return inn
 
 
 class AdminLegalEntityRejectForm(forms.Form):

@@ -166,10 +166,13 @@ print('done')
 ```bash
 cd /opt/mktplace
 
-# ВАЖНО: собирать только web — celery/celery-beat используют тот же образ
+# Собрать только web: все три Python-сервиса (web/celery/celery-beat) в
+# docker-compose.vps.yml делят один тег image: mktplace-app:latest, поэтому
+# сборка web тегирует образ и для celery/celery-beat тоже (см. "Частые ошибки"
+# ниже — без этого тега это было бы неверно и однажды сломало продакшн).
 docker compose -f docker-compose.vps.yml build web
 
-# Запуск всех контейнеров (web, db, redis, celery, celery-beat)
+# up -d пересоздаёт все контейнеры, чей образ изменился — то есть все три
 docker compose -f docker-compose.vps.yml up -d
 
 # Проверить что всё поднялось
@@ -242,6 +245,16 @@ docker logs mktplace-web-1 --tail 50
 
 # Логи celery
 docker logs mktplace-celery-1 --tail 20
+
+# ВАЖНО: убедиться, что celery не отстал от web по коду. При старте celery
+# печатает список установленных приложений при миграции — он должен включать
+# ВСЕ текущие Django-приложения (в частности registration, business_queries).
+# Если каких-то новых приложений в этом списке нет — образ celery устарел,
+# несмотря на общий тег image: (см. "Частые ошибки" ниже). Один раз это уже
+# стоило продакшну молча потерянной Celery-задачи (send_blogger_sms_credentials,
+# 19.09.2026) — задачи новых приложений на старом образе не регистрируются и
+# отбрасываются брокером без единой видимой пользователю ошибки.
+docker logs mktplace-celery-1 2>&1 | grep -A3 "Apply all migrations"
 ```
 
 Сайт: `http://SERVER_IP:8080`
@@ -289,9 +302,26 @@ tail -f /tmp/build.log
 # МЕДЛЕННО и неправильно (3 полных пересборки):
 docker compose -f docker-compose.vps.yml build --no-cache web celery celery-beat
 
-# ПРАВИЛЬНО (celery/celery-beat используют тот же образ что web):
+# ПРАВИЛЬНО — все три сервиса указывают на один тег image: mktplace-app:latest
+# в docker-compose.vps.yml, поэтому сборка web обновляет образ и для
+# celery/celery-beat тоже, а up -d пересоздаёт все три контейнера:
 docker compose -f docker-compose.vps.yml build web
+docker compose -f docker-compose.vps.yml up -d
 ```
+
+### celery отстал от web (задачи "unregistered", молча теряются)
+**Причина (была найдена и исправлена 19.09.2026):** до этой даты у web,
+celery и celery-beat не было общего `image:` тега в `docker-compose.vps.yml` —
+`docker compose build web` тегировал только образ web, а celery/celery-beat
+годами продолжали работать на старом образе. Симптом в логах celery:
+```
+ERROR: Received unregistered task of type 'apps.some_app.tasks.some_task'.
+The message has been ignored and discarded.
+```
+Теперь у всех трёх сервисов общий тег `image: mktplace-app:latest` — одной
+сборки `web` достаточно (см. проверку в разделе «Проверка работоспособности»
+выше). Если ошибка появилась снова — проверить, что тег `image:` не потерялся
+при правках compose-файла.
 
 ---
 

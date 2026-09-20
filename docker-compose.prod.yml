@@ -28,6 +28,7 @@ services:
       retries: 5
 
   web:
+    image: mktplace-app:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -46,6 +47,7 @@ services:
       - media_volume:/app/media
 
   celery:
+    image: mktplace-app:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -62,6 +64,7 @@ services:
     restart: unless-stopped
 
   celery-beat:
+    image: mktplace-app:latest
     build:
       context: .
       dockerfile: Dockerfile
