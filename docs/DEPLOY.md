@@ -384,7 +384,9 @@ honeypot (весит 5), не пройдена капча — даёт IP «шт
 адрес клиента берётся из заголовка `X-Real-IP`, и пока порт открыт наружу, любой может
 подставить в заголовок чужой IP и заблокировать его. Проверено: через nginx подделанные
 `X-Real-IP` и `X-Forwarded-For` игнорируются. После смены флага:
-`docker compose -f docker-compose.vps.yml up -d --force-recreate web`.
+`docker compose -f docker-compose.vps.yml up -d --force-recreate --no-deps web`
+(без `--no-deps` compose пересоздаёт и зависимость `db`: том с данными сохраняется, но БД
+перезапускается).
 
 ### Приветственное письмо
 
