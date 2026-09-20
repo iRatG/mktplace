@@ -83,9 +83,24 @@ web, а celery/celery-beat тихо остаются на старом обра�
 приложений должен совпадать с тем, что видит `web` (см. `docs/DEPLOY.md`,
 раздел «Проверка работоспособности»).
 
+### Защита публичных форм и API — IP клиента только через `client_ip()`
+IP для лимитов и блокировок берётся функцией `apps.users.security.client_ip(request)`
+(заголовок `X-Real-IP`, который nginx каждый раз перезаписывает), а не первым элементом
+`X-Forwarded-For`: тот клиент подделывает одним заголовком и обходит лимит
+(`apps/web/views/cpa.py` пока берёт именно `X-Forwarded-For`). Доверять `X-Real-IP` можно,
+только пока порт приложения не открыт наружу — в `docker-compose.vps.yml` он привязан к
+`127.0.0.1`. Публичная форма проверяется через `security.check_public_form()` (лимит по IP →
+honeypot `hp_note` → капча Turnstile, если заданы `TURNSTILE_*`) и подключает
+`templates/partials/bot_protection.html`; лимиты и блокировки полностью отключаются
+`RATELIMIT_ENABLED=False` (в тестах выключены по умолчанию). Блокировка IP — модель
+`BlockedIP` + `BlockedIPMiddleware`; автоблок включается `AUTOBLOCK_ENABLED=True`. Детали и
+состояние на сервере — `docs/DEPLOY.md`, раздел «Защита от ботов и перегрузки».
+
 ## Структура приложений
 ```
-apps/users/         — Auth, роли, is_demo
+apps/users/         — Auth, роли, is_demo; security.py / throttling.py / blocklist.py /
+                       middleware.py — защита от ботов и блок по IP (BlockedIP),
+                       welcome-письмо после подтверждения email (tasks.py)
 apps/profiles/      — BloggerProfile, AdvertiserProfile
 apps/platforms/     — Platform, Category, PermitDocument
 apps/campaigns/     — Campaign, Response, DirectOffer
@@ -119,6 +134,8 @@ apps/web/           — Django Templates frontend
 - Quality: Celery VPS, rate limiting, пагинация, views refactor
 - Legal: PermitDocument (ЗРУ-701), retention fields, terms/oferta страницы
 - Smoke-тесты по ролям (520 тестов)
+- Защита от ботов: лимиты входа/сброса пароля/публичных форм/API, honeypot, Turnstile (по ключам),
+  блок IP вручную и автоматически, лимиты nginx, fail2ban, ufw (см. `docs/DEPLOY.md`)
 - business_queries: внутренние тикеты ИТ + опросники A/B для бизнеса без аккаунта
 - registration: регистрация юрлиц (ИНН, закрепление за сотрудником, ручной Ддокс,
   одноразовая выдача пароля) + подтверждение личности блогера через OneID и статуса

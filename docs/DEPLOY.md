@@ -42,7 +42,9 @@ swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ```
 
-Сайт будет доступен на `http://SERVER_IP:8080`
+Приложение слушает `127.0.0.1:8080` (порт наружу не опубликован); в интернет сайт отдаёт хостовой
+nginx (TLS, домен). Проверка на самом сервере:
+`curl -H 'Host: ublogers.uz' http://127.0.0.1:8080/login/`
 
 ---
 
@@ -239,7 +241,7 @@ docker exec mktplace-web-1 python -c "import openpyxl; print(openpyxl.__version_
 docker ps
 
 # Должно быть 5 контейнеров Up:
-# mktplace-web-1        (порт 8080)
+# mktplace-web-1        (127.0.0.1:8080)
 # mktplace-db-1         (postgres, healthy)
 # mktplace-redis-1      (redis, healthy)
 # mktplace-celery-1
@@ -267,7 +269,7 @@ docker logs mktplace-celery-1 --tail 20
 docker logs mktplace-celery-1 2>&1 | grep -A3 "Apply all migrations"
 ```
 
-Сайт: `http://SERVER_IP:8080`
+Сайт: `https://ublogers.uz` (хостовой nginx → `127.0.0.1:8080`)
 
 Демо-логины: см. `key_param` файл (не в git).
 
@@ -281,30 +283,37 @@ docker logs mktplace-celery-1 2>&1 | grep -A3 "Apply all migrations"
 |---|---|---|
 | Лимиты в приложении | `apps/users/security.py`, `apps/users/throttling.py` | попытки входа, сброс пароля, заявки юрлиц и блогеров, API `/api/v1/` |
 | Honeypot | `templates/partials/bot_protection.html` | скрытое поле; заполнил — значит бот |
-| Капча Turnstile | тот же partial + `TURNSTILE_*` в `.env.prod` | включается только когда заданы ключи |
+| Капча Turnstile | тот же partial + `TURNSTILE_*` в `.env.prod` | действует только когда заданы ключи |
 | Лимиты в nginx | `deploy/nginx/` | отсекают поток запросов до того, как он дойдёт до Django |
 | fail2ban | `deploy/fail2ban/` | банит IP, которые упорно упираются в лимиты nginx |
-| Блок по IP | `apps/users/blocklist.py`, Django admin → «Заблокированные IP» | 403 на любой запрос с заблокированного адреса: вручную и (по флагу) автоматически |
+| Блок по IP | `apps/users/blocklist.py`, Django admin → «Заблокированные IP» | 403 на любой запрос с заблокированного адреса: вручную и автоматически (флаг `AUTOBLOCK_ENABLED`) |
+| Файрвол | `ufw` на хосте | снаружи открыты только 22, 80, 443 |
 
-### Включить лимиты в nginx на VPS
+Состояние на текущем сервере (20.09.2026): лимиты nginx, джейл fail2ban, `ufw`, привязка порта
+приложения к `127.0.0.1` и автоблок IP включены; ключи Turnstile не заданы, капча не активна.
 
-Хостовой nginx (не контейнер) стоит перед приложением на порту 8080.
+### Лимиты в nginx на VPS
+
+Хостовой nginx (не контейнер) стоит перед приложением и проксирует на `127.0.0.1:8080`.
 
 ```bash
 cd /opt/mktplace && git pull
 cp deploy/nginx/ublogers-ratelimit.conf /etc/nginx/conf.d/
 mkdir -p /etc/nginx/snippets
 cp deploy/nginx/ublogers-limits.conf /etc/nginx/snippets/
-# В /etc/nginx/sites-enabled/ublogers.uz внутри server { ... } на 443 добавить строку:
+# Сделать резервную копию /etc/nginx/sites-available/ublogers.uz. Затем в
+# /etc/nginx/sites-enabled/ublogers.uz внутри server { ... } на 443 добавить строку
+# (после server_name):
 #     include /etc/nginx/snippets/ublogers-limits.conf;
 # Существующий location / оставить как есть: он обслуживает все остальные пути.
 # Сниппет добавляет общий лимит на сервер и отдельный location для входа/регистрации.
 nginx -t && systemctl reload nginx
 ```
 
-Порядок важен: `nginx -t` до `reload`. Если проверка не прошла — reload не делать.
+Порядок важен: `nginx -t` до `reload`. Если проверка не прошла — reload не делать, файл сайта
+восстановить из резервной копии.
 
-### Включить джейл fail2ban
+### Джейл fail2ban
 
 ```bash
 cp deploy/fail2ban/ublogers-nginx.local /etc/fail2ban/jail.d/
@@ -312,20 +321,33 @@ systemctl reload fail2ban
 fail2ban-client status nginx-limit-req
 ```
 
-### Закрыть порт 8080 и включить файрвол
+### Порт приложения и файрвол
 
 Лимиты по IP работают, только если до приложения нельзя достучаться в обход nginx:
-`X-Real-IP` приложение берёт на веру. Поэтому порт приложения не должен быть открыт
-наружу. В `docker-compose.vps.yml` привязать порт к localhost:
-`"127.0.0.1:8080:8000"` — хостовой nginx ходит на `127.0.0.1:8080` и продолжит работать.
-Файрвол: **сначала** разрешить SSH, потом включать.
+`X-Real-IP` приложение берёт на веру. Поэтому в `docker-compose.vps.yml` порт `web`
+опубликован только на localhost: `"127.0.0.1:8080:8000"`. Docker публикует порты в обход
+`ufw`, так что закрывает порт именно эта привязка, а не правило файрвола.
+
+`ufw` пропускает только SSH, HTTP и HTTPS. Порядок: **сначала** разрешить SSH, потом включать.
+Чтобы не потерять доступ, перед `ufw --force enable` запускается страховочный таймер, который
+сам выключит файрвол, если не отменить его после проверки входа по SSH новым соединением:
 
 ```bash
+ufw default deny incoming && ufw default allow outgoing
 ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp
-ufw enable
+nohup sh -c 'sleep 300; ufw --force disable' >/dev/null 2>&1 & echo $! > /root/ufw_safety.pid
+ufw --force enable
+# новым SSH-соединением проверить доступ, сайт и связь контейнеров, затем отменить таймер:
+kill $(cat /root/ufw_safety.pid) && rm /root/ufw_safety.pid
 ```
 
+Проверка снаружи: порт 8080 не отвечает приложением, наружу слушают только 22, 80, 443.
+Простая проверка «порт принимает соединение» может обманывать (провайдер, антивирус, прокси
+принимают любое TCP-соединение), поэтому смотреть нужно на ответ по протоколу.
+
 ### Капча Cloudflare Turnstile
+
+Ключи не заданы, капча не активна. Чтобы включить:
 
 1. Cloudflare → Turnstile → Add site (домен `ublogers.uz`), взять Site key и Secret key.
 2. Записать в `.env.prod` на сервере `TURNSTILE_SITE_KEY` и `TURNSTILE_SECRET_KEY`
@@ -357,11 +379,12 @@ honeypot (весит 5), не пройдена капча — даёт IP «шт
 сработавший механизм. Приватные и локальные адреса (10.x, 172.16-31.x, 192.168.x, 127.x)
 не блокируются никогда, ручную блокировку автоблок не перезаписывает.
 
-Автоблок **выключен** (`AUTOBLOCK_ENABLED=False`). Включать в `.env.prod` только после
-пункта «Закрыть порт 8080»: адрес клиента берётся из заголовка `X-Real-IP`, и пока порт
-приложения открыт наружу, любой может подставить в заголовок чужой IP и заблокировать его.
-Порядок: закрыть 8080 → проверить, что сайт открывается через nginx → `AUTOBLOCK_ENABLED=True`
-→ `docker compose -f docker-compose.vps.yml up -d`.
+Автоблок включается флагом `AUTOBLOCK_ENABLED=True` в `.env.prod` (по умолчанию выключен) и
+на текущем сервере включён. Включать его можно только при закрытом порте приложения:
+адрес клиента берётся из заголовка `X-Real-IP`, и пока порт открыт наружу, любой может
+подставить в заголовок чужой IP и заблокировать его. Проверено: через nginx подделанные
+`X-Real-IP` и `X-Forwarded-For` игнорируются. После смены флага:
+`docker compose -f docker-compose.vps.yml up -d --force-recreate web`.
 
 ### Приветственное письмо
 
@@ -440,7 +463,9 @@ The message has been ignored and discarded.
 ```
 Internet
     |
-:8080 (Gunicorn, 1 worker)
+:443 (nginx хоста: TLS, лимиты запросов)
+    |
+127.0.0.1:8080 (Gunicorn, 1 worker)
     |
 Django App (mktplace-web-1)
     |          |           |
@@ -449,7 +474,7 @@ PostgreSQL   Redis       Celery worker
 db-1)        redis-1)    + celery-beat-1
 ```
 
-Все сервисы в одной Docker-сети. Gunicorn слушает на 0.0.0.0:8000 внутри контейнера, проброшен на хост :8080.
+Все сервисы в одной Docker-сети. Gunicorn слушает на 0.0.0.0:8000 внутри контейнера, проброшен на хост только как `127.0.0.1:8080`.
 
 ---
 
