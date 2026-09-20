@@ -337,6 +337,22 @@ class LegalEntityPublicSubmitTests(TestCase):
         self.assertFalse(LegalEntityApplication.objects.filter(inn="abcdefghi").exists())
         self.assertContains(response, "ровно из 9 цифр")
 
+    def test_inn_field_renders_nine_digit_boxes_with_hidden_value(self):
+        response = self.client.get(reverse("web:legal_entity_submit"))
+        html = response.content.decode()
+        self.assertEqual(html.count('class="digit-box"'), 9)
+        self.assertIn('<input type="hidden" name="inn" value=""', html)
+
+    def test_inn_boxes_are_refilled_after_validation_error(self):
+        response = self.client.post(reverse("web:legal_entity_submit"), {
+            "company_name": "Горыныч",
+            "inn": "89562126",
+        })
+        html = response.content.decode()
+        self.assertEqual(html.count('class="digit-box"'), 9)
+        self.assertIn('name="inn" value="89562126"', html)
+        self.assertEqual(html.count('value="8"'), 1)
+
     def test_issue_access_creates_user_on_first_grant(self):
         reviewer = _make_reviewer("reviewer_public@demo.com")
         application = LegalEntityApplication.objects.create(

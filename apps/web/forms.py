@@ -3,6 +3,7 @@ import re
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.template.loader import render_to_string
 
 from apps.business_queries.models import Ticket
 from apps.campaigns.models import Campaign, DirectOffer
@@ -504,6 +505,38 @@ class BusinessQueryPasswordForm(forms.Form):
     )
 
 
+class DigitBoxesWidget(forms.Widget):
+    """Ввод числа по одной цифре в отдельных окошках (например, ИНН).
+
+    Окошки без `name` — в POST уходит только скрытое поле с собранным значением,
+    поэтому серверная валидация видит обычную строку цифр.
+    """
+
+    def __init__(self, length, group=3, label="", attrs=None):
+        super().__init__(attrs)
+        self.length = length
+        self.group = group
+        self.label = label
+
+    def render(self, name, value, attrs=None, renderer=None):
+        value = re.sub(r"\D", "", str(value or ""))[: self.length]
+        positions = [
+            {
+                "digit": value[i] if i < len(value) else "",
+                "gap_after": self.group and (i + 1) % self.group == 0 and i + 1 < self.length,
+            }
+            for i in range(self.length)
+        ]
+        return render_to_string("widgets/digit_boxes.html", {
+            "name": name,
+            "value": value,
+            "length": self.length,
+            "label": self.label,
+            "positions": positions,
+            "widget_id": (attrs or {}).get("id", ""),
+        })
+
+
 class LegalEntityApplicationForm(forms.ModelForm):
     """Форма подачи заявки на регистрацию юрлица (название + ИНН)."""
 
@@ -515,8 +548,10 @@ class LegalEntityApplicationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["company_name"].label = "Название компании"
         self.fields["inn"].label = "ИНН"
-        for field in self.fields.values():
-            field.widget.attrs["class"] = "input-dark"
+        self.fields["inn"].widget = DigitBoxesWidget(length=9, group=3, label="ИНН")
+        for name, field in self.fields.items():
+            if name != "inn":
+                field.widget.attrs["class"] = "input-dark"
 
     def clean_inn(self):
         inn = self.cleaned_data["inn"].strip()
