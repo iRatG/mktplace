@@ -140,6 +140,8 @@ CURRENCY_SYMBOL          = env('CURRENCY_SYMBOL',          default='сум')
 CURRENCY_CODE            = env('CURRENCY_CODE',            default='UZS')
 CURRENCY_MIN_WITHDRAWAL  = env.int('CURRENCY_MIN_WITHDRAWAL',  default=65000)
 CURRENCY_MIN_DEPOSIT     = env.int('CURRENCY_MIN_DEPOSIT',     default=130000)
+# Минимальная цена за размещение в FIXED-кампании (решение бизнеса 04.10.2026).
+CAMPAIGN_MIN_FIXED_PRICE = env.int('CAMPAIGN_MIN_FIXED_PRICE', default=10000)
 
 # Redis
 REDIS_URL = env('REDIS_URL', default='redis://redis:6379/0')

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static money %}
 
 {% block title %}{% if campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %} — ublogers{% endblock %}
 
@@ -79,6 +79,7 @@
             <div id="fixed_price_row" {% if form.payment_type.value == 'cpa' %}class="hidden"{% endif %}>
                 {% with label="Цена за размещение ("|add:currency.symbol|add:") *" %}
                 {% include "partials/number_input.html" with field=form.fixed_price label=label step=10000 placeholder="150 000" %}
+                <p class="text-xs text-slate-500 mt-1">Минимум — {{ currency.min_fixed_price|money }} {{ currency.symbol }}.</p>
                 {% endwith %}
             </div>
 

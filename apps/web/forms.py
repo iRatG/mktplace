@@ -7,7 +7,7 @@ from django.template.loader import render_to_string
 
 from apps.business_queries.models import Ticket
 from apps.campaigns.models import Campaign, DirectOffer
-from apps.campaigns.validation import campaign_param_errors
+from apps.campaigns.validation import campaign_param_errors, deals_in_cap
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.registration.models import IPApplication, LegalEntityApplication
@@ -142,6 +142,7 @@ class CampaignForm(forms.ModelForm):
             end_date=cleaned.get("end_date"),
             deadline=cleaned.get("deadline"),
             max_bloggers=cleaned.get("max_bloggers"),
+            taken_slots=deals_in_cap(self.instance),
         )
         for field, message in errors.items():
             if field not in self.errors:

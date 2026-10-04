@@ -72,8 +72,15 @@
                     {% csrf_token %}
                     <button class="bg-green-500/20 text-green-300 border border-green-500/30 px-3 py-2 rounded-xl text-sm hover:bg-green-500/30 transition-colors">Возобновить</button>
                 </form>
+                <a href="{% url 'web:campaign_edit' campaign.pk %}"
+                    class="bg-white border border-gray-300 text-slate-300 px-3 py-2 rounded-lg text-sm hover:bg-gray-50">
+                    Редактировать
+                </a>
                 {% endif %}
             </div>
+            {% if campaign.status == 'paused' %}
+            <p class="text-xs text-slate-400 mt-3">Изменить условия можно только на паузе: после сохранения правок кампания уйдёт на повторную модерацию и снова станет видна блогерам после одобрения.</p>
+            {% endif %}
         </div>
 
         <!-- Responses list for advertiser -->

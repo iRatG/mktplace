@@ -6,6 +6,7 @@ from django.views.decorators.http import require_POST
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign
 from apps.campaigns.models import Response as CampaignResponse
+from apps.campaigns.validation import EDITABLE_STATUSES, deals_in_cap
 from apps.deals.models import Deal, DealStatusLog
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
@@ -85,16 +86,23 @@ def campaign_create(request):
 @login_required
 def campaign_edit(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
-    if campaign.status not in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
-        messages.error(request, "Редактировать можно только черновики и отклонённые кампании.")
+    if campaign.status not in EDITABLE_STATUSES:
+        messages.error(request, "Редактировать можно черновики, отклонённые и приостановленные кампании.")
         return redirect("web:campaign_detail", pk=pk)
 
+    was_paused = campaign.status == Campaign.Status.PAUSED
     form = CampaignForm(request.POST or None, instance=campaign)
     if request.method == "POST" and form.is_valid():
         campaign = form.save(commit=False)
         campaign.content_types = form.cleaned_data.get("content_types", [])
         campaign.allowed_socials = form.cleaned_data.get("allowed_socials", [])
+        if was_paused:
+            # Решение бизнеса 04.10.2026: идущую кампанию меняют только через повторную модерацию.
+            campaign.status = Campaign.Status.MODERATION
         campaign.save()
+        if was_paused:
+            messages.success(request, "Изменения сохранены и отправлены на модерацию.")
+            return redirect("web:campaign_detail", pk=campaign.pk)
         messages.success(request, "Кампания обновлена.")
         return redirect("web:campaign_detail", pk=campaign.pk)
 
@@ -196,17 +204,7 @@ def response_accept(request, pk):
 
     # Проверяем лимит блогеров
     if campaign.max_bloggers > 0:
-        active_deals_count = Deal.objects.filter(
-            campaign=campaign,
-            status__in=[
-                Deal.Status.IN_PROGRESS,
-                Deal.Status.CHECKING,
-                Deal.Status.ON_APPROVAL,
-                Deal.Status.WAITING_PUBLICATION,
-                Deal.Status.COMPLETED,
-            ],
-        ).count()
-        if active_deals_count >= campaign.max_bloggers:
+        if deals_in_cap(campaign) >= campaign.max_bloggers:
             messages.error(request, f"Достигнут лимит блогеров для кампании ({campaign.max_bloggers}).")
             return redirect("web:campaign_detail", pk=campaign.pk)
 

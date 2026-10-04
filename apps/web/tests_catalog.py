@@ -157,7 +157,7 @@ class CatalogFilterTest(TestCase):
         self.assertNotIn(self.p_telegram.pk, pks)
 
     def test_filter_by_category(self):
-        cat = Category.objects.create(name="Tech", slug="tech")
+        cat = Category.objects.create(name="Tech (test)", slug="tech-test")
         self.p_insta.categories.add(cat)
         r = self.client.get(reverse("web:blogger_catalog"), {"category": cat.pk})
         pks = [p.pk for p in r.context["platforms"]]

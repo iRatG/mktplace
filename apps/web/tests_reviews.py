@@ -301,22 +301,22 @@ class AdminCategoriesTest(TestCase):
         self.assertEqual(r.status_code, 200)
 
     def test_create_category(self):
-        r = self.client.post(self.url, {"name": "Авто", "slug": "auto"})
+        r = self.client.post(self.url, {"name": "Мото (тест)", "slug": "moto-test"})
         self.assertRedirects(r, self.url)
-        self.assertTrue(Category.objects.filter(slug="auto").exists())
+        self.assertTrue(Category.objects.filter(slug="moto-test").exists())
 
     def test_duplicate_name_rejected(self):
-        Category.objects.create(name="Авто", slug="auto")
-        r = self.client.post(self.url, {"name": "Авто", "slug": "auto2"})
+        Category.objects.create(name="Мото (тест)", slug="moto-test")
+        r = self.client.post(self.url, {"name": "Мото (тест)", "slug": "moto-test2"})
         self.assertRedirects(r, self.url)
-        # Only 1 category with name Авто
-        self.assertEqual(Category.objects.filter(name="Авто").count(), 1)
+        # Only 1 category with this name
+        self.assertEqual(Category.objects.filter(name="Мото (тест)").count(), 1)
 
     def test_duplicate_slug_rejected(self):
-        Category.objects.create(name="Авто", slug="auto")
-        r = self.client.post(self.url, {"name": "Автомобили", "slug": "auto"})
+        Category.objects.create(name="Мото (тест)", slug="moto-test")
+        r = self.client.post(self.url, {"name": "Мотоциклы (тест)", "slug": "moto-test"})
         self.assertRedirects(r, self.url)
-        self.assertEqual(Category.objects.filter(slug="auto").count(), 1)
+        self.assertEqual(Category.objects.filter(slug="moto-test").count(), 1)
 
     def test_delete_category(self):
         cat = Category.objects.create(name="Тест", slug="test-del")

@@ -1,9 +1,30 @@
 """Согласованность параметров кампании — общая проверка для веб-формы и API."""
+from django.conf import settings
+
 from .models import Campaign
+
+# Статусы, в которых владелец может редактировать кампанию; PAUSED после правки
+# уходит в MODERATION (решение бизнеса 04.10.2026: «пауза → правка → модерация»).
+EDITABLE_STATUSES = (Campaign.Status.DRAFT, Campaign.Status.REJECTED, Campaign.Status.PAUSED)
+
+# Сделки, занимающие место в лимите блогеров кампании (max_bloggers): и при
+# принятии отклика, и при правке лимита считаются одни и те же.
+CAP_DEAL_STATUSES = (
+    "in_progress", "on_approval", "waiting_publication", "checking", "completed",
+)
+
+
+def deals_in_cap(campaign):
+    """Число сделок кампании, занимающих место в лимите блогеров."""
+    from apps.deals.models import Deal
+
+    if not campaign or not campaign.pk:
+        return 0
+    return Deal.objects.filter(campaign=campaign, status__in=CAP_DEAL_STATUSES).count()
 
 
 def campaign_param_errors(*, payment_type, fixed_price, budget,
-                          start_date, end_date, deadline, max_bloggers):
+                          start_date, end_date, deadline, max_bloggers, taken_slots=0):
     """Вернуть {поле: сообщение} для несогласованных параметров кампании.
 
     Принимает итоговые значения полей (после разбора формы/сериализатора).
@@ -20,7 +41,10 @@ def campaign_param_errors(*, payment_type, fixed_price, budget,
         elif end_date and deadline > end_date:
             errors["deadline"] = "Дедлайн контента не может быть позже окончания кампании."
 
-    if payment_type == Campaign.PaymentType.FIXED and fixed_price and budget:
+    min_price = settings.CAMPAIGN_MIN_FIXED_PRICE
+    if payment_type == Campaign.PaymentType.FIXED and fixed_price and fixed_price < min_price:
+        errors["fixed_price"] = f"Минимальная цена за размещение — {_spaced(min_price)}."
+    elif payment_type == Campaign.PaymentType.FIXED and fixed_price and budget:
         if fixed_price > budget:
             errors["fixed_price"] = "Цена за размещение не может быть больше бюджета."
         elif max_bloggers and max_bloggers * fixed_price > budget:
@@ -29,6 +53,12 @@ def campaign_param_errors(*, payment_type, fixed_price, budget,
                 f"Бюджета хватает на {fits} {_bloggers_word(fits)} "
                 f"при цене за размещение {_spaced(fixed_price)}."
             )
+
+    if max_bloggers and taken_slots and max_bloggers < taken_slots and "max_bloggers" not in errors:
+        errors["max_bloggers"] = (
+            f"По кампании уже занято мест: {taken_slots}. "
+            f"Укажите не меньше {taken_slots} или 0 — без лимита."
+        )
 
     return errors
 

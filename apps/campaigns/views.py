@@ -13,6 +13,7 @@ from apps.users.models import User
 from .models import Campaign
 from .models import Response as CampaignResponse
 from .serializers import CampaignCreateSerializer, CampaignSerializer, ResponseSerializer
+from .validation import EDITABLE_STATUSES, deals_in_cap
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -43,9 +44,13 @@ class CampaignViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if instance.advertiser != self.request.user:
             raise PermissionDenied("You can only edit your own campaigns.")
-        if instance.status not in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
-            raise PermissionDenied("Only draft or rejected campaigns can be edited.")
-        serializer.save()
+        if instance.status not in EDITABLE_STATUSES:
+            raise PermissionDenied("Only draft, rejected or paused campaigns can be edited.")
+        campaign = serializer.save()
+        # Правка приостановленной кампании — только через повторную модерацию.
+        if instance.status == Campaign.Status.PAUSED:
+            campaign.status = Campaign.Status.MODERATION
+            campaign.save(update_fields=["status"])
 
     def perform_destroy(self, instance):
         if instance.advertiser != self.request.user:
@@ -176,17 +181,7 @@ class ResponseViewSet(
                     )
 
                 if campaign.max_bloggers > 0:
-                    active_deals_count = Deal.objects.filter(
-                        campaign=campaign,
-                        status__in=[
-                            Deal.Status.IN_PROGRESS,
-                            Deal.Status.CHECKING,
-                            Deal.Status.ON_APPROVAL,
-                            Deal.Status.WAITING_PUBLICATION,
-                            Deal.Status.COMPLETED,
-                        ],
-                    ).count()
-                    if active_deals_count >= campaign.max_bloggers:
+                    if deals_in_cap(campaign) >= campaign.max_bloggers:
                         return DRFResponse(
                             {"detail": f"Campaign has reached the maximum number of bloggers ({campaign.max_bloggers})."},
                             status=status.HTTP_400_BAD_REQUEST,
