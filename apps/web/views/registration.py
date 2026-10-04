@@ -35,7 +35,9 @@ from apps.registration.models import (
     LegalEntityApplication,
     LegalEntityApplicationStatusLog,
 )
-from apps.registration.services import REGISTRATION_REVIEWERS_GROUP, assign_reviewer, get_oneid_backend
+from apps.registration.services import (
+    REGISTRATION_REVIEWERS_GROUP, assign_reviewer, get_oneid_backend, legal_entity_login,
+)
 from apps.registration.tasks import send_blogger_sms_credentials
 from apps.users import security
 from apps.users.models import User
@@ -193,7 +195,7 @@ def _legal_entities_xlsx(applications):
     for a in applications:
         ws.append([
             a.pk, a.company_name, a.inn, a.get_status_display(), a.get_ddocs_status_display(),
-            a.user.email if a.user else "",
+            a.user.login_display if a.user else "",
             a.assigned_to.email if a.assigned_to else "",
             a.reviewed_by.email if a.reviewed_by else "",
             naive(a.reviewed_at), a.rejection_reason, a.ddocs_note,
@@ -353,9 +355,8 @@ def admin_legal_entity_issue_access(request, pk):
         # (повторная выдача доступа, либо заявка была пересоздана после
         # удаления старой — юрлицо не должно упереться в IntegrityError
         # из-за детерминированного логина legal.<инн>@ddocs.internal).
-        login = f"legal.{application.inn}@ddocs.internal"
         user, _created = User.objects.get_or_create(
-            email=login, defaults={"role": User.Role.ADVERTISER},
+            email=legal_entity_login(application.inn), defaults={"role": User.Role.ADVERTISER},
         )
         application.user = user
 

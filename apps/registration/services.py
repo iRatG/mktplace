@@ -24,6 +24,35 @@ logger = logging.getLogger(__name__)
 
 REGISTRATION_REVIEWERS_GROUP = "Регистрация юрлиц"
 
+# Аккаунт юрлица хранится под служебным email, однозначно заданным ИНН.
+# Входит юрлицо по самому ИНН (login_view переводит его в этот email);
+# старый служебный логин из уже выданных «Ддокс» тоже продолжает работать.
+_LEGAL_LOGIN_PREFIX = "legal."
+_LEGAL_LOGIN_DOMAIN = "@ddocs.internal"
+INN_LENGTH = 9
+
+
+def legal_entity_login(inn):
+    """Служебный email аккаунта юрлица по его ИНН."""
+    return f"{_LEGAL_LOGIN_PREFIX}{inn}{_LEGAL_LOGIN_DOMAIN}"
+
+
+def inn_from_login(email):
+    """ИНН из служебного email юрлица; None для любого другого email."""
+    if email and email.startswith(_LEGAL_LOGIN_PREFIX) and email.endswith(_LEGAL_LOGIN_DOMAIN):
+        inn = email[len(_LEGAL_LOGIN_PREFIX):-len(_LEGAL_LOGIN_DOMAIN)]
+        if len(inn) == INN_LENGTH and inn.isdigit():
+            return inn
+    return None
+
+
+def parse_inn_login(value):
+    """ИНН, если введённый логин — ровно 9 цифр (пробелы игнорируются), иначе None."""
+    digits = "".join((value or "").split())
+    if len(digits) == INN_LENGTH and digits.isdigit():
+        return digits
+    return None
+
 
 def assign_reviewer():
     """Вернуть сотрудника с наименьшим числом открытых заявок юрлиц.

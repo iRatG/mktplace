@@ -62,6 +62,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.email} ({self.role})"
 
     @property
+    def login_display(self):
+        """Логин для показа: ИНН у аккаунта юрлица, иначе email."""
+        from apps.registration.services import inn_from_login
+
+        return inn_from_login(self.email) or self.email
+
+    @property
     def is_blocked(self):
         if self.status == self.Status.BLOCKED:
             return True

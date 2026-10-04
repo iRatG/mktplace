@@ -151,7 +151,8 @@ class CampaignForm(forms.ModelForm):
 
 
 class LoginForm(forms.Form):
-    email = forms.EmailField(widget=forms.EmailInput())
+    # Логин: email или ИНН юрлица (9 цифр) — разбирает login_view.
+    email = forms.CharField(max_length=254, widget=forms.TextInput(attrs={"autocomplete": "username"}))
     password = forms.CharField(widget=forms.PasswordInput())
 
 

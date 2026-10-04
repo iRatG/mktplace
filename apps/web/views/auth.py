@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
+from apps.registration.services import legal_entity_login, parse_inn_login
 from apps.users import blocklist, security
 from apps.users.models import PasswordResetToken, User
 from apps.users.tasks import queue_welcome_email, send_password_reset_email
@@ -22,6 +23,7 @@ from .pages import _redirect_dashboard
 LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW = 20, 15 * 60          # с одного IP за 15 минут
 PASSWORD_RESET_IP_LIMIT, PASSWORD_RESET_WINDOW = 5, 60 * 60  # запросов с IP в час
 PASSWORD_RESET_EMAIL_LIMIT = 3                               # писем на один email в час
+LOGIN_FAILED_MSG = "Неверный логин или пароль."
 
 
 def login_view(request):
@@ -37,14 +39,17 @@ def login_view(request):
         return render(request, "auth/login.html", {"form": form}, status=429)
 
     if request.method == "POST" and form.is_valid():
-        email = form.cleaned_data["email"].lower()
+        # Логин — email или ИНН юрлица (9 цифр, пробелы игнорируются).
+        login_value = form.cleaned_data["email"].strip()
+        inn = parse_inn_login(login_value)
+        email = legal_entity_login(inn) if inn else login_value.lower()
         password = form.cleaned_data["password"]
 
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             security.hit("login_fail", ip, LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW)
-            form.add_error(None, "Неверный email или пароль.")
+            form.add_error(None, LOGIN_FAILED_MSG)
             return render(request, "auth/login.html", {"form": form})
 
         if user.is_blocked:
@@ -54,7 +59,7 @@ def login_view(request):
         if not user.check_password(password):
             security.hit("login_fail", ip, LOGIN_FAIL_LIMIT, LOGIN_FAIL_WINDOW)
             user.increment_login_attempts()
-            form.add_error(None, "Неверный email или пароль.")
+            form.add_error(None, LOGIN_FAILED_MSG)
             return render(request, "auth/login.html", {"form": form})
 
         if not user.is_email_confirmed:

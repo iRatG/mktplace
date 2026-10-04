@@ -71,7 +71,7 @@
                         {% else %}bg-yellow-500/15 text-yellow-400{% endif %}">{{ a.get_status_display }}</span>
                 </td>
                 <td class="px-4 py-3 text-slate-300">{{ a.get_ddocs_status_display }}</td>
-                <td class="px-4 py-3 text-slate-400">{{ a.user.email|default:"— не создан" }}</td>
+                <td class="px-4 py-3 text-slate-400">{{ a.user.login_display|default:"— не создан" }}</td>
                 <td class="px-4 py-3 text-slate-400">{{ a.assigned_to.email|default:"— не назначен" }}</td>
                 <td class="px-4 py-3 text-slate-500">{{ a.created_at|date:"d.m.Y H:i" }}</td>
             </tr>

@@ -45,7 +45,7 @@
         <h2 class="text-white font-semibold mb-3">Аккаунт и профиль</h2>
         {% if app.user %}
         <dl class="text-sm space-y-2">
-            <div class="flex justify-between gap-4"><dt class="text-slate-400">Логин</dt><dd class="text-slate-200">{{ app.user.email }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Логин</dt><dd class="text-slate-200">{{ app.user.login_display }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-slate-400">Статус аккаунта</dt><dd class="text-slate-200">{{ app.user.get_status_display }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-slate-400">Создан</dt><dd class="text-slate-200">{{ app.user.date_joined|date:"d.m.Y H:i" }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-slate-400">Последний вход</dt><dd class="text-slate-200">{{ app.user.last_login|date:"d.m.Y H:i"|default:"ни разу" }}</dd></div>
