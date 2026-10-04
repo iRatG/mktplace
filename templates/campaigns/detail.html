@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load money %}
+{% load money static %}
 
 {% block title %}{{ campaign.name }} — ublogers{% endblock %}
 
@@ -91,16 +91,37 @@
             </div>
             <div class="divide-y divide-white/5">
                 {% for resp in responses %}
-                <div class="px-6 py-4 flex items-center justify-between">
-                    <div>
-                        <a href="{% url 'web:blogger_public_profile' resp.blogger.pk %}" class="text-sm font-medium text-white hover:text-orange-400 transition-colors">{{ resp.blogger.email }}</a>
-                        <div class="text-xs text-slate-500 mt-0.5">
-                            {{ resp.platform }} · {{ resp.content_type }}
-                            {% if resp.proposed_price %}· {{ resp.proposed_price|money }} {{ currency.symbol }}{% endif %}
-                        </div>
-                        {% if resp.message %}
-                        <div class="text-xs text-slate-500 mt-1 italic">"{{ resp.message|truncatechars:80 }}"</div>
+                {% with profile=resp.blogger.blogger_profile p=resp.platform %}
+                <div class="px-6 py-4 flex items-start justify-between gap-4">
+                    <div class="flex gap-3 min-w-0">
+                        {% if profile.avatar %}
+                        <img src="{{ profile.avatar.url }}" alt="" class="w-10 h-10 rounded-full object-cover flex-shrink-0">
+                        {% else %}
+                        <div class="w-10 h-10 rounded-full bg-orange-500/15 text-orange-400 flex items-center justify-center text-sm font-semibold flex-shrink-0">{{ profile.nickname|default:resp.blogger.email|slice:":1"|upper }}</div>
                         {% endif %}
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <a href="{% url 'web:blogger_public_profile' resp.blogger.pk %}" class="text-sm font-medium text-white hover:text-orange-400 transition-colors">{{ profile.nickname|default:resp.blogger.email }}</a>
+                                <a href="{{ p.url }}" target="_blank" rel="noopener" class="text-xs text-orange-400 hover:text-orange-300">{{ p.get_social_type_display }} ↗</a>
+                                {% if profile.rating %}<span class="text-xs text-yellow-400">★ {{ profile.rating }}</span>{% endif %}
+                                <span class="text-xs text-slate-500">завершённых сделок: {{ profile.deals_count|default:0 }}</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-1">
+                                Подписчики: {{ p.subscribers|money }} · Просмотры: {{ p.avg_views|money }} · ER: {{ p.engagement_rate|floatformat:1 }}%
+                            </div>
+                            {% if p.categories.all %}
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {% for cat in p.categories.all %}<span class="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400">{{ cat.name }}</span>{% endfor %}
+                            </div>
+                            {% endif %}
+                            <div class="text-xs text-slate-500 mt-1">
+                                {{ resp.content_type }}
+                                {% if resp.proposed_price %}· предлагает {{ resp.proposed_price|money }} {{ currency.symbol }}{% else %}· цена кампании{% endif %}
+                            </div>
+                            {% if resp.message %}
+                            <div class="text-xs text-slate-500 mt-1 italic">"{{ resp.message|truncatechars:120 }}"</div>
+                            {% endif %}
+                        </div>
                     </div>
                     {% if resp.status == 'pending' %}
                     <div class="flex gap-2 ml-4">
@@ -122,6 +143,7 @@
                     </span>
                     {% endif %}
                 </div>
+                {% endwith %}
                 {% endfor %}
             </div>
         </div>
@@ -164,9 +186,9 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1">Предложить цену ({{ currency.symbol }}, необязательно)</label>
-                    <input type="number" name="proposed_price" step="0.01" min="0"
-                        class="input-dark"
-                        placeholder="Оставьте пустым чтобы принять цену кампании">
+                    <input type="text" inputmode="numeric" autocomplete="off" data-number-input data-step="10000"
+                        name="proposed_price" class="input-dark"
+                        placeholder="Оставьте пустым, чтобы принять цену кампании">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-1">Сообщение</label>
@@ -259,4 +281,5 @@
         {% endif %}
     </div>
 </div>
+<script src="{% static 'js/number-input.js' %}"></script>
 {% endblock %}

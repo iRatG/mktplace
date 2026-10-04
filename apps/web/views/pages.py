@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 from django.shortcuts import redirect, render
 
 from apps.campaigns.models import Campaign, DirectOffer
@@ -139,6 +140,15 @@ def advertiser_dashboard(request):
             advertiser=user
         ).exclude(status__in=[Deal.Status.COMPLETED, Deal.Status.CANCELLED]).count(),
         "recent_campaigns": recent_campaigns,
+        # «Требует действия»: где ждут шага рекламодателя (по 10 на тип).
+        "action_deals": (
+            Deal.objects.filter(advertiser=user, status__in=[Deal.Status.ON_APPROVAL, Deal.Status.CHECKING])
+            .select_related("campaign", "blogger").order_by("updated_at")[:10]
+        ),
+        "action_campaigns": (
+            Campaign.objects.filter(advertiser=user, responses__status=CampaignResponse.Status.PENDING)
+            .annotate(pending=Count("responses")).order_by("-pending")[:10]
+        ),
     }
     return render(request, "dashboard/advertiser.html", context)
 
@@ -172,5 +182,11 @@ def blogger_dashboard(request):
         "has_platforms": Platform.objects.filter(blogger=user).exists(),
         "profile_complete": profile.is_complete,
         "incoming_offers": incoming_offers,
+        # «Требует действия»: где ждут шага блогера (по 10 записей).
+        "action_deals": (
+            Deal.objects.filter(
+                blogger=user, status__in=[Deal.Status.IN_PROGRESS, Deal.Status.WAITING_PUBLICATION],
+            ).select_related("campaign").order_by("updated_at")[:10]
+        ),
     }
     return render(request, "dashboard/blogger.html", context)

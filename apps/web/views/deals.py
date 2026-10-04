@@ -38,8 +38,17 @@ def deal_list(request):
             .select_related("campaign", "advertiser", "platform")
             .order_by("-created_at")
         )
+    status_filter = request.GET.get("status", "")
+    if status_filter == "active":
+        qs = qs.exclude(status__in=[Deal.Status.COMPLETED, Deal.Status.CANCELLED])
+    elif status_filter in Deal.Status.values:
+        qs = qs.filter(status=status_filter)
+    else:
+        status_filter = ""
     page_obj = Paginator(qs, 20).get_page(request.GET.get("page", 1))
-    return render(request, "deals/list.html", {"deals": page_obj, "page_obj": page_obj})
+    return render(request, "deals/list.html", {
+        "deals": page_obj, "page_obj": page_obj, "status_filter": status_filter,
+    })
 
 
 @login_required

@@ -44,6 +44,7 @@ urlpatterns = [
     # Responses
     path("responses/<int:pk>/accept/", views.response_accept, name="response_accept"),
     path("responses/<int:pk>/reject/", views.response_reject, name="response_reject"),
+    path("my/responses/", views.my_responses, name="my_responses"),
 
     # Platforms
     path("platforms/add/", views.platform_add, name="platform_add"),

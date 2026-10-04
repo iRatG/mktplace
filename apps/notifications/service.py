@@ -98,6 +98,7 @@ class NotificationService:
             notification_type=Notification.Type.RESPONSE_REJECTED,
             title="Отклик отклонён",
             body=f"Рекламодатель отклонил ваш отклик на кампанию «{campaign.name}».",
+            url=reverse("web:my_responses"),
         )
 
     # ── Прямые предложения ────────────────────────────────────────────────────
@@ -113,6 +114,7 @@ class NotificationService:
                 f"Рекламодатель {advertiser.email} предлагает вам участие "
                 f"в кампании «{campaign.name}». Проверьте входящие предложения."
             ),
+            url=reverse("web:blogger_dashboard"),
         )
 
     @staticmethod

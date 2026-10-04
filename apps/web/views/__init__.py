@@ -27,6 +27,7 @@ from .campaigns import (
     campaign_respond,
     response_accept,
     response_reject,
+    my_responses,
 )
 from .deals import (
     deal_list,

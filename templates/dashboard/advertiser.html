@@ -1,4 +1,5 @@
 ﻿{% extends "base.html" %}
+{% load money %}
 
 {% block title %}Дашборд рекламодателя — ublogers{% endblock %}
 
@@ -12,8 +13,8 @@
 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
     <a href="{% url 'web:wallet' %}" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-slate-400">Баланс</div>
-        <div class="text-2xl font-bold text-white mt-1">{{ wallet.available_balance|default:"0.00" }} {{ currency.symbol }}</div>
-        <div class="text-xs text-slate-500 mt-1">Зарезервировано: {{ wallet.reserved_balance|default:"0.00" }} {{ currency.symbol }}</div>
+        <div class="text-2xl font-bold text-white mt-1">{{ wallet.available_balance|default:0|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-slate-500 mt-1">Зарезервировано: {{ wallet.reserved_balance|default:0|money }} {{ currency.symbol }}</div>
     </a>
     <a href="{% url 'web:campaign_list' %}" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-slate-400">Кампаний</div>
@@ -43,6 +44,38 @@
     </a>
 </div>
 
+<!-- Needs action -->
+{% if action_deals or action_campaigns %}
+<div class="card-dark rounded-xl overflow-hidden mb-6 border border-orange-500/30">
+    <div class="px-6 py-4 border-b border-white/5">
+        <h2 class="font-semibold text-white">Требует действия</h2>
+    </div>
+    <div class="divide-y divide-white/5">
+        {% for deal in action_deals %}
+        <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.03] transition-colors">
+            <div class="min-w-0">
+                <div class="text-sm font-medium text-white truncate">Сделка #{{ deal.pk }} · {{ deal.campaign.name }}</div>
+                <div class="text-xs text-orange-300 mt-0.5">
+                    {% if deal.status == 'on_approval' %}Блогер прислал креатив — согласуйте или отклоните
+                    {% else %}Блогер опубликовал — проверьте и подтвердите публикацию{% endif %}
+                </div>
+            </div>
+            <span class="text-orange-400 text-sm flex-shrink-0">Открыть →</span>
+        </a>
+        {% endfor %}
+        {% for campaign in action_campaigns %}
+        <a href="{% url 'web:campaign_detail' campaign.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.03] transition-colors">
+            <div class="min-w-0">
+                <div class="text-sm font-medium text-white truncate">{{ campaign.name }}</div>
+                <div class="text-xs text-orange-300 mt-0.5">Откликов ждут решения: {{ campaign.pending }} — примите или отклоните</div>
+            </div>
+            <span class="text-orange-400 text-sm flex-shrink-0">Открыть →</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Recent campaigns -->
 <div class="card-dark rounded-xl overflow-hidden">
     <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
@@ -55,7 +88,7 @@
         <div class="px-6 py-4 flex items-center justify-between">
             <div>
                 <a href="{% url 'web:campaign_detail' campaign.pk %}" class="text-sm font-medium text-white hover:text-orange-400 transition-colors">{{ campaign.name }}</a>
-                <div class="text-xs text-slate-500 mt-0.5">Бюджет: {{ campaign.budget }} {{ currency.symbol }} · {{ campaign.get_payment_type_display }}</div>
+                <div class="text-xs text-slate-500 mt-0.5">Бюджет: {{ campaign.budget|money }} {{ currency.symbol }} · {{ campaign.get_payment_type_display }}</div>
             </div>
             <div class="flex items-center gap-3">
                 <span class="text-xs px-2 py-1 rounded-full

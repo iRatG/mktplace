@@ -12,8 +12,34 @@ from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
 from apps.users.models import User
 
-from ..forms import CampaignForm
+from ..forms import CampaignForm, _strip_spaces
 from .pages import _redirect_dashboard
+
+
+def _responses_with_blogger_data(campaign):
+    """Отклики с данными блогера и площадки — без N+1 (ник, рейтинг, метрики, категории)."""
+    return (
+        campaign.responses
+        .select_related("blogger__blogger_profile", "platform")
+        .prefetch_related("platform__categories")
+        .order_by("-created_at")
+    )
+
+
+def _parse_price(raw):
+    """«150 000» → Decimal("150000"); пусто → None; некорректное или отрицательное → ValueError."""
+    from decimal import Decimal, InvalidOperation
+
+    cleaned = _strip_spaces(raw or "").replace(",", ".")
+    if not cleaned:
+        return None
+    try:
+        value = Decimal(cleaned)
+    except InvalidOperation:
+        raise ValueError(raw)
+    if value < 0 or not value.is_finite():
+        raise ValueError(raw)
+    return value
 
 
 @login_required
@@ -35,7 +61,7 @@ def campaign_detail(request, pk):
     user = request.user
     if user.is_staff:
         campaign = get_object_or_404(Campaign, pk=pk)
-        responses = campaign.responses.select_related("blogger", "platform").order_by("-created_at")
+        responses = _responses_with_blogger_data(campaign)
         context = {
             "campaign": campaign,
             "is_owner": True,
@@ -43,7 +69,7 @@ def campaign_detail(request, pk):
         }
     elif user.role == User.Role.ADVERTISER:
         campaign = get_object_or_404(Campaign, pk=pk, advertiser=user)
-        responses = campaign.responses.select_related("blogger", "platform").order_by("-created_at")
+        responses = _responses_with_blogger_data(campaign)
         context = {
             "campaign": campaign,
             "is_owner": True,
@@ -167,7 +193,11 @@ def campaign_respond(request, pk):
 
     platform_id = request.POST.get("platform")
     content_type = request.POST.get("content_type", "")
-    proposed_price = request.POST.get("proposed_price") or None
+    try:
+        proposed_price = _parse_price(request.POST.get("proposed_price"))
+    except ValueError:
+        messages.error(request, "Укажите цену числом, например 150 000, или оставьте поле пустым.")
+        return redirect("web:campaign_detail", pk=pk)
     message = request.POST.get("message", "")
 
     platform = get_object_or_404(Platform, pk=platform_id, blogger=request.user, status=Platform.Status.APPROVED)
@@ -267,3 +297,19 @@ def response_reject(request, pk):
         NotificationService.notify_response_rejected(resp.blogger, resp.campaign)
         messages.success(request, "Отклик отклонён.")
     return redirect("web:campaign_detail", pk=resp.campaign_id)
+
+
+@login_required
+def my_responses(request):
+    """«Мои отклики» блогера: все его отклики, новые сверху."""
+    from django.core.paginator import Paginator
+
+    if request.user.is_staff or request.user.role != User.Role.BLOGGER:
+        return _redirect_dashboard(request.user)
+    qs = (
+        CampaignResponse.objects.filter(blogger=request.user)
+        .select_related("campaign", "platform")
+        .order_by("-created_at")
+    )
+    page_obj = Paginator(qs, 20).get_page(request.GET.get("page", 1))
+    return render(request, "campaigns/my_responses.html", {"responses": page_obj, "page_obj": page_obj})

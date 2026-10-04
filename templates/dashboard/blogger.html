@@ -1,4 +1,5 @@
 ﻿{% extends "base.html" %}
+{% load money %}
 
 {% block title %}Дашборд блогера — ublogers{% endblock %}
 
@@ -17,26 +18,26 @@
 
 <!-- Stats -->
 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
-    <div class="card-dark rounded-xl p-5">
+    <a href="{% url 'web:wallet' %}" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-slate-400">Баланс</div>
-        <div class="text-2xl font-bold text-white mt-1">{{ wallet.available_balance|default:"0.00" }} {{ currency.symbol }}</div>
-        <div class="text-xs text-slate-500 mt-1">На выводе: {{ wallet.on_withdrawal|default:"0.00" }} {{ currency.symbol }}</div>
-    </div>
-    <div class="card-dark rounded-xl p-5">
+        <div class="text-2xl font-bold text-white mt-1">{{ wallet.available_balance|default:0|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-slate-500 mt-1">На выводе: {{ wallet.on_withdrawal|default:0|money }} {{ currency.symbol }}</div>
+    </a>
+    <a href="{% url 'web:my_responses' %}" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-slate-400">Откликов</div>
         <div class="text-2xl font-bold text-white mt-1">{{ my_responses_count }}</div>
         <div class="text-xs text-slate-500 mt-1">Всего подано</div>
-    </div>
-    <div class="card-dark rounded-xl p-5">
+    </a>
+    <a href="{% url 'web:deal_list' %}?status=active" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-slate-400">Сделок</div>
         <div class="text-2xl font-bold text-white mt-1">{{ active_deals_count }}</div>
         <div class="text-xs text-slate-500 mt-1">В работе</div>
-    </div>
-    <div class="card-dark rounded-xl p-5">
+    </a>
+    <a href="{% url 'web:deal_list' %}?status=completed" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-slate-400">Завершено</div>
         <div class="text-2xl font-bold text-white mt-1">{{ completed_deals_count }}</div>
         <div class="text-xs text-slate-500 mt-1">Успешных сделок</div>
-    </div>
+    </a>
 </div>
 
 <!-- Quick actions -->
@@ -46,6 +47,30 @@
     </a>
 </div>
 
+<!-- Needs action -->
+{% if action_deals %}
+<div class="card-dark rounded-xl overflow-hidden mb-6 border border-orange-500/30">
+    <div class="px-6 py-4 border-b border-white/5">
+        <h2 class="font-semibold text-white">Требует действия</h2>
+    </div>
+    <div class="divide-y divide-white/5">
+        {% for deal in action_deals %}
+        <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.03] transition-colors">
+            <div class="min-w-0">
+                <div class="text-sm font-medium text-white truncate">Сделка #{{ deal.pk }} · {{ deal.campaign.name }}</div>
+                <div class="text-xs text-orange-300 mt-0.5">
+                    {% if deal.status == 'waiting_publication' %}Креатив согласован — опубликуйте и пришлите ссылку
+                    {% elif deal.creative_rejection_reason %}Креатив отклонён — исправьте и отправьте снова
+                    {% else %}Отправьте креатив на согласование или ссылку на публикацию{% endif %}
+                </div>
+            </div>
+            <span class="text-orange-400 text-sm flex-shrink-0">Открыть →</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Active deals -->
 <div class="card-dark rounded-xl overflow-hidden mb-6">
     <div class="px-6 py-4 border-b border-white/5">
@@ -54,15 +79,15 @@
     {% if active_deals %}
     <div class="divide-y divide-white/5">
         {% for deal in active_deals %}
-        <div class="px-6 py-4 flex items-center justify-between">
+        <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between hover:bg-white/[0.03] transition-colors">
             <div>
-                <div class="text-sm font-medium text-white">{{ deal.campaign.name }}</div>
-                <div class="text-xs text-slate-500 mt-0.5">{{ deal.amount }} {{ currency.symbol }} · {{ deal.platform }}</div>
+                <div class="text-sm font-medium text-white">Сделка #{{ deal.pk }} · {{ deal.campaign.name }}</div>
+                <div class="text-xs text-slate-500 mt-0.5">{{ deal.amount|money }} {{ currency.symbol }} · {{ deal.platform.get_social_type_display }}</div>
             </div>
             <span class="text-xs px-2 py-1 rounded-full bg-blue-500/10 text-blue-400">
-                {{ deal.get_status_display }}
+                {% include "deals/_status_label.html" with status=deal.status %}
             </span>
-        </div>
+        </a>
         {% endfor %}
     </div>
     {% else %}
