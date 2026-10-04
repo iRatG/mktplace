@@ -1,37 +1,37 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
-{% block title %}Сделка #{{ deal.pk }} — ublogers{% endblock %}
+{% block title %}Сделка #{{ deal.pk }} — UBlogers!{% endblock %}
 
 {% block content %}
 <!-- Header -->
 <div class="mb-6 flex items-start justify-between gap-4">
     <div>
         <div class="flex items-center gap-3 mb-1">
-            <a href="{% url 'web:deal_list' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Сделки</a>
+            <a href="{% url 'web:deal_list' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Сделки</a>
         </div>
-        <h1 class="text-2xl font-bold text-white">Сделка #{{ deal.pk }}</h1>
-        <p class="text-slate-400 text-sm mt-1">{{ deal.campaign.name }}</p>
+        <h1 class="text-2xl font-bold text-gray-900">Сделка #{{ deal.pk }}</h1>
+        <p class="text-gray-600 text-sm mt-1">{{ deal.campaign.name }}</p>
     </div>
     <!-- Status badge -->
     <div class="shrink-0 mt-1">
         {% if deal.status == 'waiting_payment' %}
-        <span class="px-3 py-1.5 rounded-full bg-yellow-500/10 text-yellow-400 text-sm font-medium">Ожидает оплаты</span>
+        <span class="px-3 py-1.5 rounded-full bg-yellow-50 text-yellow-700 text-sm font-medium">Ожидает оплаты</span>
         {% elif deal.status == 'in_progress' %}
-        <span class="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-400 text-sm font-medium">В работе</span>
+        <span class="px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 text-sm font-medium">В работе</span>
         {% elif deal.status == 'on_approval' %}
-        <span class="px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-400 text-sm font-medium">На согласовании</span>
+        <span class="px-3 py-1.5 rounded-full bg-purple-50 text-purple-600 text-sm font-medium">На согласовании</span>
         {% elif deal.status == 'waiting_publication' %}
-        <span class="px-3 py-1.5 rounded-full bg-cyan-500/10 text-cyan-400 text-sm font-medium">Ждёт публикации</span>
+        <span class="px-3 py-1.5 rounded-full bg-cyan-50 text-cyan-600 text-sm font-medium">Ждёт публикации</span>
         {% elif deal.status == 'checking' %}
-        <span class="px-3 py-1.5 rounded-full bg-orange-500/10 text-orange-400 text-sm font-medium">На проверке</span>
+        <span class="px-3 py-1.5 rounded-full bg-orange-50 text-orange-600 text-sm font-medium">На проверке</span>
         {% elif deal.status == 'completed' %}
-        <span class="px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 text-sm font-medium">Завершена</span>
+        <span class="px-3 py-1.5 rounded-full bg-green-50 text-green-600 text-sm font-medium">Завершена</span>
         {% elif deal.status == 'cancelled' %}
-        <span class="px-3 py-1.5 rounded-full bg-slate-500/10 text-slate-400 text-sm font-medium">Отменена</span>
+        <span class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 text-sm font-medium">Отменена</span>
         {% elif deal.status == 'disputed' %}
-        <span class="px-3 py-1.5 rounded-full bg-red-500/10 text-red-400 text-sm font-medium">Оспорена</span>
+        <span class="px-3 py-1.5 rounded-full bg-red-50 text-red-600 text-sm font-medium">Оспорена</span>
         {% else %}
-        <span class="px-3 py-1.5 rounded-full bg-slate-500/10 text-slate-400 text-sm font-medium">{{ deal.get_status_display }}</span>
+        <span class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 text-sm font-medium">{{ deal.get_status_display }}</span>
         {% endif %}
     </div>
 </div>
@@ -43,38 +43,38 @@
 
         <!-- Deal info card -->
         <div class="card-dark rounded-xl p-6">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-4">Детали сделки</h2>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Детали сделки</h2>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <div class="text-xs text-slate-500 mb-0.5">Сумма</div>
-                    <div class="text-lg font-bold text-white">{{ deal.amount|floatformat:0 }} {{ currency.symbol }}</div>
+                    <div class="text-xs text-gray-500 mb-0.5">Сумма</div>
+                    <div class="text-lg font-bold text-gray-900">{{ deal.amount|floatformat:0 }} {{ currency.symbol }}</div>
                 </div>
                 <div>
-                    <div class="text-xs text-slate-500 mb-0.5">Площадка</div>
-                    <div class="text-sm text-white">{{ deal.platform.get_social_type_display }}
-                        <span class="text-slate-500">· {{ deal.platform.subscribers|default:0 }} подп.</span>
+                    <div class="text-xs text-gray-500 mb-0.5">Площадка</div>
+                    <div class="text-sm text-gray-900">{{ deal.platform.get_social_type_display }}
+                        <span class="text-gray-500">· {{ deal.platform.subscribers|default:0 }} подп.</span>
                     </div>
                 </div>
                 <div>
-                    <div class="text-xs text-slate-500 mb-0.5">Рекламодатель</div>
-                    <div class="text-sm text-white">{{ deal.advertiser.email }}</div>
+                    <div class="text-xs text-gray-500 mb-0.5">Рекламодатель</div>
+                    <div class="text-sm text-gray-900">{{ deal.advertiser.email }}</div>
                 </div>
                 <div>
-                    <div class="text-xs text-slate-500 mb-0.5">Блогер</div>
+                    <div class="text-xs text-gray-500 mb-0.5">Блогер</div>
                     {% if user.role == 'advertiser' or user.is_staff %}
-                    <a href="{% url 'web:blogger_public_profile' deal.blogger.pk %}" class="text-sm text-white hover:text-orange-400 transition-colors">{{ deal.blogger.email }}</a>
+                    <a href="{% url 'web:blogger_public_profile' deal.blogger.pk %}" class="text-sm text-gray-900 hover:text-orange-700 transition-colors">{{ deal.blogger.email }}</a>
                     {% else %}
-                    <div class="text-sm text-white">{{ deal.blogger.email }}</div>
+                    <div class="text-sm text-gray-900">{{ deal.blogger.email }}</div>
                     {% endif %}
                 </div>
                 <div>
-                    <div class="text-xs text-slate-500 mb-0.5">Создана</div>
-                    <div class="text-sm text-white">{{ deal.created_at|date:"d.m.Y H:i" }}</div>
+                    <div class="text-xs text-gray-500 mb-0.5">Создана</div>
+                    <div class="text-sm text-gray-900">{{ deal.created_at|date:"d.m.Y H:i" }}</div>
                 </div>
                 {% if deal.publication_at %}
                 <div>
-                    <div class="text-xs text-slate-500 mb-0.5">Публикация</div>
-                    <div class="text-sm text-white">{{ deal.publication_at|date:"d.m.Y H:i" }}</div>
+                    <div class="text-xs text-gray-500 mb-0.5">Публикация</div>
+                    <div class="text-sm text-gray-900">{{ deal.publication_at|date:"d.m.Y H:i" }}</div>
                 </div>
                 {% endif %}
             </div>
@@ -83,9 +83,9 @@
         <!-- Publication block -->
         {% if deal.publication_url %}
         <div class="card-dark rounded-xl p-6">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Публикация</h2>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Публикация</h2>
             <a href="{{ deal.publication_url }}" target="_blank" rel="noopener noreferrer"
-               class="inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 text-sm break-all transition-colors">
+               class="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700 text-sm break-all transition-colors">
                 <span>🔗</span> {{ deal.publication_url }}
             </a>
         </div>
@@ -101,35 +101,35 @@
 
             <!-- Blogger: rejection reason notice (if creative was rejected) -->
             {% if deal.creative_rejection_reason %}
-            <div class="rounded-xl p-5 bg-red-500/10 border border-red-500/20">
-                <p class="text-red-300 text-sm font-medium mb-1">Креатив отклонён</p>
-                <p class="text-red-300/80 text-sm">{{ deal.creative_rejection_reason }}</p>
-                <p class="text-red-300/50 text-xs mt-2">Отправьте исправленный вариант на согласование.</p>
+            <div class="rounded-xl p-5 bg-red-50 border border-red-200">
+                <p class="text-red-700 text-sm font-medium mb-1">Креатив отклонён</p>
+                <p class="text-red-700 text-sm">{{ deal.creative_rejection_reason }}</p>
+                <p class="text-red-700 text-xs mt-2">Отправьте исправленный вариант на согласование.</p>
             </div>
             {% endif %}
 
             <!-- Blogger: submit creative for approval (optional step, only until approved) -->
             {% if deal.status == 'in_progress' and not deal.creative_approved_at %}
             <div class="card-dark rounded-xl p-6">
-                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Отправить креатив на согласование</h2>
-                <p class="text-slate-400 text-sm mb-4">
+                <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Отправить креатив на согласование</h2>
+                <p class="text-gray-600 text-sm mb-4">
                     Необязательный шаг. Загрузите текст и/или медиафайл — рекламодатель согласует, после чего можно публиковать.
                 </p>
                 <form method="post" action="{% url 'web:deal_submit_creative' deal.pk %}"
                       enctype="multipart/form-data" class="space-y-3">
                     {% csrf_token %}
                     <div>
-                        <label class="block text-xs text-slate-400 mb-1">Текст креатива</label>
+                        <label class="block text-xs text-gray-600 mb-1">Текст креатива</label>
                         <textarea name="creative_text" rows="4"
                                   class="input-dark w-full resize-none text-sm"
                                   placeholder="Текст рекламного поста...">{{ deal.creative_text }}</textarea>
                     </div>
                     <div>
-                        <label class="block text-xs text-slate-400 mb-1">Медиафайл (необязательно)</label>
-                        <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer hover:text-slate-300 transition-colors">
+                        <label class="block text-xs text-gray-600 mb-1">Медиафайл (необязательно)</label>
+                        <label class="flex items-center gap-2 text-xs text-gray-500 cursor-pointer hover:text-gray-800 transition-colors">
                             <input type="file" name="creative_media" class="hidden"
                                    onchange="this.parentElement.querySelector('span').textContent = this.files[0]?.name || 'Прикрепить файл'">
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600/40 hover:border-slate-500/60 transition-colors">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 hover:border-gray-400 transition-colors">
                                 Прикрепить файл
                             </span>
                         </label>
@@ -143,8 +143,8 @@
 
             <!-- Blogger: submit publication URL (can skip creative approval) -->
             <div class="card-dark rounded-xl p-6">
-                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Добавить публикацию</h2>
-                <p class="text-slate-400 text-sm mb-4">
+                <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Добавить публикацию</h2>
+                <p class="text-gray-600 text-sm mb-4">
                     {% if deal.creative_approved_at %}
                     Креатив согласован. Разместите пост и вставьте ссылку — рекламодатель подтвердит и вы получите оплату.
                     {% else %}
@@ -168,22 +168,22 @@
             {% if deal.status == 'on_approval' %}
             <!-- Blogger: creative is under review -->
             <div class="card-dark rounded-xl p-6">
-                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Креатив на согласовании</h2>
-                <div class="rounded-xl p-4 bg-purple-500/10 border border-purple-500/20 mb-4">
-                    <p class="text-purple-300 text-sm font-medium">⏳ Ожидаем ответа рекламодателя</p>
-                    <p class="text-purple-300/70 text-xs mt-1">После согласования вы сможете опубликовать пост.</p>
+                <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Креатив на согласовании</h2>
+                <div class="rounded-xl p-4 bg-purple-50 border border-purple-200 mb-4">
+                    <p class="text-purple-700 text-sm font-medium">⏳ Ожидаем ответа рекламодателя</p>
+                    <p class="text-purple-700 text-xs mt-1">После согласования вы сможете опубликовать пост.</p>
                 </div>
                 {% if deal.creative_text %}
                 <div>
-                    <div class="text-xs text-slate-500 mb-1">Отправленный текст:</div>
-                    <div class="rounded-xl p-4 bg-slate-700/30 border border-slate-600/20 text-sm text-slate-300 whitespace-pre-wrap">{{ deal.creative_text }}</div>
+                    <div class="text-xs text-gray-500 mb-1">Отправленный текст:</div>
+                    <div class="rounded-xl p-4 bg-gray-100 border border-gray-300 text-sm text-gray-700 whitespace-pre-wrap">{{ deal.creative_text }}</div>
                 </div>
                 {% endif %}
                 {% if deal.creative_media %}
                 <div class="mt-3">
-                    <div class="text-xs text-slate-500 mb-1">Прикреплённый файл:</div>
+                    <div class="text-xs text-gray-500 mb-1">Прикреплённый файл:</div>
                     <a href="{{ deal.creative_media.url }}" target="_blank"
-                       class="inline-flex items-center gap-2 text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                       class="inline-flex items-center gap-2 text-xs text-orange-600 hover:text-orange-700 transition-colors">
                         Открыть файл →
                     </a>
                 </div>
@@ -192,17 +192,17 @@
             {% endif %}
 
             {% if deal.status == 'checking' %}
-            <div class="rounded-xl p-5 bg-orange-500/10 border border-orange-500/20">
-                <p class="text-orange-300 text-sm font-medium">⏳ Ожидаем подтверждения рекламодателя</p>
-                <p class="text-orange-300/70 text-xs mt-1">Если рекламодатель не ответит в течение 72 часов — сделка завершится автоматически.</p>
+            <div class="rounded-xl p-5 bg-orange-50 border border-orange-200">
+                <p class="text-orange-700 text-sm font-medium">⏳ Ожидаем подтверждения рекламодателя</p>
+                <p class="text-orange-700 text-xs mt-1">Если рекламодатель не ответит в течение 72 часов — сделка завершится автоматически.</p>
             </div>
             {% endif %}
 
             {% if deal.status == 'completed' %}
-            <div class="rounded-xl p-5 bg-green-500/10 border border-green-500/20">
-                <p class="text-green-300 text-sm font-medium">✅ Сделка завершена!</p>
+            <div class="rounded-xl p-5 bg-green-50 border border-green-200">
+                <p class="text-green-700 text-sm font-medium">✅ Сделка завершена!</p>
                 {% with earning=deal.amount %}
-                <p class="text-green-300/70 text-xs mt-1">Вы получили оплату (за вычетом 15% комиссии платформы).</p>
+                <p class="text-green-700 text-xs mt-1">Вы получили оплату (за вычетом 15% комиссии платформы).</p>
                 {% endwith %}
             </div>
             {% endif %}
@@ -212,20 +212,20 @@
             {% if deal.status == 'on_approval' %}
             <!-- Advertiser: review and approve/reject creative -->
             <div class="card-dark rounded-xl p-6">
-                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Согласование креатива</h2>
-                <p class="text-slate-400 text-sm mb-4">Блогер отправил креатив на проверку. Проверьте и примите решение.</p>
+                <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Согласование креатива</h2>
+                <p class="text-gray-600 text-sm mb-4">Блогер отправил креатив на проверку. Проверьте и примите решение.</p>
 
                 {% if deal.creative_text %}
                 <div class="mb-4">
-                    <div class="text-xs text-slate-500 mb-1">Текст:</div>
-                    <div class="rounded-xl p-4 bg-slate-700/30 border border-slate-600/20 text-sm text-slate-300 whitespace-pre-wrap">{{ deal.creative_text }}</div>
+                    <div class="text-xs text-gray-500 mb-1">Текст:</div>
+                    <div class="rounded-xl p-4 bg-gray-100 border border-gray-300 text-sm text-gray-700 whitespace-pre-wrap">{{ deal.creative_text }}</div>
                 </div>
                 {% endif %}
                 {% if deal.creative_media %}
                 <div class="mb-4">
-                    <div class="text-xs text-slate-500 mb-1">Файл:</div>
+                    <div class="text-xs text-gray-500 mb-1">Файл:</div>
                     <a href="{{ deal.creative_media.url }}" target="_blank"
-                       class="inline-flex items-center gap-2 text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                       class="inline-flex items-center gap-2 text-xs text-orange-600 hover:text-orange-700 transition-colors">
                         Открыть файл →
                     </a>
                 </div>
@@ -243,7 +243,7 @@
                         <input type="text" name="rejection_reason"
                                class="input-dark text-sm" placeholder="Причина отклонения..." required>
                         <button type="submit"
-                                class="px-4 py-2 text-sm text-red-400 border border-red-400/20 rounded-xl hover:bg-red-400/10 transition-colors whitespace-nowrap">
+                                class="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors whitespace-nowrap">
                             Отклонить
                         </button>
                     </form>
@@ -254,8 +254,8 @@
             {% if deal.status == 'checking' %}
             <!-- Advertiser: confirm or dispute -->
             <div class="card-dark rounded-xl p-6">
-                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Проверить публикацию</h2>
-                <p class="text-slate-400 text-sm mb-4">
+                <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Проверить публикацию</h2>
+                <p class="text-gray-600 text-sm mb-4">
                     Блогер добавил ссылку на публикацию. Проверьте и подтвердите — средства будут переведены блогеру.
                 </p>
                 <div class="flex gap-3 flex-wrap">
@@ -270,8 +270,8 @@
             {% endif %}
 
             {% if deal.status == 'completed' %}
-            <div class="rounded-xl p-5 bg-green-500/10 border border-green-500/20">
-                <p class="text-green-300 text-sm font-medium">✅ Сделка завершена. Оплата выполнена.</p>
+            <div class="rounded-xl p-5 bg-green-50 border border-green-200">
+                <p class="text-green-700 text-sm font-medium">✅ Сделка завершена. Оплата выполнена.</p>
             </div>
             {% endif %}
 
@@ -284,7 +284,7 @@
                   onsubmit="return confirm('Отменить сделку? Средства вернутся рекламодателю.')">
                 {% csrf_token %}
                 <button type="submit"
-                        class="px-4 py-2 text-sm text-red-400 border border-red-400/20 rounded-xl hover:bg-red-400/10 transition-colors">
+                        class="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">
                     Отменить сделку
                 </button>
             </form>
@@ -295,7 +295,7 @@
                   onsubmit="return confirm('Отменить сделку? Средства вернутся на ваш баланс.')">
                 {% csrf_token %}
                 <button type="submit"
-                        class="px-4 py-2 text-sm text-red-400 border border-red-400/20 rounded-xl hover:bg-red-400/10 transition-colors">
+                        class="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">
                     Отменить сделку
                 </button>
             </form>
@@ -305,9 +305,9 @@
         <!-- CPA Tracking block (Sprint 8) — shown when deal is CPA type -->
         {% if tracking_link %}
         <div class="card-dark rounded-xl p-6">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">CPA трекинг</h2>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">CPA трекинг</h2>
             {% if user.role == 'blogger' %}
-            <p class="text-slate-400 text-sm mb-3">
+            <p class="text-gray-600 text-sm mb-3">
                 Поделитесь этой ссылкой для трекинга кликов и конверсий. Каждая конверсия — это оплата.
             </p>
             <div class="flex items-center gap-2 mb-4">
@@ -321,44 +321,44 @@
                 </button>
             </div>
             <div class="grid grid-cols-3 gap-3 text-center">
-                <div class="rounded-lg bg-slate-800/50 p-3">
-                    <div class="text-lg font-bold text-white">{{ tracking_link.clicks.count }}</div>
-                    <div class="text-xs text-slate-400 mt-1">Кликов</div>
+                <div class="rounded-lg bg-gray-50 p-3">
+                    <div class="text-lg font-bold text-gray-900">{{ tracking_link.clicks.count }}</div>
+                    <div class="text-xs text-gray-600 mt-1">Кликов</div>
                 </div>
-                <div class="rounded-lg bg-slate-800/50 p-3">
-                    <div class="text-lg font-bold text-white">{{ tracking_link.conversions.count }}</div>
-                    <div class="text-xs text-slate-400 mt-1">Конверсий</div>
+                <div class="rounded-lg bg-gray-50 p-3">
+                    <div class="text-lg font-bold text-gray-900">{{ tracking_link.conversions.count }}</div>
+                    <div class="text-xs text-gray-600 mt-1">Конверсий</div>
                 </div>
-                <div class="rounded-lg bg-slate-800/50 p-3">
-                    <div class="text-lg font-bold text-emerald-400">
+                <div class="rounded-lg bg-gray-50 p-3">
+                    <div class="text-lg font-bold text-emerald-600">
                         {% with credited=tracking_link.conversions.all %}
                         {{ credited|length }}
                         {% endwith %}
                     </div>
-                    <div class="text-xs text-slate-400 mt-1">Зачислено</div>
+                    <div class="text-xs text-gray-600 mt-1">Зачислено</div>
                 </div>
             </div>
             {% else %}
-            <p class="text-slate-400 text-sm mb-3">
-                Тип: <span class="text-white font-medium">{{ deal.campaign.get_cpa_type_display }}</span>
-                &nbsp;·&nbsp; Ставка: <span class="text-emerald-400 font-medium">{{ deal.campaign.cpa_rate }} {{ currency.symbol }}</span>
+            <p class="text-gray-600 text-sm mb-3">
+                Тип: <span class="text-gray-900 font-medium">{{ deal.campaign.get_cpa_type_display }}</span>
+                &nbsp;·&nbsp; Ставка: <span class="text-emerald-600 font-medium">{{ deal.campaign.cpa_rate }} {{ currency.symbol }}</span>
             </p>
             <div class="grid grid-cols-3 gap-3 text-center">
-                <div class="rounded-lg bg-slate-800/50 p-3">
-                    <div class="text-lg font-bold text-white">{{ tracking_link.clicks.count }}</div>
-                    <div class="text-xs text-slate-400 mt-1">Кликов</div>
+                <div class="rounded-lg bg-gray-50 p-3">
+                    <div class="text-lg font-bold text-gray-900">{{ tracking_link.clicks.count }}</div>
+                    <div class="text-xs text-gray-600 mt-1">Кликов</div>
                 </div>
-                <div class="rounded-lg bg-slate-800/50 p-3">
-                    <div class="text-lg font-bold text-white">{{ tracking_link.conversions.count }}</div>
-                    <div class="text-xs text-slate-400 mt-1">Конверсий</div>
+                <div class="rounded-lg bg-gray-50 p-3">
+                    <div class="text-lg font-bold text-gray-900">{{ tracking_link.conversions.count }}</div>
+                    <div class="text-xs text-gray-600 mt-1">Конверсий</div>
                 </div>
-                <div class="rounded-lg bg-slate-800/50 p-3">
-                    <div class="text-lg font-bold text-orange-400">
+                <div class="rounded-lg bg-gray-50 p-3">
+                    <div class="text-lg font-bold text-orange-600">
                         {% with total=tracking_link.conversions.all %}
                         {{ total|length }}
                         {% endwith %}
                     </div>
-                    <div class="text-xs text-slate-400 mt-1">Всего</div>
+                    <div class="text-xs text-gray-600 mt-1">Всего</div>
                 </div>
             </div>
             {% endif %}
@@ -368,27 +368,27 @@
         <!-- Review block (Module 7) — shown only for COMPLETED deals -->
         {% if existing_review %}
         <div class="card-dark rounded-xl p-6">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Ваш отзыв</h2>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Ваш отзыв</h2>
             <div class="flex items-center gap-2 mb-2">
                 {% for i in "12345" %}
-                <span class="text-lg {% if forloop.counter <= existing_review.rating %}text-yellow-400{% else %}text-slate-600{% endif %}">★</span>
+                <span class="text-lg {% if forloop.counter <= existing_review.rating %}text-yellow-700{% else %}text-gray-400{% endif %}">★</span>
                 {% endfor %}
-                <span class="text-sm text-slate-400 ml-1">{{ existing_review.rating }} / 5</span>
+                <span class="text-sm text-gray-600 ml-1">{{ existing_review.rating }} / 5</span>
             </div>
             {% if existing_review.text %}
-            <p class="text-sm text-slate-300 leading-relaxed">{{ existing_review.text }}</p>
+            <p class="text-sm text-gray-700 leading-relaxed">{{ existing_review.text }}</p>
             {% endif %}
-            <p class="text-xs text-slate-600 mt-2">{{ existing_review.created_at|date:"d.m.Y H:i" }}</p>
+            <p class="text-xs text-gray-400 mt-2">{{ existing_review.created_at|date:"d.m.Y H:i" }}</p>
         </div>
         {% elif can_review %}
         <div class="card-dark rounded-xl p-6">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-1">Оставить отзыв</h2>
-            <p class="text-slate-400 text-xs mb-4">Оцените работу блогера по этой сделке. Отзыв виден на публичном профиле.</p>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-1">Оставить отзыв</h2>
+            <p class="text-gray-600 text-xs mb-4">Оцените работу блогера по этой сделке. Отзыв виден на публичном профиле.</p>
             <form method="post" action="{% url 'web:deal_review_submit' deal.pk %}">
                 {% csrf_token %}
                 <div class="space-y-3">
                     <div>
-                        <label class="block text-xs text-slate-400 mb-1">Оценка</label>
+                        <label class="block text-xs text-gray-600 mb-1">Оценка</label>
                         <select name="rating" class="input-dark w-full" required>
                             <option value="">Выберите оценку</option>
                             <option value="5">5 ★ — Отлично</option>
@@ -399,7 +399,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs text-slate-400 mb-1">Комментарий (необязательно)</label>
+                        <label class="block text-xs text-gray-600 mb-1">Комментарий (необязательно)</label>
                         <textarea name="text" rows="3" maxlength="1000"
                                   class="input-dark w-full resize-none"
                                   placeholder="Расскажите о сотрудничестве..."></textarea>
@@ -417,14 +417,14 @@
     <!-- Right: status log -->
     <div class="space-y-5">
         <div class="card-dark rounded-xl p-5">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-4">История событий</h2>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">История событий</h2>
             {% if logs %}
             <div class="space-y-3">
                 {% for log in logs %}
                 <div class="flex gap-3">
                     <div class="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0"></div>
                     <div>
-                        <div class="text-xs text-white">
+                        <div class="text-xs text-gray-900">
                             {% if log.new_status == 'in_progress' %}В работе
                             {% elif log.new_status == 'on_approval' %}На согласовании
                             {% elif log.new_status == 'waiting_publication' %}Ждёт публикации
@@ -436,25 +436,25 @@
                             {% else %}{{ log.new_status }}{% endif %}
                         </div>
                         {% if log.comment %}
-                        <div class="text-xs text-slate-500 mt-0.5">{{ log.comment }}</div>
+                        <div class="text-xs text-gray-500 mt-0.5">{{ log.comment }}</div>
                         {% endif %}
-                        <div class="text-xs text-slate-600 mt-0.5">{{ log.created_at|date:"d.m.Y H:i" }}</div>
+                        <div class="text-xs text-gray-400 mt-0.5">{{ log.created_at|date:"d.m.Y H:i" }}</div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-slate-600 text-xs">Событий нет.</p>
+            <p class="text-gray-400 text-xs">Событий нет.</p>
             {% endif %}
         </div>
 
         <!-- Campaign info -->
         <div class="card-dark rounded-xl p-5">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Кампания</h2>
-            <p class="text-sm text-white mb-1">{{ deal.campaign.name }}</p>
-            <p class="text-xs text-slate-500 line-clamp-3">{{ deal.campaign.description }}</p>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Кампания</h2>
+            <p class="text-sm text-gray-900 mb-1">{{ deal.campaign.name }}</p>
+            <p class="text-xs text-gray-500 line-clamp-3">{{ deal.campaign.description }}</p>
             <a href="{% url 'web:campaign_detail' deal.campaign.pk %}"
-               class="inline-block mt-3 text-xs text-orange-400 hover:text-orange-300 transition-colors">
+               class="inline-block mt-3 text-xs text-orange-600 hover:text-orange-700 transition-colors">
                 Открыть кампанию →
             </a>
         </div>
@@ -470,10 +470,10 @@
 ═══════════════════════════════════════════════════════ -->
 <div class="mt-6">
     <div class="card-dark rounded-xl p-6">
-        <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-5">
+        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-5">
             Чат сделки
             {% if chat_messages %}
-            <span class="ml-2 text-xs font-normal text-slate-500 normal-case">({{ chat_messages|length }} сообщ.)</span>
+            <span class="ml-2 text-xs font-normal text-gray-500 normal-case">({{ chat_messages|length }} сообщ.)</span>
             {% endif %}
         </h2>
 
@@ -485,9 +485,9 @@
             {% if msg.is_system %}
             <!-- System message — centered -->
             <div class="flex justify-center">
-                <div class="px-3 py-1 rounded-full bg-slate-700/50 text-xs text-slate-500 italic">
+                <div class="px-3 py-1 rounded-full bg-gray-100 text-xs text-gray-500 italic">
                     {{ msg.text }}
-                    <span class="ml-2 text-slate-600">{{ msg.created_at|date:"d.m H:i" }}</span>
+                    <span class="ml-2 text-gray-400">{{ msg.created_at|date:"d.m H:i" }}</span>
                 </div>
             </div>
 
@@ -495,13 +495,13 @@
             <!-- Own message — right side -->
             <div class="flex justify-end">
                 <div class="max-w-[70%]">
-                    <div class="bg-orange-500/20 border border-orange-500/20 rounded-2xl rounded-tr-sm px-4 py-2.5">
+                    <div class="bg-orange-100 border border-orange-200 rounded-2xl rounded-tr-sm px-4 py-2.5">
                         {% if msg.text %}
-                        <p class="text-sm text-white leading-relaxed whitespace-pre-wrap">{{ msg.text }}</p>
+                        <p class="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">{{ msg.text }}</p>
                         {% endif %}
                         {% if msg.file %}
                         <a href="{{ msg.file.url }}" target="_blank"
-                           class="inline-flex items-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 mt-1 transition-colors">
+                           class="inline-flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 mt-1 transition-colors">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
@@ -510,7 +510,7 @@
                         </a>
                         {% endif %}
                     </div>
-                    <div class="text-xs text-slate-600 text-right mt-0.5 pr-1">
+                    <div class="text-xs text-gray-400 text-right mt-0.5 pr-1">
                         {{ msg.created_at|date:"d.m H:i" }}
                     </div>
                 </div>
@@ -519,24 +519,24 @@
             {% else %}
             <!-- Counterpart message — left side -->
             <div class="flex justify-start gap-2">
-                <div class="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0 mt-0.5">
-                    <span class="text-xs text-slate-300 font-medium">
+                <div class="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center shrink-0 mt-0.5">
+                    <span class="text-xs text-gray-700 font-medium">
                         {{ msg.sender.email|slice:":1"|upper }}
                     </span>
                 </div>
                 <div class="max-w-[70%]">
-                    <div class="text-xs text-slate-500 mb-0.5">
+                    <div class="text-xs text-gray-500 mb-0.5">
                         {% if msg.sender == deal.blogger %}Блогер
                         {% elif msg.sender == deal.advertiser %}Рекламодатель
                         {% else %}Поддержка{% endif %}
                     </div>
-                    <div class="bg-slate-700/50 border border-slate-600/30 rounded-2xl rounded-tl-sm px-4 py-2.5">
+                    <div class="bg-gray-100 border border-gray-300 rounded-2xl rounded-tl-sm px-4 py-2.5">
                         {% if msg.text %}
-                        <p class="text-sm text-white leading-relaxed whitespace-pre-wrap">{{ msg.text }}</p>
+                        <p class="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">{{ msg.text }}</p>
                         {% endif %}
                         {% if msg.file %}
                         <a href="{{ msg.file.url }}" target="_blank"
-                           class="inline-flex items-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 mt-1 transition-colors">
+                           class="inline-flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 mt-1 transition-colors">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
@@ -545,7 +545,7 @@
                         </a>
                         {% endif %}
                     </div>
-                    <div class="text-xs text-slate-600 mt-0.5 pl-1">
+                    <div class="text-xs text-gray-400 mt-0.5 pl-1">
                         {{ msg.created_at|date:"d.m H:i" }}
                     </div>
                 </div>
@@ -555,7 +555,7 @@
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-slate-600 text-sm mb-5">Сообщений пока нет. Начните диалог.</p>
+        <p class="text-gray-400 text-sm mb-5">Сообщений пока нет. Начните диалог.</p>
         {% endif %}
 
         <!-- Send form / read-only notice -->
@@ -573,7 +573,7 @@
                 </button>
             </div>
             <div class="flex items-center gap-2">
-                <label class="text-xs text-slate-500 cursor-pointer hover:text-slate-300 transition-colors">
+                <label class="text-xs text-gray-500 cursor-pointer hover:text-gray-800 transition-colors">
                     <input type="file" name="file" class="hidden"
                            onchange="this.parentElement.querySelector('span').textContent = this.files[0]?.name || 'Прикрепить файл'">
                     <span class="inline-flex items-center gap-1.5">
@@ -587,8 +587,8 @@
             </div>
         </form>
         {% else %}
-        <div class="rounded-xl px-4 py-3 bg-slate-700/30 border border-slate-600/20">
-            <p class="text-xs text-slate-500">
+        <div class="rounded-xl px-4 py-3 bg-gray-100 border border-gray-300">
+            <p class="text-xs text-gray-500">
                 {% if deal.status == 'completed' or deal.status == 'cancelled' %}
                 Чат закрыт — сделка завершена. История сообщений сохранена.
                 {% else %}

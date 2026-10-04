@@ -1,35 +1,35 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load money %}
 
-{% block title %}Дашборд рекламодателя — ublogers{% endblock %}
+{% block title %}Дашборд рекламодателя — UBlogers!{% endblock %}
 
 {% block content %}
 <div class="mb-6">
-    <h1 class="text-2xl font-bold text-white">Добро пожаловать, {{ user.email }}</h1>
-    <p class="text-slate-400 text-sm mt-1">Управляйте рекламными кампаниями и сделками</p>
+    <h1 class="text-2xl font-bold text-gray-900">Добро пожаловать, {{ user.email }}</h1>
+    <p class="text-gray-600 text-sm mt-1">Управляйте рекламными кампаниями и сделками</p>
 </div>
 
 <!-- Stats -->
 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
     <a href="{% url 'web:wallet' %}" class="card-dark rounded-xl p-5 block">
-        <div class="text-sm text-slate-400">Баланс</div>
-        <div class="text-2xl font-bold text-white mt-1">{{ wallet.available_balance|default:0|money }} {{ currency.symbol }}</div>
-        <div class="text-xs text-slate-500 mt-1">Зарезервировано: {{ wallet.reserved_balance|default:0|money }} {{ currency.symbol }}</div>
+        <div class="text-sm text-gray-600">Баланс</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ wallet.available_balance|default:0|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-gray-500 mt-1">Зарезервировано: {{ wallet.reserved_balance|default:0|money }} {{ currency.symbol }}</div>
     </a>
     <a href="{% url 'web:campaign_list' %}" class="card-dark rounded-xl p-5 block">
-        <div class="text-sm text-slate-400">Кампаний</div>
-        <div class="text-2xl font-bold text-white mt-1">{{ campaigns_count }}</div>
-        <div class="text-xs text-slate-500 mt-1">Активных: {{ active_campaigns_count }}</div>
+        <div class="text-sm text-gray-600">Кампаний</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ campaigns_count }}</div>
+        <div class="text-xs text-gray-500 mt-1">Активных: {{ active_campaigns_count }}</div>
     </a>
     <a href="{% url 'web:campaign_list' %}" class="card-dark rounded-xl p-5 block">
-        <div class="text-sm text-slate-400">Откликов</div>
-        <div class="text-2xl font-bold text-white mt-1">{{ pending_responses_count }}</div>
-        <div class="text-xs text-slate-500 mt-1">Ожидают рассмотрения</div>
+        <div class="text-sm text-gray-600">Откликов</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ pending_responses_count }}</div>
+        <div class="text-xs text-gray-500 mt-1">Ожидают рассмотрения</div>
     </a>
     <a href="{% url 'web:deal_list' %}" class="card-dark rounded-xl p-5 block">
-        <div class="text-sm text-slate-400">Сделок</div>
-        <div class="text-2xl font-bold text-white mt-1">{{ active_deals_count }}</div>
-        <div class="text-xs text-slate-500 mt-1">В работе</div>
+        <div class="text-sm text-gray-600">Сделок</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ active_deals_count }}</div>
+        <div class="text-xs text-gray-500 mt-1">В работе</div>
     </a>
 </div>
 
@@ -39,37 +39,37 @@
         + Создать кампанию
     </a>
     <a href="{% url 'web:campaign_list' %}"
-        class="px-4 py-2 text-sm text-slate-300 border border-white/10 rounded-xl hover:border-white/20 hover:text-white transition-colors">
+        class="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-xl hover:border-gray-300 hover:text-gray-900 transition-colors">
         Все кампании
     </a>
 </div>
 
 <!-- Needs action -->
 {% if action_deals or action_campaigns %}
-<div class="card-dark rounded-xl overflow-hidden mb-6 border border-orange-500/30">
-    <div class="px-6 py-4 border-b border-white/5">
-        <h2 class="font-semibold text-white">Требует действия</h2>
+<div class="card-dark rounded-xl overflow-hidden mb-6 border border-orange-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-gray-900">Требует действия</h2>
     </div>
-    <div class="divide-y divide-white/5">
+    <div class="divide-y divide-gray-100">
         {% for deal in action_deals %}
-        <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.03] transition-colors">
+        <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
             <div class="min-w-0">
-                <div class="text-sm font-medium text-white truncate">Сделка #{{ deal.pk }} · {{ deal.campaign.name }}</div>
-                <div class="text-xs text-orange-300 mt-0.5">
+                <div class="text-sm font-medium text-gray-900 truncate">Сделка #{{ deal.pk }} · {{ deal.campaign.name }}</div>
+                <div class="text-xs text-orange-700 mt-0.5">
                     {% if deal.status == 'on_approval' %}Блогер прислал креатив — согласуйте или отклоните
                     {% else %}Блогер опубликовал — проверьте и подтвердите публикацию{% endif %}
                 </div>
             </div>
-            <span class="text-orange-400 text-sm flex-shrink-0">Открыть →</span>
+            <span class="text-orange-600 text-sm flex-shrink-0">Открыть →</span>
         </a>
         {% endfor %}
         {% for campaign in action_campaigns %}
-        <a href="{% url 'web:campaign_detail' campaign.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.03] transition-colors">
+        <a href="{% url 'web:campaign_detail' campaign.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
             <div class="min-w-0">
-                <div class="text-sm font-medium text-white truncate">{{ campaign.name }}</div>
-                <div class="text-xs text-orange-300 mt-0.5">Откликов ждут решения: {{ campaign.pending }} — примите или отклоните</div>
+                <div class="text-sm font-medium text-gray-900 truncate">{{ campaign.name }}</div>
+                <div class="text-xs text-orange-700 mt-0.5">Откликов ждут решения: {{ campaign.pending }} — примите или отклоните</div>
             </div>
-            <span class="text-orange-400 text-sm flex-shrink-0">Открыть →</span>
+            <span class="text-orange-600 text-sm flex-shrink-0">Открыть →</span>
         </a>
         {% endfor %}
     </div>
@@ -78,35 +78,35 @@
 
 <!-- Recent campaigns -->
 <div class="card-dark rounded-xl overflow-hidden">
-    <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-        <h2 class="font-semibold text-white">Последние кампании</h2>
-        <a href="{% url 'web:campaign_list' %}" class="text-sm text-orange-400 hover:text-orange-300 transition-colors">Все →</a>
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-900">Последние кампании</h2>
+        <a href="{% url 'web:campaign_list' %}" class="text-sm text-orange-600 hover:text-orange-700 transition-colors">Все →</a>
     </div>
     {% if recent_campaigns %}
-    <div class="divide-y divide-white/5">
+    <div class="divide-y divide-gray-100">
         {% for campaign in recent_campaigns %}
         <div class="px-6 py-4 flex items-center justify-between">
             <div>
-                <a href="{% url 'web:campaign_detail' campaign.pk %}" class="text-sm font-medium text-white hover:text-orange-400 transition-colors">{{ campaign.name }}</a>
-                <div class="text-xs text-slate-500 mt-0.5">Бюджет: {{ campaign.budget|money }} {{ currency.symbol }} · {{ campaign.get_payment_type_display }}</div>
+                <a href="{% url 'web:campaign_detail' campaign.pk %}" class="text-sm font-medium text-gray-900 hover:text-orange-700 transition-colors">{{ campaign.name }}</a>
+                <div class="text-xs text-gray-500 mt-0.5">Бюджет: {{ campaign.budget|money }} {{ currency.symbol }} · {{ campaign.get_payment_type_display }}</div>
             </div>
             <div class="flex items-center gap-3">
                 <span class="text-xs px-2 py-1 rounded-full
-                    {% if campaign.status == 'active' %}bg-green-500/10 text-green-400
-                    {% elif campaign.status == 'moderation' %}bg-yellow-500/10 text-yellow-400
-                    {% elif campaign.status == 'draft' %}bg-slate-500/10 text-slate-400
-                    {% elif campaign.status == 'paused' %}bg-orange-500/10 text-orange-400
-                    {% else %}bg-red-500/10 text-red-400{% endif %}">
+                    {% if campaign.status == 'active' %}bg-green-50 text-green-600
+                    {% elif campaign.status == 'moderation' %}bg-yellow-50 text-yellow-700
+                    {% elif campaign.status == 'draft' %}bg-gray-100 text-gray-600
+                    {% elif campaign.status == 'paused' %}bg-orange-50 text-orange-600
+                    {% else %}bg-red-50 text-red-600{% endif %}">
                     {{ campaign.get_status_display }}
                 </span>
-                <a href="{% url 'web:campaign_detail' campaign.pk %}" class="text-sm text-orange-400 hover:text-orange-300 transition-colors">Открыть</a>
+                <a href="{% url 'web:campaign_detail' campaign.pk %}" class="text-sm text-orange-600 hover:text-orange-700 transition-colors">Открыть</a>
             </div>
         </div>
         {% endfor %}
     </div>
     {% else %}
-    <div class="px-6 py-8 text-center text-slate-500 text-sm">
-        Кампаний пока нет. <a href="{% url 'web:campaign_create' %}" class="text-orange-400 hover:text-orange-300">Создайте первую</a>.
+    <div class="px-6 py-8 text-center text-gray-500 text-sm">
+        Кампаний пока нет. <a href="{% url 'web:campaign_create' %}" class="text-orange-600 hover:text-orange-700">Создайте первую</a>.
     </div>
     {% endif %}
 </div>

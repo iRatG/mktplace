@@ -1,5 +1,5 @@
-﻿{% extends "base.html" %}
-{% block title %}Уведомления — ublogers{% endblock %}
+{% extends "base.html" %}
+{% block title %}Уведомления — UBlogers!{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto space-y-4">
@@ -7,11 +7,11 @@
     <!-- Заголовок -->
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-2xl font-bold text-white">Уведомления</h1>
+            <h1 class="text-2xl font-bold text-gray-900">Уведомления</h1>
             {% if unread_count %}
-            <p class="text-sm text-slate-400 mt-1">Было {{ unread_count }} непрочитанных — все отмечены как прочитанные</p>
+            <p class="text-sm text-gray-600 mt-1">Было {{ unread_count }} непрочитанных — все отмечены как прочитанные</p>
             {% else %}
-            <p class="text-sm text-slate-400 mt-1">Все уведомления прочитаны</p>
+            <p class="text-sm text-gray-600 mt-1">Все уведомления прочитаны</p>
             {% endif %}
         </div>
     </div>
@@ -21,15 +21,15 @@
     <div class="space-y-2">
         {% for n in notifications %}
         {% with target=n.target_url %}
-        <{% if target %}a href="{{ target }}"{% else %}div{% endif %} class="card-dark rounded-xl px-5 py-4 flex items-start gap-4{% if target %} hover:border-orange-500/40 hover:bg-white/5 transition-colors{% endif %}">
+        <{% if target %}a href="{{ target }}"{% else %}div{% endif %} class="card-dark rounded-xl px-5 py-4 flex items-start gap-4{% if target %} hover:border-orange-300 hover:bg-gray-50 transition-colors{% endif %}">
 
             <!-- Иконка типа -->
             <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-base
-                {% if n.type == 'payment_received' or n.type == 'withdrawal_approved' %}bg-green-500/15 text-green-400
-                {% elif n.type == 'withdrawal_rejected' or n.type == 'response_rejected' or n.type == 'direct_offer_rejected' %}bg-red-500/15 text-red-400
-                {% elif n.type == 'deal_cancelled' %}bg-red-500/10 text-red-400
-                {% elif n.type == 'campaign_response' or n.type == 'direct_offer_received' %}bg-blue-500/15 text-blue-400
-                {% else %}bg-orange-500/15 text-orange-400{% endif %}">
+                {% if n.type == 'payment_received' or n.type == 'withdrawal_approved' %}bg-green-100 text-green-600
+                {% elif n.type == 'withdrawal_rejected' or n.type == 'response_rejected' or n.type == 'direct_offer_rejected' %}bg-red-100 text-red-600
+                {% elif n.type == 'deal_cancelled' %}bg-red-50 text-red-600
+                {% elif n.type == 'campaign_response' or n.type == 'direct_offer_received' %}bg-blue-100 text-blue-600
+                {% else %}bg-orange-100 text-orange-600{% endif %}">
                 {% if n.type == 'payment_received' or n.type == 'withdrawal_approved' %}✓
                 {% elif n.type == 'withdrawal_rejected' or n.type == 'response_rejected' or n.type == 'direct_offer_rejected' or n.type == 'deal_cancelled' %}✗
                 {% elif n.type == 'campaign_response' or n.type == 'direct_offer_received' %}📩
@@ -40,14 +40,14 @@
 
             <!-- Текст -->
             <div class="flex-1 min-w-0">
-                <div class="text-sm font-semibold text-white">{{ n.title }}</div>
-                <div class="text-sm text-slate-400 mt-0.5">{{ n.body }}</div>
-                <div class="text-xs text-slate-600 mt-1.5">{{ n.created_at|date:"d.m.Y H:i" }}</div>
+                <div class="text-sm font-semibold text-gray-900">{{ n.title }}</div>
+                <div class="text-sm text-gray-600 mt-0.5">{{ n.body }}</div>
+                <div class="text-xs text-gray-400 mt-1.5">{{ n.created_at|date:"d.m.Y H:i" }}</div>
             </div>
 
             <!-- Переход к действию -->
             {% if target %}
-            <span class="flex-shrink-0 text-xs text-orange-400 whitespace-nowrap">
+            <span class="flex-shrink-0 text-xs text-orange-600 whitespace-nowrap">
                 {% if n.related_deal and not n.url %}Сделка #{{ n.related_deal.pk }}{% else %}Открыть{% endif %} →
             </span>
             {% endif %}
@@ -60,8 +60,8 @@
     {% else %}
     <div class="card-dark rounded-xl p-12 text-center">
         <div class="text-5xl mb-4 opacity-50">🔔</div>
-        <p class="text-slate-400">Уведомлений пока нет.</p>
-        <p class="text-xs text-slate-600 mt-2">Здесь появятся события по вашим сделкам, кампаниям и площадкам.</p>
+        <p class="text-gray-600">Уведомлений пока нет.</p>
+        <p class="text-xs text-gray-400 mt-2">Здесь появятся события по вашим сделкам, кампаниям и площадкам.</p>
     </div>
     {% endif %}
 

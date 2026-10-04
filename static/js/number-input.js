@@ -72,7 +72,7 @@
         }
         if (!budget || !price) {
             hint.textContent = "";
-            hint.classList.remove("text-red-400");
+            hint.classList.remove("text-red-600");
             return;
         }
         var fits = Math.floor(budget / price);
@@ -80,8 +80,8 @@
         var over = maxBloggers && maxBloggers > fits;
         if (over) text += " Уменьшите «Макс. блогеров» или увеличьте бюджет.";
         hint.textContent = text;
-        hint.classList.toggle("text-red-400", !!over);
-        hint.classList.toggle("text-slate-400", !over);
+        hint.classList.toggle("text-red-600", !!over);
+        hint.classList.toggle("text-gray-600", !over);
     }
 
     function init() {

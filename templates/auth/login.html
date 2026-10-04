@@ -1,12 +1,12 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
-{% block title %}Вход — ublogers{% endblock %}
+{% block title %}Вход — UBlogers!{% endblock %}
 
 {% block content %}
 <div class="min-h-[60vh] flex items-center justify-center">
     <div class="card-dark rounded-2xl p-8 w-full max-w-md">
-        <h1 class="text-2xl font-bold text-white mb-2">Войти в аккаунт</h1>
-        <p class="text-sm text-slate-400 mb-6">Нет аккаунта? <a href="{% url 'web:register' %}" class="text-orange-400 hover:text-orange-300 transition-colors">Зарегистрироваться</a></p>
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Войти в аккаунт</h1>
+        <p class="text-sm text-gray-600 mb-6">Нет аккаунта? <a href="{% url 'web:register' %}" class="text-orange-600 hover:text-orange-700 transition-colors">Зарегистрироваться</a></p>
 
         {% if form.non_field_errors %}
         <div class="alert-error mb-4">{{ form.non_field_errors.0 }}</div>
@@ -15,31 +15,31 @@
         <form method="post" class="space-y-4">
             {% csrf_token %}
             <div>
-                <label for="id_email" class="block text-sm font-medium text-slate-300 mb-1">Логин — email или ИНН</label>
+                <label for="id_email" class="block text-sm font-medium text-gray-700 mb-1">Логин — email или ИНН</label>
                 <input type="text" name="email" id="id_email" autocomplete="username"
                     value="{{ form.email.value|default:'' }}"
                     class="input-dark"
                     placeholder="Email или ИНН" required autofocus>
-                <p class="text-xs text-slate-500 mt-1">Ваша почта — если регистрировались по email; ИНН компании — для юрлиц (из документа «Ддокс»); логин из SMS — для блогеров.</p>
+                <p class="text-xs text-gray-500 mt-1">Ваша почта — если регистрировались по email; ИНН компании — для юрлиц (из документа «Ддокс»); логин из SMS — для блогеров.</p>
                 {% if form.email.errors %}
-                <p class="text-red-400 text-xs mt-1">{{ form.email.errors.0 }}</p>
+                <p class="text-red-600 text-xs mt-1">{{ form.email.errors.0 }}</p>
                 {% endif %}
             </div>
             <div>
-                <label for="id_password" class="block text-sm font-medium text-slate-300 mb-1">Пароль</label>
+                <label for="id_password" class="block text-sm font-medium text-gray-700 mb-1">Пароль</label>
                 <input type="password" name="password" id="id_password"
                     class="input-dark"
                     placeholder="••••••••" required>
                 {% if form.password.errors %}
-                <p class="text-red-400 text-xs mt-1">{{ form.password.errors.0 }}</p>
+                <p class="text-red-600 text-xs mt-1">{{ form.password.errors.0 }}</p>
                 {% endif %}
             </div>
             <div class="flex items-center justify-between">
-                <label class="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
-                    <input type="checkbox" name="remember_me" class="rounded border-white/20 bg-white/5">
+                <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input type="checkbox" name="remember_me" class="rounded border-gray-300 bg-gray-50">
                     Запомнить меня
                 </label>
-                <a href="{% url 'web:password_reset' %}" class="text-sm text-orange-400 hover:text-orange-300 transition-colors">Забыли пароль?</a>
+                <a href="{% url 'web:password_reset' %}" class="text-sm text-orange-600 hover:text-orange-700 transition-colors">Забыли пароль?</a>
             </div>
             <button type="submit" class="btn-orange w-full py-2.5 px-4 text-sm">
                 Войти

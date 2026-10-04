@@ -1,37 +1,37 @@
 {% extends "base.html" %}
 {% load money %}
 
-{% block title %}Мои отклики — ublogers{% endblock %}
+{% block title %}Мои отклики — UBlogers!{% endblock %}
 
 {% block content %}
 <div class="mb-6">
-    <a href="{% url 'web:blogger_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">← Дашборд</a>
-    <h1 class="text-2xl font-bold text-white mt-2">Мои отклики</h1>
-    <p class="text-slate-400 text-sm mt-1">Все отклики на кампании — новые сверху</p>
+    <a href="{% url 'web:blogger_dashboard' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">← Дашборд</a>
+    <h1 class="text-2xl font-bold text-gray-900 mt-2">Мои отклики</h1>
+    <p class="text-gray-600 text-sm mt-1">Все отклики на кампании — новые сверху</p>
 </div>
 
 {% if responses %}
 <div class="card-dark rounded-xl overflow-hidden">
-    <div class="divide-y divide-white/5">
+    <div class="divide-y divide-gray-100">
         {% for resp in responses %}
         <div class="px-6 py-4 flex items-start justify-between gap-4">
             <div class="min-w-0">
                 {% if resp.campaign.status == 'active' %}
-                <a href="{% url 'web:campaign_detail' resp.campaign.pk %}" class="text-sm font-medium text-white hover:text-orange-400 transition-colors">{{ resp.campaign.name }}</a>
+                <a href="{% url 'web:campaign_detail' resp.campaign.pk %}" class="text-sm font-medium text-gray-900 hover:text-orange-700 transition-colors">{{ resp.campaign.name }}</a>
                 {% else %}
-                <span class="text-sm font-medium text-white">{{ resp.campaign.name }}</span>
+                <span class="text-sm font-medium text-gray-900">{{ resp.campaign.name }}</span>
                 {% endif %}
-                <div class="text-xs text-slate-500 mt-0.5">
+                <div class="text-xs text-gray-500 mt-0.5">
                     {{ resp.platform.get_social_type_display }} · {{ resp.content_type }} ·
                     {% if resp.proposed_price %}{{ resp.proposed_price|money }} {{ currency.symbol }}{% else %}цена кампании{% endif %}
                     · {{ resp.created_at|date:"d.m.Y" }}
                 </div>
             </div>
             <span class="text-xs px-2 py-1 rounded-full whitespace-nowrap
-                {% if resp.status == 'accepted' %}bg-green-500/10 text-green-400
-                {% elif resp.status == 'rejected' %}bg-red-500/10 text-red-400
-                {% elif resp.status == 'pending' %}bg-yellow-500/10 text-yellow-400
-                {% else %}bg-slate-500/10 text-slate-400{% endif %}">
+                {% if resp.status == 'accepted' %}bg-green-50 text-green-600
+                {% elif resp.status == 'rejected' %}bg-red-50 text-red-600
+                {% elif resp.status == 'pending' %}bg-yellow-50 text-yellow-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
                 {% if resp.status == 'accepted' %}Принят — сделка в «Сделках»
                 {% elif resp.status == 'rejected' %}Отклонён
                 {% elif resp.status == 'pending' %}Ждёт решения
@@ -43,8 +43,8 @@
 </div>
 {% else %}
 <div class="card-dark rounded-xl px-6 py-16 text-center">
-    <p class="text-slate-400 text-sm">Откликов пока нет.</p>
-    <a href="{% url 'web:catalog' %}" class="inline-block mt-4 text-sm text-orange-400 hover:text-orange-300 transition-colors">Найти кампании →</a>
+    <p class="text-gray-600 text-sm">Откликов пока нет.</p>
+    <a href="{% url 'web:catalog' %}" class="inline-block mt-4 text-sm text-orange-600 hover:text-orange-700 transition-colors">Найти кампании →</a>
 </div>
 {% endif %}
 {% include "partials/pagination.html" %}

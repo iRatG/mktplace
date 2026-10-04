@@ -4,15 +4,15 @@
 {% block content %}
 <div class="mb-6 flex items-center justify-between gap-4 flex-wrap">
     <div>
-        <h1 class="text-2xl font-bold text-white">Юрлица — все заявки</h1>
-        <p class="text-slate-400 text-sm mt-1">
+        <h1 class="text-2xl font-bold text-gray-900">Юрлица — все заявки</h1>
+        <p class="text-gray-600 text-sm mt-1">
             Полный реестр, независимо от статуса и ответственного · найдено: {{ page_obj.paginator.count }}
         </p>
     </div>
     <div class="flex items-center gap-3 flex-wrap">
-        <a href="{% url 'web:admin_legal_entities' %}" class="text-sm text-slate-400 hover:text-white border border-white/10 rounded-xl px-4 py-2 transition-colors">Моя очередь</a>
+        <a href="{% url 'web:admin_legal_entities' %}" class="text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl px-4 py-2 transition-colors">Моя очередь</a>
         <a href="?{{ export_querystring }}" class="btn-orange px-4 py-2 text-sm rounded-xl">⬇ Выгрузить в Excel</a>
-        <a href="{% url 'web:admin_dashboard' %}" class="text-sm text-slate-400 hover:text-white transition-colors">← Панель</a>
+        <a href="{% url 'web:admin_dashboard' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">← Панель</a>
     </div>
 </div>
 
@@ -39,7 +39,7 @@
     </select>
     <div class="flex gap-3 sm:col-span-2 lg:col-span-5">
         <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">Применить</button>
-        <a href="{% url 'web:admin_legal_entity_registry' %}" class="px-4 py-2 text-sm text-slate-400 hover:text-white border border-white/10 rounded-xl transition-colors">Сбросить</a>
+        <a href="{% url 'web:admin_legal_entity_registry' %}" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl transition-colors">Сбросить</a>
     </div>
 </form>
 
@@ -47,33 +47,33 @@
 <div class="card-dark rounded-xl overflow-x-auto">
     <table class="w-full text-sm whitespace-nowrap">
         <thead>
-            <tr class="border-b border-white/5">
-                <th class="text-left px-4 py-3 text-slate-400 font-medium">Компания</th>
-                <th class="text-left px-4 py-3 text-slate-400 font-medium">ИНН</th>
-                <th class="text-left px-4 py-3 text-slate-400 font-medium">Заявка</th>
-                <th class="text-left px-4 py-3 text-slate-400 font-medium">Ддокс</th>
-                <th class="text-left px-4 py-3 text-slate-400 font-medium">Аккаунт</th>
-                <th class="text-left px-4 py-3 text-slate-400 font-medium">Ответственный</th>
-                <th class="text-left px-4 py-3 text-slate-400 font-medium">Подана</th>
+            <tr class="border-b border-gray-200">
+                <th class="text-left px-4 py-3 text-gray-600 font-medium">Компания</th>
+                <th class="text-left px-4 py-3 text-gray-600 font-medium">ИНН</th>
+                <th class="text-left px-4 py-3 text-gray-600 font-medium">Заявка</th>
+                <th class="text-left px-4 py-3 text-gray-600 font-medium">Ддокс</th>
+                <th class="text-left px-4 py-3 text-gray-600 font-medium">Аккаунт</th>
+                <th class="text-left px-4 py-3 text-gray-600 font-medium">Ответственный</th>
+                <th class="text-left px-4 py-3 text-gray-600 font-medium">Подана</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-white/5">
+        <tbody class="divide-y divide-gray-100">
             {% for a in page_obj %}
-            <tr class="hover:bg-white/5 transition-colors">
+            <tr class="hover:bg-gray-50 transition-colors">
                 <td class="px-4 py-3">
-                    <a href="{% url 'web:admin_legal_entity_detail' a.pk %}" class="text-orange-400 hover:text-orange-300 font-medium">{{ a.company_name }}</a>
+                    <a href="{% url 'web:admin_legal_entity_detail' a.pk %}" class="text-orange-600 hover:text-orange-700 font-medium">{{ a.company_name }}</a>
                 </td>
-                <td class="px-4 py-3 text-slate-300">{{ a.inn }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ a.inn }}</td>
                 <td class="px-4 py-3">
                     <span class="text-xs px-2 py-0.5 rounded-full
-                        {% if a.status == 'approved' %}bg-green-500/15 text-green-400
-                        {% elif a.status == 'rejected' %}bg-red-500/15 text-red-400
-                        {% else %}bg-yellow-500/15 text-yellow-400{% endif %}">{{ a.get_status_display }}</span>
+                        {% if a.status == 'approved' %}bg-green-100 text-green-600
+                        {% elif a.status == 'rejected' %}bg-red-100 text-red-600
+                        {% else %}bg-yellow-100 text-yellow-700{% endif %}">{{ a.get_status_display }}</span>
                 </td>
-                <td class="px-4 py-3 text-slate-300">{{ a.get_ddocs_status_display }}</td>
-                <td class="px-4 py-3 text-slate-400">{{ a.user.login_display|default:"— не создан" }}</td>
-                <td class="px-4 py-3 text-slate-400">{{ a.assigned_to.email|default:"— не назначен" }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ a.created_at|date:"d.m.Y H:i" }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ a.get_ddocs_status_display }}</td>
+                <td class="px-4 py-3 text-gray-600">{{ a.user.login_display|default:"— не создан" }}</td>
+                <td class="px-4 py-3 text-gray-600">{{ a.assigned_to.email|default:"— не назначен" }}</td>
+                <td class="px-4 py-3 text-gray-500">{{ a.created_at|date:"d.m.Y H:i" }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -83,15 +83,15 @@
 {% if page_obj.has_other_pages %}
 <div class="mt-4 flex items-center justify-center gap-4 text-sm">
     {% if page_obj.has_previous %}
-    <a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}" class="text-slate-400 hover:text-white">← Назад</a>
+    <a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}" class="text-gray-600 hover:text-gray-900">← Назад</a>
     {% endif %}
-    <span class="text-slate-500">Стр. {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+    <span class="text-gray-500">Стр. {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
     {% if page_obj.has_next %}
-    <a href="?{{ querystring }}&page={{ page_obj.next_page_number }}" class="text-slate-400 hover:text-white">Вперёд →</a>
+    <a href="?{{ querystring }}&page={{ page_obj.next_page_number }}" class="text-gray-600 hover:text-gray-900">Вперёд →</a>
     {% endif %}
 </div>
 {% endif %}
 {% else %}
-<div class="card-dark rounded-xl p-8 text-center text-slate-500">Юрлиц по заданным условиям не найдено</div>
+<div class="card-dark rounded-xl p-8 text-center text-gray-500">Юрлиц по заданным условиям не найдено</div>
 {% endif %}
 {% endblock %}

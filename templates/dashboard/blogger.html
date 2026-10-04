@@ -1,12 +1,12 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load money %}
 
-{% block title %}Дашборд блогера — ublogers{% endblock %}
+{% block title %}Дашборд блогера — UBlogers!{% endblock %}
 
 {% block content %}
 <div class="mb-6">
-    <h1 class="text-2xl font-bold text-white">Добро пожаловать, {{ user.email }}</h1>
-    <p class="text-slate-400 text-sm mt-1">Находите рекламные кампании и управляйте сделками</p>
+    <h1 class="text-2xl font-bold text-gray-900">Добро пожаловать, {{ user.email }}</h1>
+    <p class="text-gray-600 text-sm mt-1">Находите рекламные кампании и управляйте сделками</p>
 </div>
 
 {% if not profile_complete %}
@@ -19,24 +19,24 @@
 <!-- Stats -->
 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
     <a href="{% url 'web:wallet' %}" class="card-dark rounded-xl p-5 block">
-        <div class="text-sm text-slate-400">Баланс</div>
-        <div class="text-2xl font-bold text-white mt-1">{{ wallet.available_balance|default:0|money }} {{ currency.symbol }}</div>
-        <div class="text-xs text-slate-500 mt-1">На выводе: {{ wallet.on_withdrawal|default:0|money }} {{ currency.symbol }}</div>
+        <div class="text-sm text-gray-600">Баланс</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ wallet.available_balance|default:0|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-gray-500 mt-1">На выводе: {{ wallet.on_withdrawal|default:0|money }} {{ currency.symbol }}</div>
     </a>
     <a href="{% url 'web:my_responses' %}" class="card-dark rounded-xl p-5 block">
-        <div class="text-sm text-slate-400">Откликов</div>
-        <div class="text-2xl font-bold text-white mt-1">{{ my_responses_count }}</div>
-        <div class="text-xs text-slate-500 mt-1">Всего подано</div>
+        <div class="text-sm text-gray-600">Откликов</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ my_responses_count }}</div>
+        <div class="text-xs text-gray-500 mt-1">Всего подано</div>
     </a>
     <a href="{% url 'web:deal_list' %}?status=active" class="card-dark rounded-xl p-5 block">
-        <div class="text-sm text-slate-400">Сделок</div>
-        <div class="text-2xl font-bold text-white mt-1">{{ active_deals_count }}</div>
-        <div class="text-xs text-slate-500 mt-1">В работе</div>
+        <div class="text-sm text-gray-600">Сделок</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ active_deals_count }}</div>
+        <div class="text-xs text-gray-500 mt-1">В работе</div>
     </a>
     <a href="{% url 'web:deal_list' %}?status=completed" class="card-dark rounded-xl p-5 block">
-        <div class="text-sm text-slate-400">Завершено</div>
-        <div class="text-2xl font-bold text-white mt-1">{{ completed_deals_count }}</div>
-        <div class="text-xs text-slate-500 mt-1">Успешных сделок</div>
+        <div class="text-sm text-gray-600">Завершено</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ completed_deals_count }}</div>
+        <div class="text-xs text-gray-500 mt-1">Успешных сделок</div>
     </a>
 </div>
 
@@ -49,22 +49,22 @@
 
 <!-- Needs action -->
 {% if action_deals %}
-<div class="card-dark rounded-xl overflow-hidden mb-6 border border-orange-500/30">
-    <div class="px-6 py-4 border-b border-white/5">
-        <h2 class="font-semibold text-white">Требует действия</h2>
+<div class="card-dark rounded-xl overflow-hidden mb-6 border border-orange-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-gray-900">Требует действия</h2>
     </div>
-    <div class="divide-y divide-white/5">
+    <div class="divide-y divide-gray-100">
         {% for deal in action_deals %}
-        <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.03] transition-colors">
+        <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
             <div class="min-w-0">
-                <div class="text-sm font-medium text-white truncate">Сделка #{{ deal.pk }} · {{ deal.campaign.name }}</div>
-                <div class="text-xs text-orange-300 mt-0.5">
+                <div class="text-sm font-medium text-gray-900 truncate">Сделка #{{ deal.pk }} · {{ deal.campaign.name }}</div>
+                <div class="text-xs text-orange-700 mt-0.5">
                     {% if deal.status == 'waiting_publication' %}Креатив согласован — опубликуйте и пришлите ссылку
                     {% elif deal.creative_rejection_reason %}Креатив отклонён — исправьте и отправьте снова
                     {% else %}Отправьте креатив на согласование или ссылку на публикацию{% endif %}
                 </div>
             </div>
-            <span class="text-orange-400 text-sm flex-shrink-0">Открыть →</span>
+            <span class="text-orange-600 text-sm flex-shrink-0">Открыть →</span>
         </a>
         {% endfor %}
     </div>
@@ -73,26 +73,26 @@
 
 <!-- Active deals -->
 <div class="card-dark rounded-xl overflow-hidden mb-6">
-    <div class="px-6 py-4 border-b border-white/5">
-        <h2 class="font-semibold text-white">Активные сделки</h2>
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-gray-900">Активные сделки</h2>
     </div>
     {% if active_deals %}
-    <div class="divide-y divide-white/5">
+    <div class="divide-y divide-gray-100">
         {% for deal in active_deals %}
-        <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between hover:bg-white/[0.03] transition-colors">
+        <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
             <div>
-                <div class="text-sm font-medium text-white">Сделка #{{ deal.pk }} · {{ deal.campaign.name }}</div>
-                <div class="text-xs text-slate-500 mt-0.5">{{ deal.amount|money }} {{ currency.symbol }} · {{ deal.platform.get_social_type_display }}</div>
+                <div class="text-sm font-medium text-gray-900">Сделка #{{ deal.pk }} · {{ deal.campaign.name }}</div>
+                <div class="text-xs text-gray-500 mt-0.5">{{ deal.amount|money }} {{ currency.symbol }} · {{ deal.platform.get_social_type_display }}</div>
             </div>
-            <span class="text-xs px-2 py-1 rounded-full bg-blue-500/10 text-blue-400">
+            <span class="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600">
                 {% include "deals/_status_label.html" with status=deal.status %}
             </span>
         </a>
         {% endfor %}
     </div>
     {% else %}
-    <div class="px-6 py-8 text-center text-slate-500 text-sm">
-        Активных сделок нет. <a href="{% url 'web:catalog' %}" class="text-orange-400 hover:text-orange-300">Найдите кампанию</a>.
+    <div class="px-6 py-8 text-center text-gray-500 text-sm">
+        Активных сделок нет. <a href="{% url 'web:catalog' %}" class="text-orange-600 hover:text-orange-700">Найдите кампанию</a>.
     </div>
     {% endif %}
 </div>
@@ -100,22 +100,22 @@
 <!-- Incoming direct offers (Module 10) -->
 {% if incoming_offers %}
 <div class="card-dark rounded-xl overflow-hidden mb-6">
-    <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-        <h2 class="font-semibold text-white">Предложения от рекламодателей</h2>
-        <span class="text-xs px-2 py-1 rounded-full bg-orange-500/15 text-orange-400">{{ incoming_offers|length }} новых</span>
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-900">Предложения от рекламодателей</h2>
+        <span class="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-600">{{ incoming_offers|length }} новых</span>
     </div>
-    <div class="divide-y divide-white/5">
+    <div class="divide-y divide-gray-100">
         {% for offer in incoming_offers %}
         <div class="px-6 py-4">
             <div class="flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
-                    <div class="text-sm font-medium text-white">{{ offer.campaign.name }}</div>
-                    <div class="text-xs text-slate-500 mt-0.5">
+                    <div class="text-sm font-medium text-gray-900">{{ offer.campaign.name }}</div>
+                    <div class="text-xs text-gray-500 mt-0.5">
                         от {{ offer.advertiser.email }} · {{ offer.platform.get_social_type_display }} ·
                         {% if offer.proposed_price %}{{ offer.proposed_price|floatformat:0 }} {{ currency.symbol }}{% else %}цена по кампании{% endif %}
                     </div>
                     {% if offer.message %}
-                    <p class="text-xs text-slate-400 mt-1 italic">"{{ offer.message|truncatechars:100 }}"</p>
+                    <p class="text-xs text-gray-600 mt-1 italic">"{{ offer.message|truncatechars:100 }}"</p>
                     {% endif %}
                 </div>
                 <div class="flex gap-2 flex-shrink-0">
@@ -125,7 +125,7 @@
                     </form>
                     <form method="post" action="{% url 'web:direct_offer_reject' pk=offer.pk %}">
                         {% csrf_token %}
-                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-slate-400 hover:text-red-400 hover:border-red-400/30 transition-colors">Отклонить</button>
+                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:text-red-700 hover:border-red-200 transition-colors">Отклонить</button>
                     </form>
                 </div>
             </div>
@@ -137,9 +137,9 @@
 
 <!-- My platforms -->
 {% if not has_platforms %}
-<div class="bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-6 py-4">
-    <div class="text-sm font-medium text-yellow-300">Добавьте площадку</div>
-    <div class="text-xs text-yellow-400/70 mt-1">Чтобы откликаться на кампании, сначала добавьте свою социальную сеть.</div>
+<div class="bg-yellow-50 border border-yellow-200 rounded-xl px-6 py-4">
+    <div class="text-sm font-medium text-yellow-700">Добавьте площадку</div>
+    <div class="text-xs text-yellow-700 mt-1">Чтобы откликаться на кампании, сначала добавьте свою социальную сеть.</div>
     <a href="{% url 'web:platform_add' %}" class="inline-block mt-3 bg-yellow-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-yellow-400 transition-colors">
         Добавить площадку
     </a>

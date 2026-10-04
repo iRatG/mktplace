@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static money %}
 
-{% block title %}{% if proposal_mode %}Правки модератора{% elif campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %} — ublogers{% endblock %}
+{% block title %}{% if proposal_mode %}Правки модератора{% elif campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %} — UBlogers!{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
@@ -9,12 +9,12 @@
     <!-- Header -->
     <div class="mb-6">
         <a href="{% if proposal_mode %}{% url 'web:admin_campaign_detail' campaign.pk %}{% elif campaign %}{% url 'web:campaign_detail' campaign.pk %}{% else %}{% url 'web:campaign_list' %}{% endif %}"
-           class="text-sm text-slate-400 hover:text-white transition-colors">← Назад</a>
-        <h1 class="text-2xl font-bold text-white mt-2">
+           class="text-sm text-gray-600 hover:text-gray-900 transition-colors">← Назад</a>
+        <h1 class="text-2xl font-bold text-gray-900 mt-2">
             {% if proposal_mode %}Правки модератора: {{ campaign.name }}{% elif campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %}
         </h1>
         {% if proposal_mode %}
-        <p class="text-sm text-slate-400 mt-1">Измените нужные поля и напишите комментарий. Рекламодатель увидит «было → стало» и либо примет правки (кампания сразу станет активной), либо отклонит и исправит сам.</p>
+        <p class="text-sm text-gray-600 mt-1">Измените нужные поля и напишите комментарий. Рекламодатель увидит «было → стало» и либо примет правки (кампания сразу станет активной), либо отклонит и исправит сам.</p>
         {% endif %}
     </div>
 
@@ -29,74 +29,74 @@
 
         <!-- Название -->
         <div class="card-dark rounded-xl p-5 space-y-4">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide">Основное</h2>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Основное</h2>
 
             <div>
-                <label for="id_name" class="block text-sm text-slate-300 mb-1">Название кампании *</label>
+                <label for="id_name" class="block text-sm text-gray-700 mb-1">Название кампании *</label>
                 <input type="text" name="name" id="id_name" value="{{ form.name.value|default:'' }}"
                     class="input-dark" placeholder="Например: Запуск нового продукта" required>
-                {% for error in form.name.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.name.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
-                <label for="id_description" class="block text-sm text-slate-300 mb-1">Описание</label>
+                <label for="id_description" class="block text-sm text-gray-700 mb-1">Описание</label>
                 <textarea name="description" id="id_description" rows="4"
                     class="input-dark resize-none"
                     placeholder="Опишите задачу, требования к контенту, целевую аудиторию...">{{ form.description.value|default:'' }}</textarea>
-                {% for error in form.description.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.description.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
-                <label for="id_category" class="block text-sm text-slate-300 mb-1">Категория</label>
+                <label for="id_category" class="block text-sm text-gray-700 mb-1">Категория</label>
                 <select name="category" id="id_category" class="input-dark">
                     <option value="">— не выбрана —</option>
                     {% for cat in form.fields.category.queryset %}
                     <option value="{{ cat.pk }}" {% if form.category.value|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
                     {% endfor %}
                 </select>
-                {% for error in form.category.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.category.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
         </div>
 
         <!-- Оплата -->
         <div class="card-dark rounded-xl p-5 space-y-4">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide">Оплата и бюджет</h2>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Оплата и бюджет</h2>
 
             <div>
-                <label class="block text-sm text-slate-300 mb-2">Тип оплаты *</label>
+                <label class="block text-sm text-gray-700 mb-2">Тип оплаты *</label>
                 <div class="flex gap-3">
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="payment_type" value="fixed"
                             {% if form.payment_type.value != 'cpa' %}checked{% endif %}>
-                        <span class="text-sm text-white">Фиксированная</span>
+                        <span class="text-sm text-gray-900">Фиксированная</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="payment_type" value="cpa"
                             {% if form.payment_type.value == 'cpa' %}checked{% endif %}>
-                        <span class="text-sm text-white">CPA</span>
+                        <span class="text-sm text-gray-900">CPA</span>
                     </label>
                 </div>
-                {% for error in form.payment_type.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.payment_type.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
 
             <div id="fixed_price_row" {% if form.payment_type.value == 'cpa' %}class="hidden"{% endif %}>
                 {% with label="Цена за размещение ("|add:currency.symbol|add:") *" %}
                 {% include "partials/number_input.html" with field=form.fixed_price label=label step=10000 placeholder="150 000" %}
-                <p class="text-xs text-slate-500 mt-1">Минимум — {{ currency.min_fixed_price|money }} {{ currency.symbol }}.</p>
+                <p class="text-xs text-gray-500 mt-1">Минимум — {{ currency.min_fixed_price|money }} {{ currency.symbol }}.</p>
                 {% endwith %}
             </div>
 
             <div id="cpa_block" class="space-y-4{% if form.payment_type.value != 'cpa' %} hidden{% endif %}">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label for="id_cpa_type" class="block text-sm text-slate-300 mb-1">Тип конверсии *</label>
+                        <label for="id_cpa_type" class="block text-sm text-gray-700 mb-1">Тип конверсии *</label>
                         <select name="cpa_type" id="id_cpa_type" class="input-dark">
                             <option value="">— выберите —</option>
                             {% for value, label in form.fields.cpa_type.choices %}{% if value %}
                             <option value="{{ value }}" {% if form.cpa_type.value == value %}selected{% endif %}>{{ label }}</option>
                             {% endif %}{% endfor %}
                         </select>
-                        {% for error in form.cpa_type.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                        {% for error in form.cpa_type.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
                     </div>
                     <div>
                         {% with label="Ставка за конверсию ("|add:currency.symbol|add:") *" %}
@@ -105,11 +105,11 @@
                     </div>
                 </div>
                 <div>
-                    <label for="id_cpa_tracking_url" class="block text-sm text-slate-300 mb-1">Ссылка трекинга</label>
+                    <label for="id_cpa_tracking_url" class="block text-sm text-gray-700 mb-1">Ссылка трекинга</label>
                     <input type="url" name="cpa_tracking_url" id="id_cpa_tracking_url"
                         value="{{ form.cpa_tracking_url.value|default:'' }}"
                         class="input-dark" placeholder="https://example.com/landing">
-                    {% for error in form.cpa_tracking_url.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    {% for error in form.cpa_tracking_url.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
                 </div>
             </div>
 
@@ -117,29 +117,29 @@
                 {% with label="Общий бюджет ("|add:currency.symbol|add:") *" %}
                 {% include "partials/number_input.html" with field=form.budget label=label step=10000 placeholder="1 500 000" required=True %}
                 {% endwith %}
-                <p class="text-xs text-slate-400 mt-1" data-bloggers-hint aria-live="polite"></p>
+                <p class="text-xs text-gray-600 mt-1" data-bloggers-hint aria-live="polite"></p>
             </div>
         </div>
 
         <!-- Сроки и требования -->
         <div class="card-dark rounded-xl p-5 space-y-4">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide">Сроки и требования</h2>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Сроки и требования</h2>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                    <label for="id_start_date" class="block text-sm text-slate-300 mb-1">Начало</label>
+                    <label for="id_start_date" class="block text-sm text-gray-700 mb-1">Начало</label>
                     <input type="date" name="start_date" id="id_start_date" value="{{ form.start_date.value|default:''|stringformat:'s' }}" class="input-dark">
-                    {% for error in form.start_date.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    {% for error in form.start_date.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
                 </div>
                 <div>
-                    <label for="id_end_date" class="block text-sm text-slate-300 mb-1">Конец</label>
+                    <label for="id_end_date" class="block text-sm text-gray-700 mb-1">Конец</label>
                     <input type="date" name="end_date" id="id_end_date" value="{{ form.end_date.value|default:''|stringformat:'s' }}" class="input-dark">
-                    {% for error in form.end_date.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    {% for error in form.end_date.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
                 </div>
                 <div>
-                    <label for="id_deadline" class="block text-sm text-slate-300 mb-1">Дедлайн контента</label>
+                    <label for="id_deadline" class="block text-sm text-gray-700 mb-1">Дедлайн контента</label>
                     <input type="date" name="deadline" id="id_deadline" value="{{ form.deadline.value|default:''|stringformat:'s' }}" class="input-dark">
-                    {% for error in form.deadline.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    {% for error in form.deadline.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
                 </div>
             </div>
 
@@ -148,51 +148,51 @@
                     {% include "partials/number_input.html" with field=form.min_subscribers label="Мин. подписчиков" step=100 placeholder="0" %}
                 </div>
                 <div>
-                    <label for="id_max_bloggers" class="block text-sm text-slate-300 mb-1">Макс. блогеров</label>
+                    <label for="id_max_bloggers" class="block text-sm text-gray-700 mb-1">Макс. блогеров</label>
                     <input type="number" name="max_bloggers" id="id_max_bloggers" value="{{ form.max_bloggers.value|default_if_none:'0' }}"
                         class="input-dark" min="0">
-                    <p class="text-xs text-slate-500 mt-1">0 — без ограничения</p>
-                    {% for error in form.max_bloggers.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    <p class="text-xs text-gray-500 mt-1">0 — без ограничения</p>
+                    {% for error in form.max_bloggers.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
                 </div>
             </div>
         </div>
 
         <!-- Форматы и площадки -->
         <div class="card-dark rounded-xl p-5 space-y-4">
-            <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide">Форматы и площадки</h2>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Форматы и площадки</h2>
 
             <div>
-                <label class="block text-sm text-slate-300 mb-2">Форматы контента</label>
+                <label class="block text-sm text-gray-700 mb-2">Форматы контента</label>
                 <div class="flex flex-wrap gap-2">
                     {% for value, label in form.fields.content_types.choices %}
-                    <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 cursor-pointer hover:border-orange-500/40 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10 text-sm text-slate-300">
+                    <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 cursor-pointer hover:border-orange-300 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50 text-sm text-gray-700">
                         <input type="checkbox" name="content_types" value="{{ value }}"
                             {% if value in form.initial.content_types or value in form.data.getlist.content_types %}checked{% endif %}>
                         {{ label }}
                     </label>
                     {% endfor %}
                 </div>
-                {% for error in form.content_types.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.content_types.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
-                <label class="block text-sm text-slate-300 mb-2">Площадки</label>
+                <label class="block text-sm text-gray-700 mb-2">Площадки</label>
                 <div class="flex flex-wrap gap-2">
                     {% for value, label in form.fields.allowed_socials.choices %}
-                    <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 cursor-pointer hover:border-orange-500/40 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10 text-sm text-slate-300">
+                    <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 cursor-pointer hover:border-orange-300 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50 text-sm text-gray-700">
                         <input type="checkbox" name="allowed_socials" value="{{ value }}"
                             {% if value in form.initial.allowed_socials or value in form.data.getlist.allowed_socials %}checked{% endif %}>
                         {{ label }}
                     </label>
                     {% endfor %}
                 </div>
-                {% for error in form.allowed_socials.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.allowed_socials.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
         </div>
 
         {% if proposal_mode %}
         <div class="card-dark rounded-xl p-5">
-            <label for="proposal_comment" class="block text-sm text-slate-300 mb-1">Комментарий для рекламодателя *</label>
+            <label for="proposal_comment" class="block text-sm text-gray-700 mb-1">Комментарий для рекламодателя *</label>
             <textarea name="proposal_comment" id="proposal_comment" rows="3" required class="input-dark resize-none"
                 placeholder="Что и почему исправлено">{{ proposal_comment }}</textarea>
         </div>
@@ -204,7 +204,7 @@
                 {% if proposal_mode %}Отправить рекламодателю{% elif campaign %}Сохранить изменения{% else %}Создать кампанию{% endif %}
             </button>
             <a href="{% if proposal_mode %}{% url 'web:admin_campaign_detail' campaign.pk %}{% elif campaign %}{% url 'web:campaign_detail' campaign.pk %}{% else %}{% url 'web:campaign_list' %}{% endif %}"
-               class="px-6 py-2.5 text-sm text-slate-400 hover:text-white border border-white/10 rounded-xl transition-colors">
+               class="px-6 py-2.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl transition-colors">
                 Отмена
             </a>
         </div>

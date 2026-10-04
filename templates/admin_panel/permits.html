@@ -1,17 +1,17 @@
-﻿{% extends "base.html" %}
-{% block title %}Разрешительные документы — ublogers{% endblock %}
+{% extends "base.html" %}
+{% block title %}Разрешительные документы — UBlogers!{% endblock %}
 
 {% block content %}
 <div class="mb-6 flex items-center gap-3">
-    <a href="{% url 'web:admin_dashboard' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Панель</a>
-    <h1 class="text-2xl font-bold text-white">Разрешительные документы</h1>
-    <span class="text-sm text-slate-500">({{ permits|length }} на проверке)</span>
+    <a href="{% url 'web:admin_dashboard' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Панель</a>
+    <h1 class="text-2xl font-bold text-gray-900">Разрешительные документы</h1>
+    <span class="text-sm text-gray-500">({{ permits|length }} на проверке)</span>
 </div>
 
-<div class="card-dark rounded-xl p-4 mb-6 border border-blue-500/20 bg-blue-500/5">
-    <p class="text-xs text-slate-400 leading-relaxed">
+<div class="card-dark rounded-xl p-4 mb-6 border border-blue-200 bg-blue-50">
+    <p class="text-xs text-gray-600 leading-relaxed">
         Перечень регулируемых видов деятельности определяется
-        <strong class="text-slate-300">Приложением №1 к Закону РУз от 14.07.2021 № ЗРУ-701</strong>.
+        <strong class="text-gray-700">Приложением №1 к Закону РУз от 14.07.2021 № ЗРУ-701</strong>.
         Статья 12 Закона «О рекламе» и статья 13 Закона «Об электронной коммерции» обязывают проверять наличие лицензий.
     </p>
 </div>
@@ -23,30 +23,30 @@
         <div class="flex items-start justify-between gap-4 mb-4">
             <div>
                 <div class="flex items-center gap-2 mb-1">
-                    <span class="text-white font-semibold">{{ permit.get_doc_type_display }} № {{ permit.doc_number }}</span>
-                    <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-400">На проверке</span>
+                    <span class="text-gray-900 font-semibold">{{ permit.get_doc_type_display }} № {{ permit.doc_number }}</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">На проверке</span>
                 </div>
-                <div class="text-xs text-slate-400 space-y-0.5 mt-2">
-                    <div>Пользователь: <span class="text-slate-300">{{ permit.user.email }}</span></div>
-                    <div>Категория: <span class="text-slate-300">{{ permit.category.name }}</span></div>
-                    <div>Выдан: <span class="text-slate-300">{{ permit.issued_by }}</span> · {{ permit.issued_date }}</div>
+                <div class="text-xs text-gray-600 space-y-0.5 mt-2">
+                    <div>Пользователь: <span class="text-gray-700">{{ permit.user.email }}</span></div>
+                    <div>Категория: <span class="text-gray-700">{{ permit.category.name }}</span></div>
+                    <div>Выдан: <span class="text-gray-700">{{ permit.issued_by }}</span> · {{ permit.issued_date }}</div>
                     {% if permit.expires_at %}
-                    <div>Срок действия: <span class="text-slate-300">до {{ permit.expires_at }}</span></div>
+                    <div>Срок действия: <span class="text-gray-700">до {{ permit.expires_at }}</span></div>
                     {% else %}
-                    <div>Срок действия: <span class="text-slate-300">бессрочный</span></div>
+                    <div>Срок действия: <span class="text-gray-700">бессрочный</span></div>
                     {% endif %}
-                    <div>Загружен: <span class="text-slate-300">{{ permit.created_at|date:"d.m.Y H:i" }}</span></div>
+                    <div>Загружен: <span class="text-gray-700">{{ permit.created_at|date:"d.m.Y H:i" }}</span></div>
                 </div>
             </div>
             {% if permit.file %}
             <a href="{{ permit.file.url }}" target="_blank"
-               class="text-sm text-orange-400 hover:text-orange-300 transition-colors shrink-0">
+               class="text-sm text-orange-600 hover:text-orange-700 transition-colors shrink-0">
                 Открыть файл →
             </a>
             {% endif %}
         </div>
 
-        <div class="pt-4 border-t border-white/5 flex flex-col sm:flex-row gap-4">
+        <div class="pt-4 border-t border-gray-200 flex flex-col sm:flex-row gap-4">
             <!-- Approve -->
             <form method="post" action="{% url 'web:admin_permit_approve' permit.pk %}" class="flex-1">
                 {% csrf_token %}
@@ -63,7 +63,7 @@
                           class="input-dark mb-2 resize-none text-xs" required></textarea>
                 <button type="submit"
                         onclick="return confirm('Отклонить документ?')"
-                        class="w-full px-4 py-2 text-sm text-slate-300 border border-white/10 rounded-xl hover:border-white/20 transition-colors">
+                        class="w-full px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
                     ✗ Отклонить
                 </button>
             </form>
@@ -75,7 +75,7 @@
 {% else %}
 <div class="card-dark rounded-xl px-6 py-16 text-center">
     <div class="text-4xl mb-4">✅</div>
-    <p class="text-slate-400 text-sm">Документов на проверке нет.</p>
+    <p class="text-gray-600 text-sm">Документов на проверке нет.</p>
 </div>
 {% endif %}
 {% endblock %}
