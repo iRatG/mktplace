@@ -7,6 +7,7 @@ from django.template.loader import render_to_string
 
 from apps.business_queries.models import Ticket
 from apps.campaigns.models import Campaign, DirectOffer
+from apps.campaigns.validation import campaign_param_errors
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.registration.models import IPApplication, LegalEntityApplication
@@ -17,6 +18,28 @@ class SupportMessageForm(forms.Form):
     name = forms.CharField(max_length=150)
     email = forms.EmailField()
     message = forms.CharField(widget=forms.Textarea)
+
+
+def _strip_spaces(value):
+    """«1 500 000» → «1500000»: убрать пробелы и NBSP между разрядами."""
+    if isinstance(value, str):
+        # \s в str-регэкспе ловит и NBSP (U+00A0, U+202F)
+        return re.sub(r"\s", "", value)
+    return value
+
+
+class SpacedDecimalField(forms.DecimalField):
+    """DecimalField, принимающий сумму с пробелами между разрядами."""
+
+    def to_python(self, value):
+        return super().to_python(_strip_spaces(value))
+
+
+class SpacedIntegerField(forms.IntegerField):
+    """IntegerField, принимающий число с пробелами между разрядами."""
+
+    def to_python(self, value):
+        return super().to_python(_strip_spaces(value))
 
 
 class CampaignForm(forms.ModelForm):
@@ -58,6 +81,12 @@ class CampaignForm(forms.ModelForm):
             "min_subscribers", "content_types", "allowed_socials",
             "max_bloggers",
         ]
+        field_classes = {
+            "fixed_price": SpacedDecimalField,
+            "budget": SpacedDecimalField,
+            "cpa_rate": SpacedDecimalField,
+            "min_subscribers": SpacedIntegerField,
+        }
         widgets = {
             "start_date": forms.DateInput(attrs={"type": "date"}),
             "end_date": forms.DateInput(attrs={"type": "date"}),
@@ -104,6 +133,19 @@ class CampaignForm(forms.ModelForm):
         deadline = cleaned.get("deadline")
         if deadline and deadline < _tz.now().date():
             self.add_error("deadline", "Дедлайн не может быть в прошлом.")
+
+        errors = campaign_param_errors(
+            payment_type=payment_type,
+            fixed_price=cleaned.get("fixed_price"),
+            budget=cleaned.get("budget"),
+            start_date=cleaned.get("start_date"),
+            end_date=cleaned.get("end_date"),
+            deadline=cleaned.get("deadline"),
+            max_bloggers=cleaned.get("max_bloggers"),
+        )
+        for field, message in errors.items():
+            if field not in self.errors:
+                self.add_error(field, message)
 
         return cleaned
 

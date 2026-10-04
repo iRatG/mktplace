@@ -105,8 +105,9 @@ def campaign_edit(request, pk):
 @require_POST
 def campaign_submit(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
-    if campaign.status != Campaign.Status.DRAFT:
-        messages.error(request, "Только черновики можно отправить на модерацию.")
+    # Отклонённую кампанию после правок отправляют повторно; причину очищает одобрение.
+    if campaign.status not in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
+        messages.error(request, "На модерацию можно отправить только черновик или отклонённую кампанию.")
     else:
         campaign.status = Campaign.Status.MODERATION
         campaign.save(update_fields=["status"])

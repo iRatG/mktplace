@@ -63,6 +63,7 @@ from .admin_panel import (
     _staff_required,
     admin_dashboard,
     admin_campaigns,
+    admin_campaign_detail,
     admin_campaign_approve,
     admin_campaign_reject,
     admin_platforms,

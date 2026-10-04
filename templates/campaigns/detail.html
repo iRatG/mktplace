@@ -1,4 +1,5 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
+{% load money %}
 
 {% block title %}{{ campaign.name }} — ublogers{% endblock %}
 
@@ -38,6 +39,13 @@
 
         <!-- Advertiser actions -->
         {% if is_owner %}
+        {% if campaign.status == 'rejected' %}
+        <div class="card-dark rounded-xl p-5 border border-red-500/30">
+            <div class="text-sm font-semibold text-red-300 mb-1">Кампания отклонена модератором</div>
+            <div class="text-sm text-slate-200 whitespace-pre-line">{{ campaign.rejection_reason|default:"Причина не указана." }}</div>
+            <div class="text-xs text-slate-400 mt-2">Исправьте кампанию и отправьте её на модерацию снова.</div>
+        </div>
+        {% endif %}
         <div class="card-dark rounded-xl p-6">
             <h2 class="font-semibold text-white mb-4">Управление кампанией</h2>
             <div class="flex flex-wrap gap-2">
@@ -81,7 +89,7 @@
                         <a href="{% url 'web:blogger_public_profile' resp.blogger.pk %}" class="text-sm font-medium text-white hover:text-orange-400 transition-colors">{{ resp.blogger.email }}</a>
                         <div class="text-xs text-slate-500 mt-0.5">
                             {{ resp.platform }} · {{ resp.content_type }}
-                            {% if resp.proposed_price %}· {{ resp.proposed_price }} {{ currency.symbol }}{% endif %}
+                            {% if resp.proposed_price %}· {{ resp.proposed_price|money }} {{ currency.symbol }}{% endif %}
                         </div>
                         {% if resp.message %}
                         <div class="text-xs text-slate-500 mt-1 italic">"{{ resp.message|truncatechars:80 }}"</div>
@@ -177,7 +185,7 @@
             <dl class="space-y-2 text-sm">
                 <div class="flex justify-between">
                     <dt class="text-slate-500">Бюджет</dt>
-                    <dd class="font-medium text-white">{{ campaign.budget }} {{ currency.symbol }}</dd>
+                    <dd class="font-medium text-white">{{ campaign.budget|money }} {{ currency.symbol }}</dd>
                 </div>
                 <div class="flex justify-between">
                     <dt class="text-slate-500">Тип оплаты</dt>
@@ -186,13 +194,31 @@
                 {% if campaign.fixed_price %}
                 <div class="flex justify-between">
                     <dt class="text-slate-500">Фикс. цена</dt>
-                    <dd class="font-medium text-white">{{ campaign.fixed_price }} {{ currency.symbol }}</dd>
+                    <dd class="font-medium text-white">{{ campaign.fixed_price|money }} {{ currency.symbol }}</dd>
+                </div>
+                {% endif %}
+                {% if campaign.payment_type == 'cpa' and campaign.cpa_rate %}
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Ставка CPA</dt>
+                    <dd class="font-medium text-white">{{ campaign.cpa_rate|money }} {{ currency.symbol }} · {{ campaign.get_cpa_type_display }}</dd>
                 </div>
                 {% endif %}
                 {% if campaign.min_subscribers %}
                 <div class="flex justify-between">
                     <dt class="text-slate-500">Мин. подписчиков</dt>
-                    <dd class="font-medium text-white">{{ campaign.min_subscribers|floatformat:0 }}</dd>
+                    <dd class="font-medium text-white">{{ campaign.min_subscribers|money }}</dd>
+                </div>
+                {% endif %}
+                {% if campaign.start_date %}
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Начало</dt>
+                    <dd class="font-medium text-white">{{ campaign.start_date|date:"d.m.Y" }}</dd>
+                </div>
+                {% endif %}
+                {% if campaign.end_date %}
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Окончание</dt>
+                    <dd class="font-medium text-white">{{ campaign.end_date|date:"d.m.Y" }}</dd>
                 </div>
                 {% endif %}
                 {% if campaign.deadline %}
@@ -201,6 +227,10 @@
                     <dd class="font-medium text-white">{{ campaign.deadline|date:"d.m.Y" }}</dd>
                 </div>
                 {% endif %}
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Макс. блогеров</dt>
+                    <dd class="font-medium text-white">{% if campaign.max_bloggers %}{{ campaign.max_bloggers }}{% else %}без ограничения{% endif %}</dd>
+                </div>
                 {% if campaign.category %}
                 <div class="flex justify-between">
                     <dt class="text-slate-500">Категория</dt>

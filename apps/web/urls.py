@@ -72,6 +72,7 @@ urlpatterns = [
     # Admin panel (staff only)
     path("panel/", views.admin_dashboard, name="admin_dashboard"),
     path("panel/campaigns/", views.admin_campaigns, name="admin_campaigns"),
+    path("panel/campaigns/<int:pk>/", views.admin_campaign_detail, name="admin_campaign_detail"),
     path("panel/campaigns/<int:pk>/approve/", views.admin_campaign_approve, name="admin_campaign_approve"),
     path("panel/campaigns/<int:pk>/reject/", views.admin_campaign_reject, name="admin_campaign_reject"),
     path("panel/platforms/", views.admin_platforms, name="admin_platforms"),

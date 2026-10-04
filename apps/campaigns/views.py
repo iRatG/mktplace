@@ -59,9 +59,9 @@ class CampaignViewSet(viewsets.ModelViewSet):
         campaign = self.get_object()
         if campaign.advertiser != request.user:
             raise PermissionDenied("You can only submit your own campaigns.")
-        if campaign.status != Campaign.Status.DRAFT:
+        if campaign.status not in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
             return DRFResponse(
-                {"detail": "Only draft campaigns can be submitted for moderation."},
+                {"detail": "Only draft or rejected campaigns can be submitted for moderation."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         campaign.status = Campaign.Status.MODERATION

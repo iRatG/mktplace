@@ -1,4 +1,5 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
+{% load static %}
 
 {% block title %}{% if campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %} — ublogers{% endblock %}
 
@@ -18,7 +19,9 @@
         {% csrf_token %}
 
         {% if form.non_field_errors %}
-        <div class="alert-error">{{ form.non_field_errors.0 }}</div>
+        <div class="alert-error">
+            {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
         {% endif %}
 
         <!-- Название -->
@@ -26,27 +29,29 @@
             <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide">Основное</h2>
 
             <div>
-                <label class="block text-sm text-slate-300 mb-1">Название кампании *</label>
-                <input type="text" name="name" value="{{ form.name.value|default:'' }}"
+                <label for="id_name" class="block text-sm text-slate-300 mb-1">Название кампании *</label>
+                <input type="text" name="name" id="id_name" value="{{ form.name.value|default:'' }}"
                     class="input-dark" placeholder="Например: Запуск нового продукта" required>
-                {% if form.name.errors %}<p class="text-red-400 text-xs mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+                {% for error in form.name.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
-                <label class="block text-sm text-slate-300 mb-1">Описание</label>
-                <textarea name="description" rows="4"
+                <label for="id_description" class="block text-sm text-slate-300 mb-1">Описание</label>
+                <textarea name="description" id="id_description" rows="4"
                     class="input-dark resize-none"
                     placeholder="Опишите задачу, требования к контенту, целевую аудиторию...">{{ form.description.value|default:'' }}</textarea>
+                {% for error in form.description.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
-                <label class="block text-sm text-slate-300 mb-1">Категория</label>
-                <select name="category" class="input-dark">
+                <label for="id_category" class="block text-sm text-slate-300 mb-1">Категория</label>
+                <select name="category" id="id_category" class="input-dark">
                     <option value="">— не выбрана —</option>
                     {% for cat in form.fields.category.queryset %}
                     <option value="{{ cat.pk }}" {% if form.category.value|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
                     {% endfor %}
                 </select>
+                {% for error in form.category.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
         </div>
 
@@ -59,31 +64,56 @@
                 <div class="flex gap-3">
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="payment_type" value="fixed"
-                            {% if form.payment_type.value != 'cpa' %}checked{% endif %}
-                            onchange="document.getElementById('fixed_price_row').classList.remove('hidden')">
+                            {% if form.payment_type.value != 'cpa' %}checked{% endif %}>
                         <span class="text-sm text-white">Фиксированная</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="payment_type" value="cpa"
-                            {% if form.payment_type.value == 'cpa' %}checked{% endif %}
-                            onchange="document.getElementById('fixed_price_row').classList.add('hidden')">
+                            {% if form.payment_type.value == 'cpa' %}checked{% endif %}>
                         <span class="text-sm text-white">CPA</span>
                     </label>
                 </div>
+                {% for error in form.payment_type.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
 
             <div id="fixed_price_row" {% if form.payment_type.value == 'cpa' %}class="hidden"{% endif %}>
-                <label class="block text-sm text-slate-300 mb-1">Цена за размещение ({{ currency.symbol }}) *</label>
-                <input type="number" name="fixed_price" value="{{ form.fixed_price.value|default:'' }}"
-                    class="input-dark" placeholder="5000" min="0" step="0.01">
-                {% if form.fixed_price.errors %}<p class="text-red-400 text-xs mt-1">{{ form.fixed_price.errors.0 }}</p>{% endif %}
+                {% with label="Цена за размещение ("|add:currency.symbol|add:") *" %}
+                {% include "partials/number_input.html" with field=form.fixed_price label=label step=10000 placeholder="150 000" %}
+                {% endwith %}
+            </div>
+
+            <div id="cpa_block" class="space-y-4{% if form.payment_type.value != 'cpa' %} hidden{% endif %}">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="id_cpa_type" class="block text-sm text-slate-300 mb-1">Тип конверсии *</label>
+                        <select name="cpa_type" id="id_cpa_type" class="input-dark">
+                            <option value="">— выберите —</option>
+                            {% for value, label in form.fields.cpa_type.choices %}{% if value %}
+                            <option value="{{ value }}" {% if form.cpa_type.value == value %}selected{% endif %}>{{ label }}</option>
+                            {% endif %}{% endfor %}
+                        </select>
+                        {% for error in form.cpa_type.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    </div>
+                    <div>
+                        {% with label="Ставка за конверсию ("|add:currency.symbol|add:") *" %}
+                        {% include "partials/number_input.html" with field=form.cpa_rate label=label step=10000 placeholder="5 000" %}
+                        {% endwith %}
+                    </div>
+                </div>
+                <div>
+                    <label for="id_cpa_tracking_url" class="block text-sm text-slate-300 mb-1">Ссылка трекинга</label>
+                    <input type="url" name="cpa_tracking_url" id="id_cpa_tracking_url"
+                        value="{{ form.cpa_tracking_url.value|default:'' }}"
+                        class="input-dark" placeholder="https://example.com/landing">
+                    {% for error in form.cpa_tracking_url.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
+                </div>
             </div>
 
             <div>
-                <label class="block text-sm text-slate-300 mb-1">Общий бюджет ({{ currency.symbol }}) *</label>
-                <input type="number" name="budget" value="{{ form.budget.value|default:'' }}"
-                    class="input-dark" placeholder="50000" min="0" step="0.01" required>
-                {% if form.budget.errors %}<p class="text-red-400 text-xs mt-1">{{ form.budget.errors.0 }}</p>{% endif %}
+                {% with label="Общий бюджет ("|add:currency.symbol|add:") *" %}
+                {% include "partials/number_input.html" with field=form.budget label=label step=10000 placeholder="1 500 000" required=True %}
+                {% endwith %}
+                <p class="text-xs text-slate-400 mt-1" data-bloggers-hint aria-live="polite"></p>
             </div>
         </div>
 
@@ -91,31 +121,34 @@
         <div class="card-dark rounded-xl p-5 space-y-4">
             <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide">Сроки и требования</h2>
 
-            <div class="grid grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                    <label class="block text-sm text-slate-300 mb-1">Начало</label>
-                    <input type="date" name="start_date" value="{{ form.start_date.value|default:'' }}" class="input-dark">
+                    <label for="id_start_date" class="block text-sm text-slate-300 mb-1">Начало</label>
+                    <input type="date" name="start_date" id="id_start_date" value="{{ form.start_date.value|default:''|stringformat:'s' }}" class="input-dark">
+                    {% for error in form.start_date.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
                 </div>
                 <div>
-                    <label class="block text-sm text-slate-300 mb-1">Конец</label>
-                    <input type="date" name="end_date" value="{{ form.end_date.value|default:'' }}" class="input-dark">
+                    <label for="id_end_date" class="block text-sm text-slate-300 mb-1">Конец</label>
+                    <input type="date" name="end_date" id="id_end_date" value="{{ form.end_date.value|default:''|stringformat:'s' }}" class="input-dark">
+                    {% for error in form.end_date.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
                 </div>
                 <div>
-                    <label class="block text-sm text-slate-300 mb-1">Дедлайн контента</label>
-                    <input type="date" name="deadline" value="{{ form.deadline.value|default:'' }}" class="input-dark">
+                    <label for="id_deadline" class="block text-sm text-slate-300 mb-1">Дедлайн контента</label>
+                    <input type="date" name="deadline" id="id_deadline" value="{{ form.deadline.value|default:''|stringformat:'s' }}" class="input-dark">
+                    {% for error in form.deadline.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-sm text-slate-300 mb-1">Мин. подписчиков</label>
-                    <input type="number" name="min_subscribers" value="{{ form.min_subscribers.value|default:'0' }}"
-                        class="input-dark" min="0">
+                    {% include "partials/number_input.html" with field=form.min_subscribers label="Мин. подписчиков" step=100 placeholder="0" %}
                 </div>
                 <div>
-                    <label class="block text-sm text-slate-300 mb-1">Макс. блогеров</label>
-                    <input type="number" name="max_bloggers" value="{{ form.max_bloggers.value|default:'0' }}"
+                    <label for="id_max_bloggers" class="block text-sm text-slate-300 mb-1">Макс. блогеров</label>
+                    <input type="number" name="max_bloggers" id="id_max_bloggers" value="{{ form.max_bloggers.value|default_if_none:'0' }}"
                         class="input-dark" min="0">
+                    <p class="text-xs text-slate-500 mt-1">0 — без ограничения</p>
+                    {% for error in form.max_bloggers.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
                 </div>
             </div>
         </div>
@@ -135,6 +168,7 @@
                     </label>
                     {% endfor %}
                 </div>
+                {% for error in form.content_types.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
@@ -148,6 +182,7 @@
                     </label>
                     {% endfor %}
                 </div>
+                {% for error in form.allowed_socials.errors %}<p class="text-red-400 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
         </div>
 
@@ -163,4 +198,35 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/number-input.js' %}"></script>
+<script>
+(function () {
+    // Тип оплаты: показать цену за размещение или блок CPA.
+    var fixedRow = document.getElementById("fixed_price_row");
+    var cpaBlock = document.getElementById("cpa_block");
+    document.querySelectorAll("input[name=payment_type]").forEach(function (radio) {
+        radio.addEventListener("change", function () {
+            var isCpa = radio.value === "cpa" && radio.checked;
+            fixedRow.classList.toggle("hidden", isCpa);
+            cpaBlock.classList.toggle("hidden", !isCpa);
+        });
+    });
+
+    // Даты: конец не раньше начала, дедлайн внутри срока кампании.
+    var start = document.getElementById("id_start_date");
+    var end = document.getElementById("id_end_date");
+    var deadline = document.getElementById("id_deadline");
+    function syncDates() {
+        end.min = start.value || "";
+        deadline.min = start.value || "";
+        deadline.max = end.value || "";
+    }
+    start.addEventListener("change", syncDates);
+    end.addEventListener("change", syncDates);
+    syncDates();
+})();
+</script>
 {% endblock %}

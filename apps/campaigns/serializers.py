@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Campaign, Response
+from .validation import campaign_param_errors
 
 
 class CampaignSerializer(serializers.ModelSerializer):
@@ -98,6 +99,24 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"cpa_rate": "CPA rate is required for CPA payment type."}
                 )
+
+        # При частичном обновлении недостающие значения берём из кампании.
+        def value(field):
+            if field in attrs:
+                return attrs[field]
+            return getattr(self.instance, field, None)
+
+        errors = campaign_param_errors(
+            payment_type=value("payment_type") or Campaign.PaymentType.FIXED,
+            fixed_price=value("fixed_price"),
+            budget=value("budget"),
+            start_date=value("start_date"),
+            end_date=value("end_date"),
+            deadline=value("deadline"),
+            max_bloggers=value("max_bloggers"),
+        )
+        if errors:
+            raise serializers.ValidationError(errors)
         return attrs
 
     def create(self, validated_data):

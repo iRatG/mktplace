@@ -245,6 +245,9 @@ class AnonymousAccessTest(TestCase):
         r = self.c.get(reverse("web:admin_campaigns"))
         self.assertEqual(r.status_code, 302)
 
+    def test_admin_campaign_detail_anon(self):
+        self._assert_login_redirect(reverse("web:admin_campaign_detail", kwargs={"pk": self.campaign.pk}))
+
     def test_admin_platforms_anon(self):
         r = self.c.get(reverse("web:admin_platforms"))
         self.assertEqual(r.status_code, 302)

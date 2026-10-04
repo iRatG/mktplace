@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}{{ campaign.name }} — Модерация кампании{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center gap-3 flex-wrap">
+    <a href="{% url 'web:admin_campaigns' %}" class="text-slate-400 hover:text-white text-sm transition-colors">← Очередь модерации</a>
+    <h1 class="text-2xl font-bold text-white">{{ campaign.name }}</h1>
+    <span class="text-xs px-2 py-0.5 rounded-full
+        {% if campaign.status == 'active' %}bg-green-500/15 text-green-400
+        {% elif campaign.status == 'moderation' %}bg-yellow-500/15 text-yellow-400
+        {% elif campaign.status == 'rejected' %}bg-red-500/15 text-red-400
+        {% else %}bg-white/5 text-slate-400{% endif %}">{{ campaign.get_status_display }}</span>
+</div>
+
+{% if campaign.rejection_reason %}
+<div class="card-dark rounded-xl p-4 mb-4 border border-red-500/20">
+    <div class="text-xs text-slate-400 mb-1">Последняя причина отклонения</div>
+    <div class="text-sm text-red-300 whitespace-pre-line">{{ campaign.rejection_reason }}</div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <div class="card-dark rounded-xl p-6">
+        <h2 class="text-white font-semibold mb-3">Кампания</h2>
+        <dl class="text-sm space-y-2">
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Рекламодатель</dt><dd class="text-slate-200">{{ campaign.advertiser.email }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Категория</dt><dd class="text-slate-200">{{ campaign.category.name|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Создана</dt><dd class="text-slate-200">{{ campaign.created_at|date:"d.m.Y H:i" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Обновлена</dt><dd class="text-slate-200">{{ campaign.updated_at|date:"d.m.Y H:i" }}</dd></div>
+            <div>
+                <dt class="text-slate-400">Описание</dt>
+                <dd class="text-slate-200 mt-1 whitespace-pre-line">{{ campaign.description|default:"—" }}</dd>
+            </div>
+            {% if campaign.image %}
+            <div>
+                <dt class="text-slate-400 mb-1">Изображение</dt>
+                <dd><img src="{{ campaign.image.url }}" alt="{{ campaign.name }}" class="rounded-lg max-h-48"></dd>
+            </div>
+            {% endif %}
+        </dl>
+    </div>
+
+    <div class="card-dark rounded-xl p-6">
+        <h2 class="text-white font-semibold mb-3">Оплата и сроки</h2>
+        <dl class="text-sm space-y-2">
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Тип оплаты</dt><dd class="text-slate-200">{{ campaign.get_payment_type_display }}</dd></div>
+            {% if campaign.payment_type == 'cpa' %}
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Тип конверсии</dt><dd class="text-slate-200">{{ campaign.get_cpa_type_display|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Ставка CPA</dt><dd class="text-slate-200">{% if campaign.cpa_rate is not None %}{{ campaign.cpa_rate|money }} {{ currency.symbol }}{% else %}—{% endif %}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Ссылка трекинга</dt><dd class="text-slate-200 break-all">{{ campaign.cpa_tracking_url|default:"—" }}</dd></div>
+            {% else %}
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Цена за размещение</dt><dd class="text-slate-200">{% if campaign.fixed_price is not None %}{{ campaign.fixed_price|money }} {{ currency.symbol }}{% else %}—{% endif %}</dd></div>
+            {% endif %}
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Бюджет</dt><dd class="text-slate-200">{{ campaign.budget|money }} {{ currency.symbol }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Начало</dt><dd class="text-slate-200">{{ campaign.start_date|date:"d.m.Y"|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Окончание</dt><dd class="text-slate-200">{{ campaign.end_date|date:"d.m.Y"|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Дедлайн контента</dt><dd class="text-slate-200">{{ campaign.deadline|date:"d.m.Y"|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Мин. подписчиков</dt><dd class="text-slate-200">{{ campaign.min_subscribers|money }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Макс. блогеров</dt><dd class="text-slate-200">{% if campaign.max_bloggers %}{{ campaign.max_bloggers }}{% else %}без ограничения{% endif %}</dd></div>
+        </dl>
+    </div>
+</div>
+
+<div class="card-dark rounded-xl p-6 mb-4">
+    <h2 class="text-white font-semibold mb-3">Форматы и площадки</h2>
+    <div class="text-xs text-slate-400 mb-1">Форматы контента</div>
+    <div class="flex flex-wrap gap-2 mb-3">
+        {% for ct in campaign.content_types %}
+        <span class="text-xs bg-white/5 text-slate-300 px-2 py-0.5 rounded-full">{{ ct }}</span>
+        {% empty %}<span class="text-sm text-slate-500">не указаны</span>
+        {% endfor %}
+    </div>
+    <div class="text-xs text-slate-400 mb-1">Площадки</div>
+    <div class="flex flex-wrap gap-2">
+        {% for soc in campaign.allowed_socials %}
+        <span class="text-xs bg-white/5 text-slate-300 px-2 py-0.5 rounded-full">{{ soc }}</span>
+        {% empty %}<span class="text-sm text-slate-500">не указаны</span>
+        {% endfor %}
+    </div>
+</div>
+
+{% if campaign.status == 'moderation' %}
+<div class="card-dark rounded-xl p-6 flex flex-wrap gap-3 items-start">
+    <form method="post" action="{% url 'web:admin_campaign_approve' campaign.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">✅ Одобрить</button>
+    </form>
+
+    <form method="post" action="{% url 'web:admin_campaign_reject' campaign.pk %}" class="flex-1 min-w-[16rem]">
+        {% csrf_token %}
+        <input type="hidden" name="back" value="detail">
+        <label for="reject_reason" class="block text-sm text-slate-300 mb-1">Причина отклонения *</label>
+        <textarea name="reason" id="reject_reason" rows="3" required
+                  placeholder="Что исправить рекламодателю"
+                  class="input-dark mb-2 resize-none"></textarea>
+        <button type="submit" class="px-4 py-2 text-sm text-red-400 border border-red-400/30 rounded-xl hover:bg-red-400/10 transition-colors">
+            ❌ Отклонить
+        </button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

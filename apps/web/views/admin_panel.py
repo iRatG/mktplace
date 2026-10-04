@@ -100,6 +100,15 @@ def admin_campaigns(request):
 
 
 @_staff_required
+def admin_campaign_detail(request, pk):
+    """Карточка кампании для модерации: все параметры, формы — только для MODERATION."""
+    campaign = get_object_or_404(
+        Campaign.objects.select_related("advertiser", "category"), pk=pk
+    )
+    return render(request, "admin_panel/campaign_detail.html", {"campaign": campaign})
+
+
+@_staff_required
 @require_POST
 def admin_campaign_approve(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk)
@@ -122,6 +131,11 @@ def admin_campaign_reject(request, pk):
         messages.error(request, "Кампания не на модерации.")
         return redirect("web:admin_campaigns")
     reason = request.POST.get("reason", "").strip()
+    if not reason:
+        messages.error(request, "Укажите причину отклонения — рекламодатель увидит её и исправит кампанию.")
+        if request.POST.get("back") == "detail":
+            return redirect("web:admin_campaign_detail", pk=campaign.pk)
+        return redirect("web:admin_campaigns")
     campaign.status = Campaign.Status.REJECTED
     campaign.rejection_reason = reason
     campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
