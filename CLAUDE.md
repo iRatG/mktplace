@@ -86,10 +86,13 @@ web, а celery/celery-beat тихо остаются на старом обра�
 стоило продакшну потерянной Celery-задачи (`send_blogger_sms_credentials`,
 19.09.2026, см. тот же openspec change) — новые задачи на старом образе
 регистрируются брокером как unregistered и отбрасываются без единой видимой
-ошибки. После любого деплоя с новыми Celery-задачами — проверять
-`docker logs mktplace-celery-1 | grep "Apply all migrations"`: список
-приложений должен совпадать с тем, что видит `web` (см. `docs/DEPLOY.md`,
-раздел «Проверка работоспособности»).
+ошибки. После любого деплоя — проверять, что у web, celery и celery-beat один и тот же
+образ: `docker inspect -f '{{.Image}}' mktplace-web-1 mktplace-celery-1 mktplace-celery-beat-1`
+(три одинаковых id) и `docker exec mktplace-celery-1 celery -A config inspect registered`
+(новые задачи в списке) — см. `docs/DEPLOY.md`, раздел «Проверка работоспособности».
+`migrate` и `collectstatic` выполняет только web: у celery/celery-beat в `docker-compose.vps.yml`
+задан `SKIP_MIGRATIONS=1` (иначе при выпуске с новой миграцией они гоняются с web и один
+падает с `DuplicateTable`).
 
 ### Защита публичных форм и API — IP клиента только через `client_ip()`
 IP для лимитов и блокировок берётся функцией `apps.users.security.client_ip(request)`

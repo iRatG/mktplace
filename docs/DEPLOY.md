@@ -258,15 +258,20 @@ docker logs mktplace-web-1 --tail 50
 # Логи celery
 docker logs mktplace-celery-1 --tail 20
 
-# ВАЖНО: убедиться, что celery не отстал от web по коду. При старте celery
-# печатает список установленных приложений при миграции — он должен включать
-# ВСЕ текущие Django-приложения (в частности registration, business_queries).
-# Если каких-то новых приложений в этом списке нет — образ celery устарел,
-# несмотря на общий тег image: (см. "Частые ошибки" ниже). Один раз это уже
-# стоило продакшну молча потерянной Celery-задачи (send_blogger_sms_credentials,
-# 19.09.2026) — задачи новых приложений на старом образе не регистрируются и
-# отбрасываются брокером без единой видимой пользователю ошибки.
-docker logs mktplace-celery-1 2>&1 | grep -A3 "Apply all migrations"
+# ВАЖНО: убедиться, что celery не отстал от web по коду — у всех трёх сервисов
+# должен быть один и тот же образ (три одинаковых id), а новые задачи должны быть
+# зарегистрированы в воркере. Если образ celery отличается — он устарел, несмотря
+# на общий тег image: (см. "Частые ошибки" ниже). Один раз это уже стоило
+# продакшну молча потерянной Celery-задачи (send_blogger_sms_credentials,
+# 19.09.2026) — задачи на старом образе не регистрируются и отбрасываются
+# брокером без единой видимой пользователю ошибки.
+docker inspect -f '{{.Name}} {{.Image}}' mktplace-web-1 mktplace-celery-1 mktplace-celery-beat-1
+docker exec mktplace-celery-1 celery -A config inspect registered
+
+# Миграции и collectstatic выполняет только web (у celery/celery-beat в
+# docker-compose.vps.yml задан SKIP_MIGRATIONS=1). Применённые миграции —
+# в логе web:
+docker logs mktplace-web-1 2>&1 | grep -A3 "Apply all migrations"
 ```
 
 Сайт: `https://ublogers.uz` (хостовой nginx → `127.0.0.1:8080`)
@@ -457,6 +462,14 @@ The message has been ignored and discarded.
 сборки `web` достаточно (см. проверку в разделе «Проверка работоспособности»
 выше). Если ошибка появилась снова — проверить, что тег `image:` не потерялся
 при правках compose-файла.
+
+### DuplicateTable при старте после выпуска с новой миграцией
+**Причина (найдена 04.10.2026):** `entrypoint.sh` выполнял `migrate` во всех трёх
+сервисах, а они стартуют одновременно на одном образе: один контейнер создавал
+таблицу, второй падал с `relation "..." already exists` и перезапускался.
+Теперь у celery и celery-beat в `docker-compose.vps.yml` задан `SKIP_MIGRATIONS=1`,
+и `migrate`/`collectstatic` выполняет только web. Если ошибка вернулась —
+проверить, что `SKIP_MIGRATIONS` не потерялся при правках compose-файла.
 
 ---
 

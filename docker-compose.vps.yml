@@ -69,6 +69,7 @@ services:
       - .env.prod
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      SKIP_MIGRATIONS: "1"  # migrate/collectstatic делает только web (см. entrypoint.sh)
     depends_on:
       db:
         condition: service_healthy
@@ -86,6 +87,7 @@ services:
       - .env.prod
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      SKIP_MIGRATIONS: "1"  # migrate/collectstatic делает только web (см. entrypoint.sh)
     depends_on:
       db:
         condition: service_healthy

@@ -1,11 +1,16 @@
 #!/bin/sh
 set -e
 
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
+# collectstatic и migrate выполняет только web. celery/celery-beat стартуют на том же образе
+# одновременно с web; если они тоже делают migrate, при выпуске с новой миграцией второй
+# контейнер падает с DuplicateTable (так было 04.10.2026). Им задают SKIP_MIGRATIONS=1.
+if [ "${SKIP_MIGRATIONS:-0}" != "1" ]; then
+    echo "Collecting static files..."
+    python manage.py collectstatic --noinput
 
-echo "Applying migrations..."
-python manage.py migrate --noinput
+    echo "Applying migrations..."
+    python manage.py migrate --noinput
+fi
 
 # If arguments were passed (e.g. `docker compose run --rm web python manage.py ...`),
 # execute them directly instead of starting gunicorn.
