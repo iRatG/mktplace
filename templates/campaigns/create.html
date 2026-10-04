@@ -1,18 +1,21 @@
 {% extends "base.html" %}
 {% load static money %}
 
-{% block title %}{% if campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %} — ublogers{% endblock %}
+{% block title %}{% if proposal_mode %}Правки модератора{% elif campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %} — ublogers{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
 
     <!-- Header -->
     <div class="mb-6">
-        <a href="{% if campaign %}{% url 'web:campaign_detail' campaign.pk %}{% else %}{% url 'web:campaign_list' %}{% endif %}"
+        <a href="{% if proposal_mode %}{% url 'web:admin_campaign_detail' campaign.pk %}{% elif campaign %}{% url 'web:campaign_detail' campaign.pk %}{% else %}{% url 'web:campaign_list' %}{% endif %}"
            class="text-sm text-slate-400 hover:text-white transition-colors">← Назад</a>
         <h1 class="text-2xl font-bold text-white mt-2">
-            {% if campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %}
+            {% if proposal_mode %}Правки модератора: {{ campaign.name }}{% elif campaign %}Редактировать кампанию{% else %}Новая кампания{% endif %}
         </h1>
+        {% if proposal_mode %}
+        <p class="text-sm text-slate-400 mt-1">Измените нужные поля и напишите комментарий. Рекламодатель увидит «было → стало» и либо примет правки (кампания сразу станет активной), либо отклонит и исправит сам.</p>
+        {% endif %}
     </div>
 
     <form method="post" class="space-y-5">
@@ -187,12 +190,20 @@
             </div>
         </div>
 
+        {% if proposal_mode %}
+        <div class="card-dark rounded-xl p-5">
+            <label for="proposal_comment" class="block text-sm text-slate-300 mb-1">Комментарий для рекламодателя *</label>
+            <textarea name="proposal_comment" id="proposal_comment" rows="3" required class="input-dark resize-none"
+                placeholder="Что и почему исправлено">{{ proposal_comment }}</textarea>
+        </div>
+        {% endif %}
+
         <!-- Actions -->
         <div class="flex gap-3 pb-8">
             <button type="submit" class="btn-orange px-6 py-2.5 text-sm">
-                {% if campaign %}Сохранить изменения{% else %}Создать кампанию{% endif %}
+                {% if proposal_mode %}Отправить рекламодателю{% elif campaign %}Сохранить изменения{% else %}Создать кампанию{% endif %}
             </button>
-            <a href="{% if campaign %}{% url 'web:campaign_detail' campaign.pk %}{% else %}{% url 'web:campaign_list' %}{% endif %}"
+            <a href="{% if proposal_mode %}{% url 'web:admin_campaign_detail' campaign.pk %}{% elif campaign %}{% url 'web:campaign_detail' campaign.pk %}{% else %}{% url 'web:campaign_list' %}{% endif %}"
                class="px-6 py-2.5 text-sm text-slate-400 hover:text-white border border-white/10 rounded-xl transition-colors">
                 Отмена
             </a>

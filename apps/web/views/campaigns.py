@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.billing.services import BillingService
-from apps.campaigns.models import Campaign
+from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.validation import EDITABLE_STATUSES, deals_in_cap
 from apps.deals.models import Deal, DealStatusLog
@@ -12,6 +12,7 @@ from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
 from apps.users.models import User
 
+from ..campaign_proposals import describe_changes, proposal_form, save_campaign_form
 from ..forms import CampaignForm, _strip_spaces
 from .pages import _redirect_dashboard
 
@@ -24,6 +25,11 @@ def _responses_with_blogger_data(campaign):
         .prefetch_related("platform__categories")
         .order_by("-created_at")
     )
+
+
+def _pending_proposal_context(campaign):
+    proposal = campaign.edit_proposals.filter(status=CampaignEditProposal.Status.PENDING).first()
+    return {"proposal": proposal, "proposal_rows": describe_changes(proposal) if proposal else []}
 
 
 def _parse_price(raw):
@@ -66,6 +72,7 @@ def campaign_detail(request, pk):
             "campaign": campaign,
             "is_owner": True,
             "responses": responses,
+            **_pending_proposal_context(campaign),
         }
     elif user.role == User.Role.ADVERTISER:
         campaign = get_object_or_404(Campaign, pk=pk, advertiser=user)
@@ -74,6 +81,7 @@ def campaign_detail(request, pk):
             "campaign": campaign,
             "is_owner": True,
             "responses": responses,
+            **_pending_proposal_context(campaign),
         }
     else:
         campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)
@@ -313,3 +321,57 @@ def my_responses(request):
     )
     page_obj = Paginator(qs, 20).get_page(request.GET.get("page", 1))
     return render(request, "campaigns/my_responses.html", {"responses": page_obj, "page_obj": page_obj})
+
+
+def _answer_proposal(request, pk, accept):
+    """Владелец принимает или отклоняет правки модератора (atomic + select_for_update)."""
+    from django.db import transaction as db_transaction
+    from django.utils import timezone
+
+    campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
+    with db_transaction.atomic():
+        proposal = (
+            CampaignEditProposal.objects.select_for_update()
+            .filter(campaign=campaign, status=CampaignEditProposal.Status.PENDING).first()
+        )
+        if proposal is None or campaign.status != Campaign.Status.MODERATION:
+            messages.error(request, "Нет предложений модератора, ожидающих ответа.")
+            return redirect("web:campaign_detail", pk=pk)
+
+        if accept:
+            form = proposal_form(proposal)
+            if not form.is_valid():
+                problems = "; ".join(str(e) for errs in form.errors.values() for e in errs)
+                messages.error(request, f"Правки нельзя применить — условия кампании изменились: {problems}")
+                return redirect("web:campaign_detail", pk=pk)
+            campaign = save_campaign_form(form)
+            campaign.status = Campaign.Status.ACTIVE
+            campaign.rejection_reason = ""
+            campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
+            proposal.status = CampaignEditProposal.Status.ACCEPTED
+        else:
+            campaign.status = Campaign.Status.REJECTED
+            campaign.rejection_reason = proposal.comment
+            campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
+            proposal.status = CampaignEditProposal.Status.DECLINED
+        proposal.responded_at = timezone.now()
+        proposal.save(update_fields=["status", "responded_at"])
+
+    NotificationService.notify_campaign_changes_answered(proposal.author, campaign, accepted=accept)
+    if accept:
+        messages.success(request, "Правки приняты — кампания активна и видна блогерам.")
+    else:
+        messages.success(request, "Правки отклонены. Исправьте кампанию сами и отправьте на модерацию.")
+    return redirect("web:campaign_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def campaign_proposal_accept(request, pk):
+    return _answer_proposal(request, pk, accept=True)
+
+
+@login_required
+@require_POST
+def campaign_proposal_decline(request, pk):
+    return _answer_proposal(request, pk, accept=False)

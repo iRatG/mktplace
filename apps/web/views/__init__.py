@@ -28,6 +28,8 @@ from .campaigns import (
     response_accept,
     response_reject,
     my_responses,
+    campaign_proposal_accept,
+    campaign_proposal_decline,
 )
 from .deals import (
     deal_list,
@@ -67,6 +69,7 @@ from .admin_panel import (
     admin_campaign_detail,
     admin_campaign_approve,
     admin_campaign_reject,
+    admin_campaign_propose,
     admin_platforms,
     admin_platform_approve,
     admin_platform_reject,

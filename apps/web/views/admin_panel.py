@@ -3,20 +3,21 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib import messages
-from django.db.models import Sum
+from django.db.models import Exists, OuterRef, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.billing.models import Transaction, Wallet, WithdrawalRequest
 from apps.billing.services import BillingService
-from apps.campaigns.models import Campaign
+from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.deals.models import Deal, DealStatusLog
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.users.models import User
 
-from ..forms import CategoryForm
+from ..campaign_proposals import compute_changes, describe_changes
+from ..forms import CampaignForm, CategoryForm
 from .pages import _redirect_dashboard
 
 
@@ -94,9 +95,22 @@ def admin_campaigns(request):
     campaigns = (
         Campaign.objects.filter(status=Campaign.Status.MODERATION)
         .select_related("advertiser", "category")
+        .annotate(has_pending_proposal=Exists(_pending_proposals(OuterRef("pk"))))
         .order_by("created_at")
     )
     return render(request, "admin_panel/campaigns.html", {"campaigns": campaigns})
+
+
+def _pending_proposals(campaign):
+    return CampaignEditProposal.objects.filter(campaign=campaign, status=CampaignEditProposal.Status.PENDING)
+
+
+def _blocked_by_proposal(request, campaign):
+    """Пока рекламодатель не ответил на правки, одобрять/отклонять нельзя (issue #6)."""
+    if _pending_proposals(campaign).exists():
+        messages.error(request, "Ждём ответа рекламодателя на предложенные правки — одобрить или отклонить пока нельзя.")
+        return True
+    return False
 
 
 @_staff_required
@@ -105,7 +119,46 @@ def admin_campaign_detail(request, pk):
     campaign = get_object_or_404(
         Campaign.objects.select_related("advertiser", "category"), pk=pk
     )
-    return render(request, "admin_panel/campaign_detail.html", {"campaign": campaign})
+    proposal = _pending_proposals(campaign).select_related("author").first()
+    return render(request, "admin_panel/campaign_detail.html", {
+        "campaign": campaign,
+        "proposal": proposal,
+        "proposal_rows": describe_changes(proposal) if proposal else [],
+    })
+
+
+@_staff_required
+def admin_campaign_propose(request, pk):
+    """Модератор предлагает правки: форма кампании с текущими значениями + комментарий."""
+    campaign = get_object_or_404(Campaign.objects.select_related("advertiser"), pk=pk)
+    if campaign.status != Campaign.Status.MODERATION:
+        messages.error(request, "Предложить правки можно только для кампании на модерации.")
+        return redirect("web:admin_campaign_detail", pk=pk)
+    if _pending_proposals(campaign).exists():
+        messages.error(request, "У кампании уже есть предложение, ждём ответа рекламодателя.")
+        return redirect("web:admin_campaign_detail", pk=pk)
+
+    comment = request.POST.get("proposal_comment", "").strip()
+    # Отдельный экземпляр: ModelForm при проверке меняет instance в памяти, а кампанию
+    # до ответа рекламодателя трогать нельзя.
+    form = CampaignForm(request.POST or None, instance=Campaign.objects.get(pk=pk))
+    if request.method == "POST" and form.is_valid():
+        changes = compute_changes(campaign, form)
+        if not changes:
+            messages.error(request, "Вы ничего не изменили — предлагать нечего.")
+        elif not comment:
+            messages.error(request, "Напишите комментарий: рекламодатель увидит, зачем эти правки.")
+        else:
+            CampaignEditProposal.objects.create(
+                campaign=campaign, author=request.user, changes=changes, comment=comment,
+            )
+            NotificationService.notify_campaign_changes_proposed(campaign.advertiser, campaign)
+            messages.success(request, "Правки отправлены рекламодателю. Ждём его ответа.")
+            return redirect("web:admin_campaign_detail", pk=pk)
+
+    return render(request, "campaigns/create.html", {
+        "form": form, "campaign": campaign, "proposal_mode": True, "proposal_comment": comment,
+    })
 
 
 @_staff_required
@@ -115,6 +168,8 @@ def admin_campaign_approve(request, pk):
     if campaign.status != Campaign.Status.MODERATION:
         messages.error(request, "Кампания не на модерации.")
         return redirect("web:admin_campaigns")
+    if _blocked_by_proposal(request, campaign):
+        return redirect("web:admin_campaign_detail", pk=pk)
     campaign.status = Campaign.Status.ACTIVE
     campaign.rejection_reason = ""
     campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
@@ -130,6 +185,8 @@ def admin_campaign_reject(request, pk):
     if campaign.status != Campaign.Status.MODERATION:
         messages.error(request, "Кампания не на модерации.")
         return redirect("web:admin_campaigns")
+    if _blocked_by_proposal(request, campaign):
+        return redirect("web:admin_campaign_detail", pk=pk)
     reason = request.POST.get("reason", "").strip()
     if not reason:
         messages.error(request, "Укажите причину отклонения — рекламодатель увидит её и исправит кампанию.")

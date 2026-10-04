@@ -31,6 +31,8 @@ urlpatterns = [
     path("campaigns/<int:pk>/pause/", views.campaign_pause, name="campaign_pause"),
     path("campaigns/<int:pk>/resume/", views.campaign_resume, name="campaign_resume"),
     path("campaigns/<int:pk>/respond/", views.campaign_respond, name="campaign_respond"),
+    path("campaigns/<int:pk>/proposal/accept/", views.campaign_proposal_accept, name="campaign_proposal_accept"),
+    path("campaigns/<int:pk>/proposal/decline/", views.campaign_proposal_decline, name="campaign_proposal_decline"),
 
     # Catalog (campaigns for bloggers)
     path("catalog/", views.campaign_list, name="catalog"),
@@ -76,6 +78,7 @@ urlpatterns = [
     path("panel/campaigns/<int:pk>/", views.admin_campaign_detail, name="admin_campaign_detail"),
     path("panel/campaigns/<int:pk>/approve/", views.admin_campaign_approve, name="admin_campaign_approve"),
     path("panel/campaigns/<int:pk>/reject/", views.admin_campaign_reject, name="admin_campaign_reject"),
+    path("panel/campaigns/<int:pk>/propose/", views.admin_campaign_propose, name="admin_campaign_propose"),
     path("panel/platforms/", views.admin_platforms, name="admin_platforms"),
     path("panel/platforms/<int:pk>/approve/", views.admin_platform_approve, name="admin_platform_approve"),
     path("panel/platforms/<int:pk>/reject/", views.admin_platform_reject, name="admin_platform_reject"),

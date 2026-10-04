@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from .models import Campaign, Response
+from .models import Campaign, CampaignEditProposal, Response
 
 
 @admin.register(Campaign)
@@ -50,3 +50,10 @@ class ResponseAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     search_fields = ("blogger__email", "campaign__name")
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(CampaignEditProposal)
+class CampaignEditProposalAdmin(admin.ModelAdmin):
+    list_display = ("campaign", "author", "status", "created_at", "responded_at")
+    list_filter = ("status",)
+    raw_id_fields = ("campaign", "author")

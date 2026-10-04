@@ -246,6 +246,37 @@ class NotificationService:
             url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
         )
 
+    @staticmethod
+    def notify_campaign_changes_proposed(advertiser, campaign):
+        """Модератор предложил правки кампании → рекламодателю."""
+        NotificationService.notify(
+            user=advertiser,
+            notification_type=Notification.Type.CAMPAIGN_CHANGES_PROPOSED,
+            title="Модератор предложил правки",
+            body=f"Модератор предложил исправления в кампании «{campaign.name}». Примите их или отклоните.",
+            url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
+        )
+
+    @staticmethod
+    def notify_campaign_changes_answered(moderator, campaign, accepted):
+        """Рекламодатель принял или отклонил правки → автору-модератору."""
+        if moderator is None:
+            return
+        NotificationService.notify(
+            user=moderator,
+            notification_type=(
+                Notification.Type.CAMPAIGN_CHANGES_ACCEPTED if accepted
+                else Notification.Type.CAMPAIGN_CHANGES_DECLINED
+            ),
+            title="Правки приняты" if accepted else "Правки отклонены",
+            body=(
+                f"Рекламодатель принял ваши правки — кампания «{campaign.name}» активна."
+                if accepted else
+                f"Рекламодатель отклонил ваши правки к кампании «{campaign.name}» и исправит её сам."
+            ),
+            url=reverse("web:admin_campaign_detail", kwargs={"pk": campaign.pk}),
+        )
+
     # ── Площадки ──────────────────────────────────────────────────────────────
 
     @staticmethod

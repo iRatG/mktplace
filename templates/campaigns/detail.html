@@ -39,6 +39,23 @@
 
         <!-- Advertiser actions -->
         {% if is_owner %}
+        {% if proposal %}
+        <div class="card-dark rounded-xl p-5 border border-orange-500/40">
+            <div class="text-sm font-semibold text-orange-300 mb-1">Модератор предложил правки</div>
+            <div class="text-sm text-slate-200 whitespace-pre-line mb-3">{{ proposal.comment }}</div>
+            {% include "campaigns/_proposal_changes.html" with rows=proposal_rows %}
+            <div class="flex flex-wrap gap-2 mt-4">
+                <form method="post" action="{% url 'web:campaign_proposal_accept' campaign.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">Принять правки — кампания станет активной</button>
+                </form>
+                <form method="post" action="{% url 'web:campaign_proposal_decline' campaign.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="px-4 py-2 text-sm text-slate-300 border border-white/15 rounded-xl hover:bg-white/5 transition-colors">Отклонить и исправить самому</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
         {% if campaign.status == 'rejected' %}
         <div class="card-dark rounded-xl p-5 border border-red-500/30">
             <div class="text-sm font-semibold text-red-300 mb-1">Кампания отклонена модератором</div>

@@ -211,3 +211,43 @@ class DirectOffer(models.Model):
 
     def __str__(self):
         return f"DirectOffer {self.advertiser.email} → {self.blogger.email} ({self.status})"
+
+
+class CampaignEditProposal(models.Model):
+    """Правки кампании, предложенные модератором (решение бизнеса 04.10.2026, issue #6).
+
+    changes — {поле формы: {"old": <значение формы>, "new": <значение формы>}}: «сырые»
+    значения CampaignForm (строка или список), чтобы при принятии прогнать их через ту же
+    форму и ту же проверку параметров. Пока предложение PENDING, кампания остаётся в
+    MODERATION и не одобряется/не отклоняется мимо ответа рекламодателя.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="edit_proposals")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="campaign_edit_proposals",
+    )
+    changes = models.JSONField(default=dict)
+    comment = models.TextField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Campaign Edit Proposal"
+        verbose_name_plural = "Campaign Edit Proposals"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["campaign"], condition=Q(status="pending"),
+                name="one_pending_edit_proposal_per_campaign",
+            ),
+        ]
+
+    def __str__(self):
+        return f"EditProposal #{self.pk} campaign={self.campaign_id} ({self.status})"
