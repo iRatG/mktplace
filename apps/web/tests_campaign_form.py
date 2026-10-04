@@ -367,6 +367,15 @@ class CampaignModerationTest(TestCase):
         self.assertEqual(self.campaign.status, Campaign.Status.REJECTED)
         self.assertTrue(Notification.objects.filter(user=self.adv, body__contains="Нет описания аудитории").exists())
 
+    def test_approve_after_resubmit_clears_reason(self):
+        # Повторно отправленная кампания хранит прошлую причину до одобрения.
+        self.campaign.rejection_reason = "Исправьте даты"
+        self.campaign.save(update_fields=["rejection_reason"])
+        self.staff_client.post(reverse("web:admin_campaign_approve", kwargs={"pk": self.campaign.pk}))
+        self.campaign.refresh_from_db()
+        self.assertEqual(self.campaign.status, Campaign.Status.ACTIVE)
+        self.assertEqual(self.campaign.rejection_reason, "")
+
     def test_card_shows_params_and_forms(self):
         r = self.staff_client.get(reverse("web:admin_campaign_detail", kwargs={"pk": self.campaign.pk}))
         self.assertEqual(r.status_code, 200)
