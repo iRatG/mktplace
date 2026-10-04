@@ -136,7 +136,10 @@ def deal_detail(request, pk):
 @login_required
 @require_POST
 def deal_submit_publication(request, pk):
-    """Blogger submits publication URL → status CHECKING."""
+    """Blogger submits publication URL → status CHECKING.
+
+    Статус: IN_PROGRESS (креатив пропущен) или WAITING_PUBLICATION (креатив одобрен).
+    """
     url = request.POST.get("publication_url", "").strip()
     if not url:
         messages.error(request, "Укажите ссылку на публикацию.")
@@ -151,8 +154,8 @@ def deal_submit_publication(request, pk):
         if deal is None:
             from django.http import Http404
             raise Http404
-        if deal.status != Deal.Status.IN_PROGRESS:
-            messages.error(request, "Добавить публикацию можно только для сделки «В работе».")
+        if deal.status not in (Deal.Status.IN_PROGRESS, Deal.Status.WAITING_PUBLICATION):
+            messages.error(request, "Добавить публикацию можно только для сделки «В работе» или «Ждёт публикации».")
             return redirect("web:deal_detail", pk=pk)
 
         DealStatusLog.log(
@@ -213,7 +216,9 @@ def deal_cancel(request, pk):
     if user.role == User.Role.BLOGGER:
         cancellable = {Deal.Status.WAITING_PAYMENT}
     else:
-        cancellable = {Deal.Status.WAITING_PAYMENT, Deal.Status.IN_PROGRESS}
+        cancellable = {
+            Deal.Status.WAITING_PAYMENT, Deal.Status.IN_PROGRESS, Deal.Status.WAITING_PUBLICATION,
+        }
 
     from django.db import transaction as db_transaction
     with db_transaction.atomic():
@@ -290,13 +295,16 @@ def deal_submit_creative(request, pk):
     """Blogger submits creative for approval → status ON_APPROVAL.
 
     Доступ: только блогер сделки.
-    Статус: только IN_PROGRESS.
+    Статус: только IN_PROGRESS и только пока креатив не одобрен (creative_approved_at пуст).
     Сохраняет: creative_text, creative_media, creative_submitted_at.
     Уведомляет рекламодателя.
     """
     from django.db import transaction as db_transaction
 
     deal = get_object_or_404(Deal, pk=pk, blogger=request.user)
+    if deal.creative_approved_at:
+        messages.error(request, "Креатив уже согласован — можно публиковать.")
+        return redirect("web:deal_detail", pk=pk)
     if deal.status != Deal.Status.IN_PROGRESS:
         messages.error(request, "Отправить креатив можно только для сделки «В работе».")
         return redirect("web:deal_detail", pk=pk)
@@ -312,7 +320,7 @@ def deal_submit_creative(request, pk):
 
     with db_transaction.atomic():
         deal = Deal.objects.select_for_update().get(pk=pk)
-        if deal.status != Deal.Status.IN_PROGRESS:
+        if deal.status != Deal.Status.IN_PROGRESS or deal.creative_approved_at:
             messages.error(request, "Статус сделки изменился. Попробуйте ещё раз.")
             return redirect("web:deal_detail", pk=pk)
 
@@ -345,7 +353,7 @@ def deal_submit_creative(request, pk):
 @login_required
 @require_POST
 def deal_approve_creative(request, pk):
-    """Advertiser approves creative → status back to IN_PROGRESS.
+    """Advertiser approves creative → status WAITING_PUBLICATION.
 
     Доступ: только рекламодатель сделки.
     Статус: только ON_APPROVAL.
@@ -366,13 +374,13 @@ def deal_approve_creative(request, pk):
             return redirect("web:deal_detail", pk=pk)
 
         DealStatusLog.log(
-            deal, Deal.Status.IN_PROGRESS,
+            deal, Deal.Status.WAITING_PUBLICATION,
             changed_by=request.user,
             comment="Рекламодатель согласовал креатив.",
         )
         deal.creative_approved_at = timezone.now()
         deal.creative_rejection_reason = ""
-        deal.status = Deal.Status.IN_PROGRESS
+        deal.status = Deal.Status.WAITING_PUBLICATION
         deal.save(update_fields=[
             "creative_approved_at", "creative_rejection_reason", "status", "updated_at",
         ])

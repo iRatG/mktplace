@@ -52,6 +52,14 @@ with db_transaction.atomic():
     deal = Deal.objects.select_for_update().filter(pk=pk).first()
 ```
 
+### Креатив сделки — одобрение ведёт в WAITING_PUBLICATION, повторной отправки нет
+Одобрение креатива (веб `deal_approve_creative`, DRF `approve-creative`, Celery `auto_approve_creative`)
+переводит сделку ON_APPROVAL → WAITING_PUBLICATION. Признак «креатив одобрен» — поле
+`creative_approved_at`, а не статус: при заполненном поле отправка креатива отклоняется (так закрыты и
+старые сделки, одобренные в IN_PROGRESS). Публикация принимается из IN_PROGRESS (креатив пропущен) и
+WAITING_PUBLICATION; рекламодатель отменяет сделку из WAITING_PAYMENT / IN_PROGRESS / WAITING_PUBLICATION,
+блогер — только из WAITING_PAYMENT.
+
 ### Кампания для блогера — только ACTIVE
 ```python
 campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)

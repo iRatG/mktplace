@@ -59,14 +59,14 @@ def auto_approve_creative():
                 deal = Deal.objects.select_for_update().get(
                     pk=deal_id, status=Deal.Status.ON_APPROVAL
                 )
-                deal.creative_approved_at = timezone.now()
-                deal.status = Deal.Status.WAITING_PUBLICATION
-                deal.save(update_fields=["creative_approved_at", "status", "updated_at"])
                 DealStatusLog.log(
                     deal=deal,
                     new_status=Deal.Status.WAITING_PUBLICATION,
                     comment="Auto-approved creative after 48h timeout.",
                 )
+                deal.creative_approved_at = timezone.now()
+                deal.status = Deal.Status.WAITING_PUBLICATION
+                deal.save(update_fields=["creative_approved_at", "status", "updated_at"])
                 count += 1
         except Deal.DoesNotExist:
             pass

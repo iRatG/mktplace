@@ -46,6 +46,8 @@
                 <span class="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 whitespace-nowrap">В работе</span>
                 {% elif deal.status == 'on_approval' %}
                 <span class="text-xs px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 whitespace-nowrap">На согласовании</span>
+                {% elif deal.status == 'waiting_publication' %}
+                <span class="text-xs px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 whitespace-nowrap">Ждёт публикации</span>
                 {% elif deal.status == 'checking' %}
                 <span class="text-xs px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 whitespace-nowrap">На проверке</span>
                 {% elif deal.status == 'completed' %}
@@ -68,10 +70,10 @@
                     <span class="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/40 whitespace-nowrap font-medium">⚠ Спор</span>
                     {% endif %}
                 {% else %}
-                    {% if deal.status == 'in_progress' %}
+                    {% if deal.status == 'in_progress' or deal.status == 'waiting_publication' %}
                     <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 whitespace-nowrap font-medium">↑ Разместите</span>
                     {% elif deal.status == 'on_approval' %}
-                    <span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 whitespace-nowrap font-medium">↑ Отправьте креатив</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 whitespace-nowrap font-medium">⏳ Ждёт согласования</span>
                     {% elif deal.status == 'waiting_payment' %}
                     <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 whitespace-nowrap font-medium">⏳ Ждёт оплаты</span>
                     {% endif %}

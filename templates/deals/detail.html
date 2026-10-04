@@ -20,6 +20,8 @@
         <span class="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-400 text-sm font-medium">В работе</span>
         {% elif deal.status == 'on_approval' %}
         <span class="px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-400 text-sm font-medium">На согласовании</span>
+        {% elif deal.status == 'waiting_publication' %}
+        <span class="px-3 py-1.5 rounded-full bg-cyan-500/10 text-cyan-400 text-sm font-medium">Ждёт публикации</span>
         {% elif deal.status == 'checking' %}
         <span class="px-3 py-1.5 rounded-full bg-orange-500/10 text-orange-400 text-sm font-medium">На проверке</span>
         {% elif deal.status == 'completed' %}
@@ -95,7 +97,7 @@
 
         {% if user.role == 'blogger' %}
 
-            {% if deal.status == 'in_progress' %}
+            {% if deal.status == 'in_progress' or deal.status == 'waiting_publication' %}
 
             <!-- Blogger: rejection reason notice (if creative was rejected) -->
             {% if deal.creative_rejection_reason %}
@@ -106,7 +108,8 @@
             </div>
             {% endif %}
 
-            <!-- Blogger: submit creative for approval (optional step) -->
+            <!-- Blogger: submit creative for approval (optional step, only until approved) -->
+            {% if deal.status == 'in_progress' and not deal.creative_approved_at %}
             <div class="card-dark rounded-xl p-6">
                 <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Отправить креатив на согласование</h2>
                 <p class="text-slate-400 text-sm mb-4">
@@ -136,6 +139,7 @@
                     </button>
                 </form>
             </div>
+            {% endif %}
 
             <!-- Blogger: submit publication URL (can skip creative approval) -->
             <div class="card-dark rounded-xl p-6">
@@ -285,7 +289,7 @@
                 </button>
             </form>
         </div>
-        {% elif deal.status == 'in_progress' and user.role == 'advertiser' %}
+        {% elif deal.status == 'in_progress' and user.role == 'advertiser' or deal.status == 'waiting_publication' and user.role == 'advertiser' %}
         <div>
             <form method="post" action="{% url 'web:deal_cancel' deal.pk %}"
                   onsubmit="return confirm('Отменить сделку? Средства вернутся на ваш баланс.')">
@@ -423,6 +427,7 @@
                         <div class="text-xs text-white">
                             {% if log.new_status == 'in_progress' %}В работе
                             {% elif log.new_status == 'on_approval' %}На согласовании
+                            {% elif log.new_status == 'waiting_publication' %}Ждёт публикации
                             {% elif log.new_status == 'checking' %}На проверке
                             {% elif log.new_status == 'completed' %}Завершена
                             {% elif log.new_status == 'cancelled' %}Отменена

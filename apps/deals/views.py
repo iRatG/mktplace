@@ -44,6 +44,11 @@ class DealViewSet(
         deal = self.get_object()
         if deal.blogger != request.user:
             raise PermissionDenied("Only the blogger can submit a creative.")
+        if deal.creative_approved_at:
+            return DRFResponse(
+                {"detail": "Creative is already approved."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if deal.status != Deal.Status.IN_PROGRESS:
             return DRFResponse(
                 {"detail": "Creative can only be submitted when deal is in progress."},
@@ -95,9 +100,9 @@ class DealViewSet(
         deal = self.get_object()
         if deal.blogger != request.user:
             raise PermissionDenied("Only the blogger can submit a publication URL.")
-        if deal.status != Deal.Status.WAITING_PUBLICATION:
+        if deal.status not in (Deal.Status.IN_PROGRESS, Deal.Status.WAITING_PUBLICATION):
             return DRFResponse(
-                {"detail": "Deal is not in waiting publication status."},
+                {"detail": "Publication can only be submitted for a deal in progress or waiting publication."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         publication_url = request.data.get("publication_url", "")
@@ -158,10 +163,14 @@ class DealViewSet(
         user = request.user
         if deal.blogger != user and deal.advertiser != user:
             raise PermissionDenied("You are not a participant in this deal.")
-        cancellable_statuses = (
-            Deal.Status.WAITING_PAYMENT,
-            Deal.Status.IN_PROGRESS,
-        )
+        if user == deal.blogger:
+            cancellable_statuses = (Deal.Status.WAITING_PAYMENT,)
+        else:
+            cancellable_statuses = (
+                Deal.Status.WAITING_PAYMENT,
+                Deal.Status.IN_PROGRESS,
+                Deal.Status.WAITING_PUBLICATION,
+            )
         with db_transaction.atomic():
             deal = Deal.objects.select_for_update().get(pk=deal.pk)
             if deal.status not in cancellable_statuses:

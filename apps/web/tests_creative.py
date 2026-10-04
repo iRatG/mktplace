@@ -7,7 +7,7 @@ Covers:
   - deal_submit_creative: wrong status guard
   - deal_submit_creative: empty form → error, no status change
   - deal_submit_creative: creates system chat message + notification
-  - deal_approve_creative: advertiser approves, status → IN_PROGRESS
+  - deal_approve_creative: advertiser approves, status → WAITING_PUBLICATION
   - deal_approve_creative: access guards
   - deal_approve_creative: wrong status guard
   - deal_approve_creative: sets creative_approved_at, clears rejection reason
@@ -17,16 +17,24 @@ Covers:
   - deal_detail context: on_approval status visibility
   - Full round-trip: submit → approve → submit publication
   - Full round-trip: submit → reject → re-submit → approve
+  - After approval: no re-submission (web + API), publication and cancel from
+    WAITING_PUBLICATION, legacy IN_PROGRESS + creative_approved_at deals,
+    Celery auto-approve, deal detail/list rendering
 """
 
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
+from rest_framework.test import APIClient
 
 from apps.billing.models import Wallet
 from apps.campaigns.models import Campaign
 from apps.deals.models import ChatMessage, Deal, DealStatusLog
+from apps.deals.tasks import auto_approve_creative
+from apps.notifications.models import Notification
 from apps.platforms.models import Platform
 from apps.users.models import User
 
@@ -198,16 +206,17 @@ class DealApproveCreativeTest(TestCase):
         resp = self.client.post(self.url)
         self.assertRedirects(resp, reverse("web:deal_detail", args=[self.deal.pk]))
         self.deal.refresh_from_db()
-        self.assertEqual(self.deal.status, Deal.Status.IN_PROGRESS)
+        self.assertEqual(self.deal.status, Deal.Status.WAITING_PUBLICATION)
         self.assertIsNotNone(self.deal.creative_approved_at)
 
     def test_status_log_created_on_approve(self):
         self.client.login(username="advcr2@test.com", password="Test1234!")
         self.client.post(self.url)
         log = DealStatusLog.objects.filter(
-            deal=self.deal, new_status=Deal.Status.IN_PROGRESS,
+            deal=self.deal, new_status=Deal.Status.WAITING_PUBLICATION,
         ).first()
         self.assertIsNotNone(log)
+        self.assertEqual(log.old_status, Deal.Status.ON_APPROVAL)
         self.assertIn("согласовал", log.comment)
 
     def test_system_message_on_approve(self):
@@ -324,7 +333,7 @@ class CreativeRoundTripTest(TestCase):
         self.deal = _make_deal(self.advertiser, self.blogger, Deal.Status.IN_PROGRESS)
 
     def test_submit_approve_then_publish(self):
-        """IN_PROGRESS → ON_APPROVAL → IN_PROGRESS (approved) → CHECKING."""
+        """IN_PROGRESS → ON_APPROVAL → WAITING_PUBLICATION (approved) → CHECKING."""
         # Submit creative
         self.client.login(username="blcr4@test.com", password="Test1234!")
         self.client.post(
@@ -338,7 +347,7 @@ class CreativeRoundTripTest(TestCase):
         self.client.login(username="advcr4@test.com", password="Test1234!")
         self.client.post(reverse("web:deal_approve_creative", args=[self.deal.pk]))
         self.deal.refresh_from_db()
-        self.assertEqual(self.deal.status, Deal.Status.IN_PROGRESS)
+        self.assertEqual(self.deal.status, Deal.Status.WAITING_PUBLICATION)
 
         # Submit publication URL
         self.client.login(username="blcr4@test.com", password="Test1234!")
@@ -350,7 +359,7 @@ class CreativeRoundTripTest(TestCase):
         self.assertEqual(self.deal.status, Deal.Status.CHECKING)
 
     def test_submit_reject_resubmit_approve(self):
-        """IN_PROGRESS → ON_APPROVAL → IN_PROGRESS (rejected) → ON_APPROVAL → IN_PROGRESS."""
+        """IN_PROGRESS → ON_APPROVAL → IN_PROGRESS (rejected) → ON_APPROVAL → WAITING_PUBLICATION."""
         # Submit creative
         self.client.login(username="blcr4@test.com", password="Test1234!")
         self.client.post(
@@ -384,5 +393,184 @@ class CreativeRoundTripTest(TestCase):
         self.client.login(username="advcr4@test.com", password="Test1234!")
         self.client.post(reverse("web:deal_approve_creative", args=[self.deal.pk]))
         self.deal.refresh_from_db()
-        self.assertEqual(self.deal.status, Deal.Status.IN_PROGRESS)
+        self.assertEqual(self.deal.status, Deal.Status.WAITING_PUBLICATION)
         self.assertIsNotNone(self.deal.creative_approved_at)
+
+
+# ── After approval: QA camp_test_1 (re-submission after approval) ─────────────
+
+class CreativeAfterApprovalTest(TestCase):
+    """После одобрения креатива — только публикация, повторное согласование запрещено."""
+
+    def setUp(self):
+        self.advertiser = _make_user("advcr5@test.com", User.Role.ADVERTISER)
+        self.blogger = _make_user("blcr5@test.com", User.Role.BLOGGER)
+        _make_wallet(self.advertiser)
+        _make_wallet(self.blogger)
+        self.deal = _make_deal(self.advertiser, self.blogger, Deal.Status.WAITING_PUBLICATION)
+        self.deal.creative_text = "Одобренный текст"
+        self.deal.creative_approved_at = timezone.now()
+        self.deal.save(update_fields=["creative_text", "creative_approved_at"])
+        self.detail_url = reverse("web:deal_detail", args=[self.deal.pk])
+
+    def _login_blogger(self):
+        self.client.login(username="blcr5@test.com", password="Test1234!")
+
+    def _login_advertiser(self):
+        self.client.login(username="advcr5@test.com", password="Test1234!")
+
+    def test_resubmit_after_approval_rejected(self):
+        self._login_blogger()
+        resp = self.client.post(
+            reverse("web:deal_submit_creative", args=[self.deal.pk]),
+            {"creative_text": "Ещё раз"},
+        )
+        self.assertRedirects(resp, self.detail_url)
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.status, Deal.Status.WAITING_PUBLICATION)
+        self.assertEqual(self.deal.creative_text, "Одобренный текст")
+        self.assertFalse(Notification.objects.filter(
+            user=self.advertiser, type=Notification.Type.CREATIVE_SUBMITTED,
+        ).exists())
+
+    def test_legacy_in_progress_approved_deal_cannot_resubmit(self):
+        """Старые сделки: одобрены до исправления и стоят в IN_PROGRESS."""
+        self.deal.status = Deal.Status.IN_PROGRESS
+        self.deal.save(update_fields=["status"])
+        self._login_blogger()
+        self.client.post(
+            reverse("web:deal_submit_creative", args=[self.deal.pk]),
+            {"creative_text": "Ещё раз"},
+        )
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.status, Deal.Status.IN_PROGRESS)
+
+        resp = self.client.get(self.detail_url)
+        self.assertNotContains(resp, reverse("web:deal_submit_creative", args=[self.deal.pk]))
+        self.client.post(
+            reverse("web:deal_submit_publication", args=[self.deal.pk]),
+            {"publication_url": "https://instagram.com/p/legacy"},
+        )
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.status, Deal.Status.CHECKING)
+
+    def test_publication_from_waiting_publication(self):
+        self._login_blogger()
+        self.client.post(
+            reverse("web:deal_submit_publication", args=[self.deal.pk]),
+            {"publication_url": "https://instagram.com/p/approved"},
+        )
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.status, Deal.Status.CHECKING)
+        self.assertEqual(self.deal.publication_url, "https://instagram.com/p/approved")
+
+    def test_blogger_detail_shows_only_publication_form(self):
+        self._login_blogger()
+        resp = self.client.get(self.detail_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, reverse("web:deal_submit_creative", args=[self.deal.pk]))
+        self.assertContains(resp, reverse("web:deal_submit_publication", args=[self.deal.pk]))
+        self.assertContains(resp, "Ждёт публикации")
+
+    def test_advertiser_can_cancel_waiting_publication(self):
+        self._login_advertiser()
+        resp = self.client.get(self.detail_url)
+        self.assertContains(resp, reverse("web:deal_cancel", args=[self.deal.pk]))
+        self.client.post(reverse("web:deal_cancel", args=[self.deal.pk]))
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.status, Deal.Status.CANCELLED)
+
+    def test_blogger_cannot_cancel_waiting_publication(self):
+        self._login_blogger()
+        self.client.post(reverse("web:deal_cancel", args=[self.deal.pk]))
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.status, Deal.Status.WAITING_PUBLICATION)
+
+    def test_blogger_list_badges(self):
+        _make_deal(self.advertiser, self.blogger, Deal.Status.ON_APPROVAL)
+        self._login_blogger()
+        resp = self.client.get(reverse("web:deal_list"))
+        self.assertContains(resp, "Ждёт публикации")
+        self.assertContains(resp, "Ждёт согласования")
+        self.assertNotContains(resp, "Отправьте креатив")
+
+
+class CreativeAutoApproveTest(TestCase):
+    """Celery auto_approve_creative: лог до смены статуса, дальше веб ведёт сделку."""
+
+    def setUp(self):
+        self.advertiser = _make_user("advcr6@test.com", User.Role.ADVERTISER)
+        self.blogger = _make_user("blcr6@test.com", User.Role.BLOGGER)
+        _make_wallet(self.advertiser)
+        _make_wallet(self.blogger)
+        self.deal = _make_deal(self.advertiser, self.blogger, Deal.Status.ON_APPROVAL)
+        self.deal.creative_submitted_at = timezone.now() - timedelta(hours=49)
+        self.deal.save(update_fields=["creative_submitted_at"])
+
+    def test_auto_approve_logs_old_status_and_allows_publication(self):
+        auto_approve_creative()
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.status, Deal.Status.WAITING_PUBLICATION)
+        log = DealStatusLog.objects.get(deal=self.deal, new_status=Deal.Status.WAITING_PUBLICATION)
+        self.assertEqual(log.old_status, Deal.Status.ON_APPROVAL)
+
+        self.client.login(username="blcr6@test.com", password="Test1234!")
+        self.client.post(
+            reverse("web:deal_submit_creative", args=[self.deal.pk]),
+            {"creative_text": "Повтор"},
+        )
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.status, Deal.Status.WAITING_PUBLICATION)
+        self.client.post(
+            reverse("web:deal_submit_publication", args=[self.deal.pk]),
+            {"publication_url": "https://instagram.com/p/auto"},
+        )
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.status, Deal.Status.CHECKING)
+
+
+class CreativeApiTest(TestCase):
+    """DRF: те же правила, что и в вебе."""
+
+    def setUp(self):
+        self.advertiser = _make_user("advcr7@test.com", User.Role.ADVERTISER)
+        self.blogger = _make_user("blcr7@test.com", User.Role.BLOGGER)
+        _make_wallet(self.advertiser)
+        _make_wallet(self.blogger)
+        self.api = APIClient()
+
+    def _url(self, deal, action):
+        return f"/api/v1/deals/{deal.pk}/{action}/"
+
+    def test_submit_creative_after_approval_400(self):
+        deal = _make_deal(self.advertiser, self.blogger, Deal.Status.IN_PROGRESS)
+        deal.creative_approved_at = timezone.now()
+        deal.save(update_fields=["creative_approved_at"])
+        self.api.force_authenticate(self.blogger)
+        resp = self.api.post(self._url(deal, "submit-creative"), {"creative_text": "x"})
+        self.assertEqual(resp.status_code, 400)
+        deal.refresh_from_db()
+        self.assertEqual(deal.status, Deal.Status.IN_PROGRESS)
+
+    def test_submit_publication_from_in_progress_and_waiting(self):
+        self.api.force_authenticate(self.blogger)
+        for st in (Deal.Status.IN_PROGRESS, Deal.Status.WAITING_PUBLICATION):
+            deal = _make_deal(self.advertiser, self.blogger, st)
+            resp = self.api.post(
+                self._url(deal, "submit-publication"),
+                {"publication_url": "https://instagram.com/p/api"},
+            )
+            self.assertEqual(resp.status_code, 200, st)
+            deal.refresh_from_db()
+            self.assertEqual(deal.status, Deal.Status.CHECKING)
+
+    def test_cancel_rules(self):
+        in_progress = _make_deal(self.advertiser, self.blogger, Deal.Status.IN_PROGRESS)
+        self.api.force_authenticate(self.blogger)
+        self.assertEqual(self.api.post(self._url(in_progress, "cancel")).status_code, 400)
+
+        waiting = _make_deal(self.advertiser, self.blogger, Deal.Status.WAITING_PUBLICATION)
+        self.api.force_authenticate(self.advertiser)
+        self.assertEqual(self.api.post(self._url(waiting, "cancel")).status_code, 200)
+        waiting.refresh_from_db()
+        self.assertEqual(waiting.status, Deal.Status.CANCELLED)
