@@ -11,6 +11,7 @@ from apps.campaigns.validation import campaign_param_errors, deals_in_cap
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.registration.models import IPApplication, LegalEntityApplication
+from apps.registration.validators import INN_ERROR, is_valid_inn
 from apps.users.models import User
 
 
@@ -601,8 +602,8 @@ class LegalEntityApplicationForm(forms.ModelForm):
 
     def clean_inn(self):
         inn = self.cleaned_data["inn"].strip()
-        if not re.fullmatch(r"\d{9}", inn):
-            raise ValidationError("ИНН должен состоять ровно из 9 цифр.")
+        if not is_valid_inn(inn):
+            raise ValidationError(INN_ERROR)
         return inn
 
 

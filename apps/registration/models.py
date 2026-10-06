@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from .validators import validate_inn
+
 
 class LegalEntityApplication(models.Model):
     """Заявка юрлица на регистрацию (название + ИНН) — точка входа с нуля.
@@ -39,7 +41,8 @@ class LegalEntityApplication(models.Model):
         help_text="Заполняется только при выдаче доступа — до этого аккаунта не существует",
     )
     company_name = models.CharField(max_length=255)
-    inn = models.CharField(max_length=20, verbose_name="ИНН")
+    # Ровно 9 цифр — validate_inn действует в ModelForm и Django admin (save() валидаторы не вызывает).
+    inn = models.CharField(max_length=20, verbose_name="ИНН", validators=[validate_inn])
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     rejection_reason = models.TextField(blank=True)
 

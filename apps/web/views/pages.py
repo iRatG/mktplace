@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.shortcuts import redirect, render
 
+from apps.billing.formatting import format_money
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
 from apps.deals.models import Deal
@@ -68,7 +69,7 @@ def landing(request):
             {"q": "Что если рекламодатель не отвечает после публикации?", "a": "Если в течение 72 часов рекламодатель не подтвердил и не оспорил публикацию — сделка завершается автоматически и деньги поступают блогеру."},
             {"q": "Что такое CPA-кампания?", "a": "Оплата за результат: клик, лид, продажу или установку. Блогер получает уникальную трекинговую ссылку и делится ею с аудиторией. Каждая конверсия = начисление. Работает через постбек или авто-зачисление при клике."},
             {"q": "Как рекламодатель согласует контент до публикации?", "a": "Блогер может загрузить черновик (текст или файл) прямо в сделке. Рекламодатель одобряет или отклоняет с причиной. После одобрения — блогер публикует согласованный вариант. Шаг необязателен."},
-            {"q": "Как вывести заработанные деньги?", "a": f"В разделе «Кошелёк» подайте заявку на вывод (от {getattr(settings, 'CURRENCY_MIN_WITHDRAWAL', 500):,} {getattr(settings, 'CURRENCY_SYMBOL', 'UZS')}). Укажите реквизиты — обработка в течение 3 рабочих дней."},
+            {"q": "Как вывести заработанные деньги?", "a": f"В разделе «Кошелёк» подайте заявку на вывод (от {format_money(getattr(settings, 'CURRENCY_MIN_WITHDRAWAL', 500))} {getattr(settings, 'CURRENCY_SYMBOL', 'UZS')}). Укажите реквизиты — обработка в течение 3 рабочих дней."},
         ],
     }
     return render(request, "landing.html", context)
@@ -143,7 +144,7 @@ def advertiser_dashboard(request):
         # «Требует действия»: где ждут шага рекламодателя (по 10 на тип).
         "action_deals": (
             Deal.objects.filter(advertiser=user, status__in=[Deal.Status.ON_APPROVAL, Deal.Status.CHECKING])
-            .select_related("campaign", "blogger").order_by("updated_at")[:10]
+            .select_related("campaign", "blogger").order_by("-updated_at")[:10]
         ),
         "action_campaigns": (
             Campaign.objects.filter(advertiser=user, responses__status=CampaignResponse.Status.PENDING)
@@ -186,7 +187,7 @@ def blogger_dashboard(request):
         "action_deals": (
             Deal.objects.filter(
                 blogger=user, status__in=[Deal.Status.IN_PROGRESS, Deal.Status.WAITING_PUBLICATION],
-            ).select_related("campaign").order_by("updated_at")[:10]
+            ).select_related("campaign").order_by("-updated_at")[:10]
         ),
     }
     return render(request, "dashboard/blogger.html", context)

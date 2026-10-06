@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Каталог блогеров | UBlogers!{% endblock %}
 
 {% block content %}
@@ -124,11 +125,11 @@
                     <div class="grid grid-cols-3 gap-2 text-center">
                         <div class="bg-gray-50 rounded-lg p-2">
                             <div class="text-xs text-gray-500">Подписчики</div>
-                            <div class="text-sm font-semibold text-gray-900">{{ p.subscribers|floatformat:0 }}</div>
+                            <div class="text-sm font-semibold text-gray-900">{{ p.subscribers|money }}</div>
                         </div>
                         <div class="bg-gray-50 rounded-lg p-2">
                             <div class="text-xs text-gray-500">Просмотры</div>
-                            <div class="text-sm font-semibold text-gray-900">{{ p.avg_views|floatformat:0 }}</div>
+                            <div class="text-sm font-semibold text-gray-900">{{ p.avg_views|money }}</div>
                         </div>
                         <div class="bg-gray-50 rounded-lg p-2">
                             <div class="text-xs text-gray-500">ER%</div>
@@ -147,10 +148,10 @@
 
                     <!-- Прайс -->
                     <div class="text-xs text-gray-600 flex flex-wrap gap-3 pt-2 border-t border-gray-200">
-                        {% if p.price_post %}<span>Пост: <strong class="text-gray-900">{{ p.price_post|floatformat:0 }} {{ currency.symbol }}</strong></span>{% endif %}
-                        {% if p.price_stories %}<span>Сторис: <strong class="text-gray-900">{{ p.price_stories|floatformat:0 }} {{ currency.symbol }}</strong></span>{% endif %}
-                        {% if p.price_video %}<span>Видео: <strong class="text-gray-900">{{ p.price_video|floatformat:0 }} {{ currency.symbol }}</strong></span>{% endif %}
-                        {% if p.price_review %}<span>Обзор: <strong class="text-gray-900">{{ p.price_review|floatformat:0 }} {{ currency.symbol }}</strong></span>{% endif %}
+                        {% if p.price_post %}<span>Пост: <strong class="text-gray-900">{{ p.price_post|money }} {{ currency.symbol }}</strong></span>{% endif %}
+                        {% if p.price_stories %}<span>Сторис: <strong class="text-gray-900">{{ p.price_stories|money }} {{ currency.symbol }}</strong></span>{% endif %}
+                        {% if p.price_video %}<span>Видео: <strong class="text-gray-900">{{ p.price_video|money }} {{ currency.symbol }}</strong></span>{% endif %}
+                        {% if p.price_review %}<span>Обзор: <strong class="text-gray-900">{{ p.price_review|money }} {{ currency.symbol }}</strong></span>{% endif %}
                         {% if not p.price_post and not p.price_stories and not p.price_video and not p.price_review %}
                         <span class="text-gray-500 italic">Цена по договорённости</span>
                         {% endif %}

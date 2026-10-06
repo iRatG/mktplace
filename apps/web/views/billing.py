@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
+from apps.billing.formatting import format_money
 from apps.billing.models import Transaction, Wallet, WithdrawalRequest
 from apps.billing.services import BillingService
 from apps.users.models import User
@@ -32,7 +33,7 @@ def wallet_view(request):
 
         if amount is not None:
             if amount < D(str(min_withdrawal)):
-                messages.error(request, f"Минимальная сумма вывода: {min_withdrawal:,} {getattr(settings, 'CURRENCY_SYMBOL', '')}.")
+                messages.error(request, f"Минимальная сумма вывода: {format_money(min_withdrawal)} {getattr(settings, 'CURRENCY_SYMBOL', '')}.")
             elif amount > wallet.available_balance:
                 messages.error(request, "Недостаточно средств на балансе.")
             elif not card:
@@ -47,7 +48,7 @@ def wallet_view(request):
                             requisites={"type": "card", "details": card},
                         )
                         BillingService.process_withdrawal(wr)
-                    messages.success(request, f"Заявка на вывод {amount:,.0f} {getattr(settings, 'CURRENCY_SYMBOL', '')} подана.")
+                    messages.success(request, f"Заявка на вывод {format_money(amount)} {getattr(settings, 'CURRENCY_SYMBOL', '')} подана.")
                     return redirect("web:wallet")
                 except ValueError as e:
                     messages.error(request, f"Ошибка: {e}")

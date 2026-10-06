@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Мой профиль | UBlogers!{% endblock %}
 
 {% block content %}
@@ -103,8 +104,8 @@
                         {% endif %}
                     </div>
                     <div class="flex gap-4 mt-1 text-xs text-gray-500">
-                        {% if p.subscribers %}<span>{{ p.subscribers|floatformat:0 }} подп.</span>{% endif %}
-                        {% if p.avg_views %}<span>{{ p.avg_views|floatformat:0 }} просм.</span>{% endif %}
+                        {% if p.subscribers %}<span>{{ p.subscribers|money }} подп.</span>{% endif %}
+                        {% if p.avg_views %}<span>{{ p.avg_views|money }} просм.</span>{% endif %}
                         {% if p.engagement_rate %}<span>ER {{ p.engagement_rate }}%</span>{% endif %}
                     </div>
                     {% if p.rejection_reason %}

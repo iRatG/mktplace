@@ -39,6 +39,7 @@ from apps.registration.services import (
     REGISTRATION_REVIEWERS_GROUP, assign_reviewer, get_oneid_backend, legal_entity_login,
 )
 from apps.registration.tasks import send_blogger_sms_credentials
+from apps.registration.validators import INN_ERROR, is_valid_inn
 from apps.users import security
 from apps.users.models import User
 
@@ -346,6 +347,11 @@ def admin_legal_entity_issue_access(request, pk):
     application = get_object_or_404(
         LegalEntityApplication, pk=pk, status=LegalEntityApplication.Status.APPROVED,
     )
+    # Логин юрлица = ИНН: с неверным ИНН аккаунт не создаётся и пароль не меняется
+    # (старые заявки могли быть поданы до проверки длины ИНН в форме).
+    if not is_valid_inn(application.inn):
+        messages.error(request, f"Доступ не выдан: {INN_ERROR} Исправьте ИНН в заявке «{application.company_name}».")
+        return redirect("web:admin_legal_entity_detail", pk=application.pk)
     raw_password = User.objects.make_random_password()
 
     if application.user:

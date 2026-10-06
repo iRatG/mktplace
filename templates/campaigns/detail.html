@@ -188,7 +188,7 @@
                     <select name="platform" class="input-dark" required>
                         <option value="">Выберите площадку...</option>
                         {% for platform in my_platforms %}
-                        <option value="{{ platform.pk }}">{{ platform }} ({{ platform.subscribers }} подп.)</option>
+                        <option value="{{ platform.pk }}">{{ platform }} ({{ platform.subscribers|money }} подп.)</option>
                         {% endfor %}
                     </select>
                 </div>

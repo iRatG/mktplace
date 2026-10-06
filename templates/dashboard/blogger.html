@@ -112,7 +112,7 @@
                     <div class="text-sm font-medium text-gray-900">{{ offer.campaign.name }}</div>
                     <div class="text-xs text-gray-500 mt-0.5">
                         от {{ offer.advertiser.email }} · {{ offer.platform.get_social_type_display }} ·
-                        {% if offer.proposed_price %}{{ offer.proposed_price|floatformat:0 }} {{ currency.symbol }}{% else %}цена по кампании{% endif %}
+                        {% if offer.proposed_price %}{{ offer.proposed_price|money }} {{ currency.symbol }}{% else %}цена по кампании{% endif %}
                     </div>
                     {% if offer.message %}
                     <p class="text-xs text-gray-600 mt-1 italic">"{{ offer.message|truncatechars:100 }}"</p>

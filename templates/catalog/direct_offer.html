@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Предложить сделку | UBlogers!{% endblock %}
 
 {% block content %}
@@ -23,7 +24,7 @@
             <div class="text-sm text-orange-600 mt-0.5">{{ platform.get_social_type_display }}</div>
             <a href="{{ platform.url }}" target="_blank" class="text-xs text-gray-500 hover:text-gray-800 transition-colors truncate block mt-1">{{ platform.url }}</a>
             <div class="flex gap-4 mt-2 text-xs text-gray-600">
-                <span>{{ platform.subscribers|floatformat:0 }} подписчиков</span>
+                <span>{{ platform.subscribers|money }} подписчиков</span>
                 <span>ER {{ platform.engagement_rate }}%</span>
             </div>
         </div>
@@ -50,7 +51,7 @@
                 <option value="">Выберите кампанию</option>
                 {% for campaign in form.fields.campaign.queryset %}
                 <option value="{{ campaign.pk }}" {% if form.campaign.value|stringformat:"s" == campaign.pk|stringformat:"s" %}selected{% endif %}>
-                    {{ campaign.name }}{% if campaign.fixed_price %} — {{ campaign.fixed_price|floatformat:0 }} {{ currency.symbol }}{% endif %}
+                    {{ campaign.name }}{% if campaign.fixed_price %} — {{ campaign.fixed_price|money }} {{ currency.symbol }}{% endif %}
                 </option>
                 {% endfor %}
             </select>

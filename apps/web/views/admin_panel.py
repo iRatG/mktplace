@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.billing import metrics
+from apps.billing.formatting import format_money
 from apps.billing.models import Wallet, WithdrawalRequest
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
@@ -323,7 +324,7 @@ def admin_withdrawal_approve(request, pk):
         wr.admin_comment = request.POST.get("comment", "").strip()
         wr.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
     NotificationService.notify_withdrawal_approved(wr.blogger, wr.amount)
-    messages.success(request, f"Выплата {wr.amount:,.0f} для {wr.blogger.email} подтверждена.")
+    messages.success(request, f"Выплата {format_money(wr.amount)} для {wr.blogger.email} подтверждена.")
     return redirect("web:admin_withdrawals")
 
 

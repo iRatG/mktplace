@@ -1,6 +1,8 @@
 """Согласованность параметров кампании — общая проверка для веб-формы и API."""
 from django.conf import settings
 
+from apps.billing.formatting import format_money
+
 from .models import Campaign
 
 # Статусы, в которых владелец может редактировать кампанию; PAUSED после правки
@@ -70,4 +72,4 @@ def _bloggers_word(n):
 
 
 def _spaced(value):
-    return f"{int(value):,}".replace(",", " ")
+    return format_money(value)

@@ -115,10 +115,10 @@ class LegalEntityQueueTests(TestCase):
         self.reviewer_b = _make_reviewer("reviewer_b@demo.com")
         self.advertiser = _make_user(role=User.Role.ADVERTISER)
         self.app_for_a = LegalEntityApplication.objects.create(
-            user=self.advertiser, company_name="For A", inn="111", assigned_to=self.reviewer_a,
+            user=self.advertiser, company_name="For A", inn="111111111", assigned_to=self.reviewer_a,
         )
         self.app_for_b = LegalEntityApplication.objects.create(
-            user=self.advertiser, company_name="For B", inn="222", assigned_to=self.reviewer_b,
+            user=self.advertiser, company_name="For B", inn="222222222", assigned_to=self.reviewer_b,
         )
 
     def test_non_staff_denied(self):

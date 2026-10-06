@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Споры — UBlogers!{% endblock %}
 
 {% block content %}
@@ -36,7 +37,7 @@
                 <p class="text-sm text-gray-700 mt-1">{{ deal.campaign.name }}</p>
             </div>
             <div class="text-right shrink-0">
-                <div class="text-lg font-bold text-gray-900">{{ deal.amount|floatformat:0 }} {{ currency.symbol }}</div>
+                <div class="text-lg font-bold text-gray-900">{{ deal.amount|money }} {{ currency.symbol }}</div>
                 <div class="text-xs text-gray-500 mt-0.5">Сумма сделки</div>
             </div>
         </div>

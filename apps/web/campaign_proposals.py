@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from django.http import QueryDict
 
+from apps.billing.formatting import format_money
 from apps.campaigns.models import Campaign
 
 from .forms import CampaignForm
@@ -156,7 +157,7 @@ def _display(field, raw):
     try:
         value = Decimal(str(raw).replace(" ", ""))
         if value == value.to_integral():
-            return f"{int(value):,}".replace(",", " ")
+            return format_money(value)
     except Exception:
         pass
     try:

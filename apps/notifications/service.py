@@ -34,6 +34,8 @@ NotificationService — синхронный сервис создания in-ap
 
 from django.urls import reverse
 
+from apps.billing.formatting import format_money
+
 from .models import Notification
 
 
@@ -362,7 +364,7 @@ class NotificationService:
             user=blogger,
             notification_type=Notification.Type.WITHDRAWAL_APPROVED,
             title="Выплата подтверждена",
-            body=f"Ваша заявка на вывод {amount:,.0f} одобрена и обработана.",
+            body=f"Ваша заявка на вывод {format_money(amount)} одобрена и обработана.",
             url=reverse("web:wallet"),
         )
 
@@ -374,7 +376,7 @@ class NotificationService:
             user=blogger,
             notification_type=Notification.Type.WITHDRAWAL_REJECTED,
             title="Заявка на вывод отклонена",
-            body=f"Ваша заявка на вывод {amount:,.0f} отклонена.{reason} Средства возвращены на баланс.",
+            body=f"Ваша заявка на вывод {format_money(amount)} отклонена.{reason} Средства возвращены на баланс.",
             url=reverse("web:wallet"),
         )
 

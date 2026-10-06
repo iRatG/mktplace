@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 
 {% block title %}Кампании — UBlogers!{% endblock %}
 
@@ -31,7 +32,7 @@
         </div>
         <p class="text-xs text-gray-500 mb-3 line-clamp-2">{{ campaign.description|default:"Описание не указано" }}</p>
         <div class="flex items-center justify-between text-xs text-gray-500">
-            <span>Бюджет: <strong class="text-gray-700">{{ campaign.budget }} {{ currency.symbol }}</strong></span>
+            <span>Бюджет: <strong class="text-gray-700">{{ campaign.budget|money }} {{ currency.symbol }}</strong></span>
             <span>{{ campaign.get_payment_type_display }}</span>
         </div>
         {% if campaign.category %}
