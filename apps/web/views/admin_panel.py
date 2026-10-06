@@ -12,6 +12,7 @@ from apps.billing.formatting import format_money
 from apps.billing.models import Wallet, WithdrawalRequest
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
+from apps.campaigns.services import expired_error
 from apps.deals.models import Deal, DealStatusLog
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Category, PermitDocument, Platform
@@ -153,6 +154,10 @@ def admin_campaign_approve(request, pk):
         messages.error(request, "Кампания не на модерации.")
         return redirect("web:admin_campaigns")
     if _blocked_by_proposal(request, campaign):
+        return redirect("web:admin_campaign_detail", pk=pk)
+    expired = expired_error(campaign)
+    if expired:
+        messages.error(request, f"{expired} Отклоните кампанию с этой причиной или предложите новые даты.")
         return redirect("web:admin_campaign_detail", pk=pk)
     campaign.status = Campaign.Status.ACTIVE
     campaign.rejection_reason = ""

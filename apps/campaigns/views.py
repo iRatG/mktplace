@@ -14,6 +14,7 @@ from apps.users.models import User
 from .models import Campaign
 from .models import Response as CampaignResponse
 from .serializers import CampaignCreateSerializer, CampaignSerializer, ResponseSerializer
+from .services import expired_error
 from .validation import EDITABLE_STATUSES, deal_acceptance_error
 
 
@@ -107,6 +108,8 @@ class CampaignViewSet(viewsets.ModelViewSet):
                 {"detail": "Only paused campaigns can be resumed."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if expired_error(campaign):
+            return DRFResponse({"detail": expired_error(campaign)}, status=status.HTTP_400_BAD_REQUEST)
         campaign.status = Campaign.Status.ACTIVE
         campaign.save(update_fields=["status"])
         return DRFResponse({"detail": "Campaign resumed."})

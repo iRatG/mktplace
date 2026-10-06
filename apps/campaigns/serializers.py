@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from .models import Campaign, Response
-from .validation import active_response, budget_committed, campaign_param_errors, deals_in_cap
+from .validation import active_response, budget_committed, campaign_param_errors, deals_in_cap, past_date_errors
 
 
 class CampaignSerializer(serializers.ModelSerializer):
@@ -122,6 +122,9 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             taken_slots=deals_in_cap(self.instance),
             committed_budget=budget_committed(self.instance),
         )
+        dates = {name: value(name) for name in ("start_date", "end_date", "content_start", "deadline")}
+        for name, message in past_date_errors(dates, self.instance).items():
+            errors.setdefault(name, message)
         if errors:
             raise serializers.ValidationError(errors)
         return attrs

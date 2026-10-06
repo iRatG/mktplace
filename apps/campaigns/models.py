@@ -118,6 +118,7 @@ class Response(models.Model):
         ACCEPTED = "accepted", "Accepted"
         REJECTED = "rejected", "Rejected"
         WITHDRAWN = "withdrawn", "Withdrawn"
+        EXPIRED = "expired", "Expired"  # кампания завершилась, пока отклик ждал решения
 
     blogger = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -157,7 +158,7 @@ class Response(models.Model):
             # Решение бизнеса 06.10.2026: после отклонения блогер может откликнуться снова.
             models.UniqueConstraint(
                 fields=["blogger", "campaign", "platform"],
-                condition=~Q(status__in=["withdrawn", "rejected"]),
+                condition=~Q(status__in=["withdrawn", "rejected", "expired"]),
                 name="unique_active_response_per_platform",
             ),
             # …но ждать решения может только один его отклик на кампанию.
@@ -180,6 +181,7 @@ class DirectOffer(models.Model):
         PENDING = "pending", "Pending"
         ACCEPTED = "accepted", "Accepted"
         REJECTED = "rejected", "Rejected"
+        EXPIRED = "expired", "Expired"  # кампания завершилась, пока предложение ждало ответа
 
     advertiser = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -227,7 +229,7 @@ class DirectOffer(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["advertiser", "campaign", "platform"],
-                condition=~Q(status="rejected"),
+                condition=~Q(status__in=["rejected", "expired"]),
                 name="unique_active_direct_offer_per_platform",
             ),
         ]

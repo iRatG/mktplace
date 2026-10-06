@@ -1,16 +1,9 @@
 from celery import shared_task
-from django.utils import timezone
 
 
 @shared_task
 def auto_complete_expired_campaigns():
-    """Automatically complete campaigns whose end_date has passed."""
-    from .models import Campaign
+    """Завершить кампании, у которых прошла дата окончания (раз в час, см. CELERY_BEAT_SCHEDULE)."""
+    from .services import complete_expired_campaigns
 
-    now = timezone.localdate()
-    updated = Campaign.objects.filter(
-        status=Campaign.Status.ACTIVE,
-        end_date__lt=now,
-    ).update(status=Campaign.Status.COMPLETED)
-
-    return f"Auto-completed {updated} expired campaigns."
+    return f"Auto-completed {complete_expired_campaigns()} expired campaigns."

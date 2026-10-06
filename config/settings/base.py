@@ -179,6 +179,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.deals.tasks.auto_cancel_overdue_deals',
         'schedule': 3600,  # every hour
     },
+    'auto-complete-expired-campaigns': {
+        'task': 'apps.campaigns.tasks.auto_complete_expired_campaigns',
+        'schedule': 3600,  # every hour
+    },
     'cleanup-old-notifications': {
         'task': 'apps.notifications.tasks.cleanup_old_notifications',
         'schedule': 86400,  # daily (24h)

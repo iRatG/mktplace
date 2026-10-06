@@ -260,6 +260,42 @@ class NotificationService:
         )
 
     @staticmethod
+    def notify_campaign_completed(campaign):
+        """Срок кампании истёк, она завершена → рекламодателю."""
+        NotificationService.notify(
+            user=campaign.advertiser,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Кампания завершена",
+            body=(
+                f"Срок кампании «{campaign.name}» истёк — она завершена. Ожидавшие решения отклики и предложения "
+                f"закрыты, начатые сделки продолжаются."
+            ),
+            url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
+        )
+
+    @staticmethod
+    def notify_response_expired(blogger, campaign):
+        """Кампания завершилась, пока отклик ждал решения → блогеру."""
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Кампания завершилась",
+            body=f"Кампания «{campaign.name}» завершилась, ваш отклик закрыт без решения.",
+            url=reverse("web:my_responses"),
+        )
+
+    @staticmethod
+    def notify_direct_offer_expired(blogger, campaign):
+        """Кампания завершилась, пока прямое предложение ждало ответа → блогеру."""
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Предложение больше не действует",
+            body=f"Кампания «{campaign.name}» завершилась — предложение по ней закрыто.",
+            url=reverse("web:blogger_dashboard"),
+        )
+
+    @staticmethod
     def notify_campaign_rejected(advertiser, campaign):
         """Кампания отклонена модератором → рекламодателю."""
         reason = campaign.rejection_reason or "причина не указана"

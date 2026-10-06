@@ -38,6 +38,7 @@
                 {% if resp.status == 'accepted' %}Принят — сделка в «Сделках»
                 {% elif resp.status == 'rejected' %}Отклонён
                 {% elif resp.status == 'pending' %}Ждёт решения
+                {% elif resp.status == 'expired' %}Кампания завершилась
                 {% else %}Отозван{% endif %}
             </span>
         </div>

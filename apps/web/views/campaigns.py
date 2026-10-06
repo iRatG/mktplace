@@ -5,6 +5,7 @@ from django.views.decorators.http import require_POST
 
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
+from apps.campaigns.services import expired_error
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.validation import (
     EDITABLE_STATUSES, active_response, budget_committed, budget_remaining, deal_acceptance_error,
@@ -202,6 +203,8 @@ def campaign_resume(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
     if campaign.status != Campaign.Status.PAUSED:
         messages.error(request, "Можно возобновить только приостановленную кампанию.")
+    elif expired_error(campaign):
+        messages.error(request, f"{expired_error(campaign)} Отредактируйте кампанию — она уйдёт на модерацию.")
     else:
         campaign.status = Campaign.Status.ACTIVE
         campaign.save(update_fields=["status"])
@@ -351,6 +354,9 @@ def _answer_proposal(request, pk, accept):
             if not form.is_valid():
                 problems = "; ".join(str(e) for errs in form.errors.values() for e in errs)
                 messages.error(request, f"Правки нельзя применить — условия кампании изменились: {problems}")
+                return redirect("web:campaign_detail", pk=pk)
+            if expired_error(form.instance):
+                messages.error(request, f"Правки нельзя применить: {expired_error(form.instance)} Отклоните правки и исправьте даты.")
                 return redirect("web:campaign_detail", pk=pk)
             campaign = save_campaign_form(form)
             campaign.status = Campaign.Status.ACTIVE

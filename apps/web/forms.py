@@ -7,7 +7,7 @@ from django.template.loader import render_to_string
 
 from apps.business_queries.models import Ticket
 from apps.campaigns.models import Campaign, DirectOffer
-from apps.campaigns.validation import budget_committed, campaign_param_errors, deals_in_cap
+from apps.campaigns.validation import budget_committed, campaign_param_errors, deals_in_cap, past_date_errors
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.registration.models import IPApplication, LegalEntityApplication
@@ -108,7 +108,6 @@ class CampaignForm(forms.ModelForm):
             self.initial["allowed_socials"] = self.instance.allowed_socials
 
     def clean(self):
-        from django.utils import timezone as _tz
         cleaned = super().clean()
         payment_type = cleaned.get("payment_type")
 
@@ -133,16 +132,9 @@ class CampaignForm(forms.ModelForm):
         if budget is not None and budget <= 0:
             self.add_error("budget", "Бюджет должен быть больше нуля.")
 
-        # Даты окна приёма контента не в прошлом — только новые или изменённые: у идущей кампании
-        # на паузе окно может уже начаться, и правка остальных полей не должна из-за этого падать.
-        today = _tz.now().date()
-        for name, message in (
-            ("content_start", "Начало приёма контента не может быть в прошлом."),
-            ("deadline", "Окончание приёма контента не может быть в прошлом."),
-        ):
-            value = cleaned.get(name)
-            if value and value < today and value != getattr(self.instance, name, None):
-                self.add_error(name, message)
+        # Даты не в прошлом — только новые или изменённые (одно правило с API).
+        for name, message in past_date_errors(cleaned, self.instance).items():
+            self.add_error(name, message)
 
         errors = campaign_param_errors(
             payment_type=payment_type,

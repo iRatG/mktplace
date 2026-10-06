@@ -32,6 +32,31 @@ def deals_in_cap(campaign):
 CONTENT_END_WORKING_DAYS_BEFORE_END = 5
 
 
+PAST_DATE_MESSAGES = {
+    "start_date": "Начало кампании не может быть в прошлом.",
+    "end_date": "Окончание кампании не может быть в прошлом.",
+    "content_start": "Начало приёма контента не может быть в прошлом.",
+    "deadline": "Окончание приёма контента не может быть в прошлом.",
+}
+
+
+def past_date_errors(values, instance=None, today=None):
+    """Даты кампании в прошлом — ошибка, но только для новых или изменённых значений.
+
+    У идущей кампании на паузе начало уже прошло, и правка остальных полей не должна из-за этого падать.
+    values — {поле: дата} (итоговые значения формы или сериализатора).
+    """
+    from django.utils import timezone
+
+    today = today or timezone.localdate()
+    errors = {}
+    for name, message in PAST_DATE_MESSAGES.items():
+        value = values.get(name)
+        if value and value < today and value != getattr(instance, name, None):
+            errors[name] = message
+    return errors
+
+
 def working_days_before(day, count):
     """Дата, отстоящая от day на count рабочих дней назад (рабочие — пн–пт, праздники не учитываются)."""
     from datetime import timedelta
@@ -136,6 +161,11 @@ def deal_acceptance_error(campaign, amount):
     Одно правило для принятия отклика (сайт и API) и прямого предложения. Вызывать внутри atomic,
     после select_for_update кампании, — тогда два одновременных принятия не превысят ни лимит, ни бюджет.
     """
+    from .services import expired_error
+
+    error = expired_error(campaign)
+    if error:
+        return error
     if campaign.max_bloggers and deals_in_cap(campaign) >= campaign.max_bloggers:
         return f"Достигнут лимит блогеров кампании ({campaign.max_bloggers})."
     remaining = budget_remaining(campaign)
