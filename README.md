@@ -365,5 +365,5 @@ celery -A config beat -l info
 
 ---
 
-**Demo VPS:** 89.111.152.228
+**Сайт:** https://ublogers.uz
 **GitHub:** https://github.com/iRatG/mktplace
