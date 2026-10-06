@@ -60,6 +60,12 @@ with db_transaction.atomic():
 WAITING_PUBLICATION; рекламодатель отменяет сделку из WAITING_PAYMENT / IN_PROGRESS / WAITING_PUBLICATION,
 блогер — только из WAITING_PAYMENT.
 
+### Денежные итоги — только через `apps/billing/metrics.py`
+`BillingService` пишет списания (`PAYMENT`, `RESERVE`, `WITHDRAWAL`) с минусом, зачисления — с плюсом; отдельной
+транзакции «комиссия» нет (комиссия = |PAYMENT| − EARNING). Доход платформы, оборот, траты, заработок и топы считаются
+функциями `metrics` (сумма по модулю), а не своим `Sum("amount")` во view — так 06.10.2026 доход админа показывал
+−1.85 × оборот. В тестах деньги проводить через `BillingService`, а не создавать `Transaction` вручную со своим знаком.
+
 ### Кампания для блогера — только ACTIVE
 ```python
 campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)
