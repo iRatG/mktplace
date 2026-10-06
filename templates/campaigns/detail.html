@@ -110,6 +110,7 @@
         <div class="card-dark rounded-xl">
             <div class="px-6 py-4 border-b border-gray-200">
                 <h2 class="font-semibold text-gray-900">Отклики ({{ responses|length }})</h2>
+                <p class="text-xs text-gray-600 mt-1">Бюджет {{ campaign.budget|money }} · занято сделками {{ budget_committed|money }} · осталось <span class="font-semibold text-gray-900">{{ budget_remaining|money }}</span> {{ currency.symbol }}</p>
             </div>
             <div class="divide-y divide-gray-100">
                 {% for resp in responses %}
@@ -139,6 +140,10 @@
                             <div class="text-xs text-gray-500 mt-1">
                                 {{ resp.content_type }}
                                 {% if resp.proposed_price %}· предлагает {{ resp.proposed_price|money }} {{ currency.symbol }}{% else %}· цена кампании{% endif %}
+                                {% if resp.status == 'pending' %}
+                                {% if resp.proposed_price and campaign.fixed_price and resp.proposed_price > campaign.fixed_price %}<span class="text-orange-600">· выше цены кампании ({{ campaign.fixed_price|money }})</span>{% endif %}
+                                {% if resp.proposed_price|default:campaign.fixed_price > budget_remaining %}<span class="text-red-600 font-medium">· не хватает остатка бюджета</span>{% endif %}
+                                {% endif %}
                             </div>
                             {% if resp.message %}
                             <div class="text-xs text-gray-500 mt-1 italic">"{{ resp.message|truncatechars:120 }}"</div>

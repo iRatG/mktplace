@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from .models import Campaign, Response
-from .validation import active_response, campaign_param_errors, deals_in_cap
+from .validation import active_response, budget_committed, campaign_param_errors, deals_in_cap
 
 
 class CampaignSerializer(serializers.ModelSerializer):
@@ -120,6 +120,7 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             content_start=value("content_start"),
             max_bloggers=value("max_bloggers"),
             taken_slots=deals_in_cap(self.instance),
+            committed_budget=budget_committed(self.instance),
         )
         if errors:
             raise serializers.ValidationError(errors)

@@ -14,7 +14,7 @@ from apps.users.models import User
 from .models import Campaign
 from .models import Response as CampaignResponse
 from .serializers import CampaignCreateSerializer, CampaignSerializer, ResponseSerializer
-from .validation import EDITABLE_STATUSES, deals_in_cap
+from .validation import EDITABLE_STATUSES, deal_acceptance_error
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -196,19 +196,16 @@ class ResponseViewSet(
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                if campaign.max_bloggers > 0:
-                    if deals_in_cap(campaign) >= campaign.max_bloggers:
-                        return DRFResponse(
-                            {"detail": f"Campaign has reached the maximum number of bloggers ({campaign.max_bloggers})."},
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
                 amount = response_obj.proposed_price or campaign.fixed_price
                 if not amount:
                     return DRFResponse(
                         {"detail": "Cannot determine deal amount: no price agreed upon."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+                error = deal_acceptance_error(campaign, amount)
+                if error:
+                    return DRFResponse({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
 
                 response_obj.status = CampaignResponse.Status.ACCEPTED
                 response_obj.save(update_fields=["status"])

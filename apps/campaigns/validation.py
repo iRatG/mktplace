@@ -1,4 +1,6 @@
 """Согласованность параметров кампании — общая проверка для веб-формы и API."""
+from decimal import Decimal
+
 from django.conf import settings
 
 from apps.billing.formatting import format_money
@@ -50,7 +52,7 @@ def latest_content_end(end_date):
 
 def campaign_param_errors(*, payment_type, fixed_price, budget,
                           start_date, end_date, deadline, max_bloggers, taken_slots=0,
-                          content_start=None):
+                          content_start=None, committed_budget=Decimal("0")):
     """Вернуть {поле: сообщение} для несогласованных параметров кампании.
 
     Принимает итоговые значения полей (после разбора формы/сериализатора).
@@ -88,6 +90,11 @@ def campaign_param_errors(*, payment_type, fixed_price, budget,
                 f"при цене за размещение {_spaced(fixed_price)}."
             )
 
+    if budget is not None and committed_budget and budget < committed_budget and "budget" not in errors:
+        errors["budget"] = (
+            f"Сделками по кампании уже занято {_spaced(committed_budget)} — бюджет не может быть меньше."
+        )
+
     if max_bloggers and taken_slots and max_bloggers < taken_slots and "max_bloggers" not in errors:
         errors["max_bloggers"] = (
             f"По кампании уже занято мест: {taken_slots}. "
@@ -101,6 +108,43 @@ def _bloggers_word(n):
     if n % 10 == 1 and n % 100 != 11:
         return "блогера"
     return "блогеров"
+
+
+def budget_committed(campaign):
+    """Сколько бюджета кампании уже занято сделками: все сделки, кроме отменённых (решение бизнеса 06.10.2026, вариант Б)."""
+    from django.db.models import Sum
+
+    from apps.deals.models import Deal
+
+    if campaign is None or campaign.pk is None:
+        return Decimal("0")
+    total = (
+        Deal.objects.filter(campaign=campaign)
+        .exclude(status=Deal.Status.CANCELLED)
+        .aggregate(total=Sum("amount"))["total"]
+    )
+    return total or Decimal("0")
+
+
+def budget_remaining(campaign):
+    return max(Decimal("0"), (campaign.budget or Decimal("0")) - budget_committed(campaign))
+
+
+def deal_acceptance_error(campaign, amount):
+    """Почему по кампании нельзя создать сделку на amount — или None.
+
+    Одно правило для принятия отклика (сайт и API) и прямого предложения. Вызывать внутри atomic,
+    после select_for_update кампании, — тогда два одновременных принятия не превысят ни лимит, ни бюджет.
+    """
+    if campaign.max_bloggers and deals_in_cap(campaign) >= campaign.max_bloggers:
+        return f"Достигнут лимит блогеров кампании ({campaign.max_bloggers})."
+    remaining = budget_remaining(campaign)
+    if amount > remaining:
+        return (
+            f"Не хватает бюджета кампании: осталось {format_money(remaining)}, а сделка на {format_money(amount)}. "
+            f"Увеличьте бюджет (пауза → правка → модерация) или отклоните отклик с комментарием."
+        )
+    return None
 
 
 def active_response(campaign, blogger):

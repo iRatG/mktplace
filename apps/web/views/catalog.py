@@ -5,6 +5,7 @@ from django.views.decorators.http import require_POST
 
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, DirectOffer
+from apps.campaigns.validation import deal_acceptance_error
 from apps.deals.models import Deal, DealStatusLog
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
@@ -204,18 +205,10 @@ def direct_offer_accept(request, pk):
     try:
         with db_transaction.atomic():
             locked_campaign = Campaign.objects.select_for_update().get(pk=campaign.pk)
-            if locked_campaign.max_bloggers > 0:
-                active_count = Deal.objects.filter(
-                    campaign=locked_campaign,
-                    status__in=[
-                        Deal.Status.IN_PROGRESS, Deal.Status.CHECKING,
-                        Deal.Status.ON_APPROVAL, Deal.Status.WAITING_PUBLICATION,
-                        Deal.Status.COMPLETED,
-                    ],
-                ).count()
-                if active_count >= locked_campaign.max_bloggers:
-                    messages.error(request, "Достигнут лимит участников кампании.")
-                    return redirect("web:blogger_dashboard")
+            error = deal_acceptance_error(locked_campaign, amount)
+            if error:
+                messages.error(request, error)
+                return redirect("web:blogger_dashboard")
 
             locked_offer = DirectOffer.objects.select_for_update().get(pk=offer.pk)
             if locked_offer.status != DirectOffer.Status.PENDING:

@@ -6,7 +6,9 @@ from django.views.decorators.http import require_POST
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.campaigns.models import Response as CampaignResponse
-from apps.campaigns.validation import EDITABLE_STATUSES, active_response, deals_in_cap
+from apps.campaigns.validation import (
+    EDITABLE_STATUSES, active_response, budget_committed, budget_remaining, deal_acceptance_error,
+)
 from apps.deals.models import Deal, DealStatusLog
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
@@ -25,6 +27,14 @@ def _responses_with_blogger_data(campaign):
         .prefetch_related("platform__categories")
         .order_by("-created_at")
     )
+
+
+def _budget_context(campaign):
+    """Бюджет / занято сделками / осталось — для владельца кампании (решение бизнеса 06.10.2026, вариант Б)."""
+    return {
+        "budget_committed": budget_committed(campaign),
+        "budget_remaining": budget_remaining(campaign),
+    }
 
 
 def _pending_proposal_context(campaign):
@@ -73,6 +83,7 @@ def campaign_detail(request, pk):
             "is_owner": True,
             "responses": responses,
             **_pending_proposal_context(campaign),
+            **_budget_context(campaign),
         }
     elif user.role == User.Role.ADVERTISER:
         campaign = get_object_or_404(Campaign, pk=pk, advertiser=user)
@@ -82,6 +93,7 @@ def campaign_detail(request, pk):
             "is_owner": True,
             "responses": responses,
             **_pending_proposal_context(campaign),
+            **_budget_context(campaign),
         }
     else:
         campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)
@@ -251,12 +263,6 @@ def response_accept(request, pk):
         messages.error(request, "Нельзя принимать отклики — кампания не активна.")
         return redirect("web:campaign_detail", pk=campaign.pk)
 
-    # Проверяем лимит блогеров
-    if campaign.max_bloggers > 0:
-        if deals_in_cap(campaign) >= campaign.max_bloggers:
-            messages.error(request, f"Достигнут лимит блогеров для кампании ({campaign.max_bloggers}).")
-            return redirect("web:campaign_detail", pk=campaign.pk)
-
     amount = resp.proposed_price or campaign.fixed_price
     if not amount:
         messages.error(request, "Не удалось определить сумму сделки.")
@@ -264,22 +270,12 @@ def response_accept(request, pk):
 
     try:
         with db_transaction.atomic():
-            # Re-check limit inside atomic with lock to prevent race condition
+            # Лимит блогеров и остаток бюджета — под блокировкой кампании (гонка двух принятий).
             locked_campaign = Campaign.objects.select_for_update().get(pk=campaign.pk)
-            if locked_campaign.max_bloggers > 0:
-                active_count = Deal.objects.filter(
-                    campaign=locked_campaign,
-                    status__in=[
-                        Deal.Status.IN_PROGRESS,
-                        Deal.Status.CHECKING,
-                        Deal.Status.ON_APPROVAL,
-                        Deal.Status.WAITING_PUBLICATION,
-                        Deal.Status.COMPLETED,
-                    ],
-                ).count()
-                if active_count >= locked_campaign.max_bloggers:
-                    messages.error(request, f"Достигнут лимит блогеров для кампании ({locked_campaign.max_bloggers}).")
-                    return redirect("web:campaign_detail", pk=campaign.pk)
+            error = deal_acceptance_error(locked_campaign, amount)
+            if error:
+                messages.error(request, error)
+                return redirect("web:campaign_detail", pk=campaign.pk)
 
             resp.status = CampaignResponse.Status.ACCEPTED
             resp.save(update_fields=["status"])
