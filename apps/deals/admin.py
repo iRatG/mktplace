@@ -30,7 +30,16 @@ class DealAdmin(admin.ModelAdmin):
     )
     list_filter = ("status",)
     search_fields = ("blogger__email", "advertiser__email", "campaign__name")
+    # Статус и деньги сделки меняются только переходами процесса (с биллингом и журналом статусов).
     readonly_fields = (
+        "campaign",
+        "blogger",
+        "advertiser",
+        "platform",
+        "response",
+        "amount",
+        "status",
+        "is_frozen",
         "created_at",
         "updated_at",
         "creative_submitted_at",

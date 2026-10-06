@@ -47,6 +47,7 @@ class Transaction(models.Model):
         REFUND = "refund", "Refund"
         CORRECTION = "correction", "Correction"
         TEST_CREDIT = "test_credit", "Test Credit (Demo)"
+        PAYOUT = "payout", "Payout"  # заявка на вывод выплачена: деньги ушли с «на выводе» из системы
 
     wallet = models.ForeignKey(
         Wallet,

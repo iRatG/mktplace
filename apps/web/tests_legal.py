@@ -75,6 +75,15 @@ def _make_deal(advertiser, blogger, status=Deal.Status.IN_PROGRESS, amount=100_0
         amount=amount,
         status=status,
     )
+    return _hold_reserve(deal)
+
+
+def _hold_reserve(deal):
+    """Как в процессе: под сделку в работе у рекламодателя лежит резерв на её сумму (строгий BillingService)."""
+    if deal.status not in (Deal.Status.COMPLETED, Deal.Status.CANCELLED):
+        wallet, _ = Wallet.objects.get_or_create(user=deal.advertiser)
+        wallet.reserved_balance += deal.amount
+        wallet.save(update_fields=["reserved_balance"])
     return deal
 
 

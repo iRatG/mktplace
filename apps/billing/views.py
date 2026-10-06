@@ -62,6 +62,12 @@ class WithdrawalRequestView(generics.ListCreateAPIView):
             )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        withdrawal = serializer.save()
-        BillingService.process_withdrawal(withdrawal)
+        # Заявка и списание в «на выводе» — вместе или никак.
+        from django.db import transaction as db_transaction
+        try:
+            with db_transaction.atomic():
+                withdrawal = serializer.save()
+                BillingService.process_withdrawal(withdrawal)
+        except ValueError as e:
+            return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return DRFResponse(serializer.data, status=status.HTTP_201_CREATED)

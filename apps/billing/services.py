@@ -6,6 +6,11 @@ from django.db import models, transaction as db_transaction
 from .models import TestBalanceGrant, Transaction, Wallet, WithdrawalRequest
 
 
+# Сделка, по которой списываются CPA-конверсии: идёт работа или проверка. Завершённая, отменённая
+# и спорная сделки конверсий не оплачивают.
+CPA_BILLABLE_DEAL_STATUSES = ("in_progress", "on_approval", "waiting_publication", "checking")
+
+
 class BillingService:
     """Central service for all billing operations."""
 
@@ -13,6 +18,14 @@ class BillingService:
     def _get_or_create_wallet(user):
         wallet, _ = Wallet.objects.select_for_update().get_or_create(user=user)
         return wallet
+
+    @staticmethod
+    def _require_reserved(wallet, amount, deal):
+        """Резерв рекламодателя покрывает сделку — иначе учёт уже сломан, и молча «досоздавать» деньги нельзя."""
+        if wallet.reserved_balance < amount:
+            raise ValueError(
+                f"Reserve of {wallet.user_id} ({wallet.reserved_balance}) is less than deal #{deal.pk} amount ({amount})."
+            )
 
     @classmethod
     @db_transaction.atomic
@@ -50,8 +63,9 @@ class BillingService:
         """
         wallet = cls._get_or_create_wallet(deal.advertiser)
         amount = deal.amount
+        cls._require_reserved(wallet, amount, deal)
 
-        wallet.reserved_balance = max(Decimal("0"), wallet.reserved_balance - amount)
+        wallet.reserved_balance -= amount
         wallet.available_balance += amount
         wallet.save(update_fields=["available_balance", "reserved_balance", "updated_at"])
 
@@ -85,9 +99,8 @@ class BillingService:
         blogger_earning = amount - commission
 
         # Deduct from advertiser's reserved balance
-        advertiser_wallet.reserved_balance = max(
-            Decimal("0"), advertiser_wallet.reserved_balance - amount
-        )
+        cls._require_reserved(advertiser_wallet, amount, deal)
+        advertiser_wallet.reserved_balance -= amount
         advertiser_wallet.save(update_fields=["reserved_balance", "updated_at"])
 
         Transaction.objects.create(
@@ -148,15 +161,65 @@ class BillingService:
 
     @classmethod
     @db_transaction.atomic
+    def complete_withdrawal(cls, withdrawal: WithdrawalRequest, comment=""):
+        """Заявка на вывод выплачена: сумма уходит с «на выводе» из системы, пишется транзакция PAYOUT.
+
+        Единственный путь выплаты — панель сотрудника и Django admin вызывают его.
+        """
+        from django.utils import timezone
+
+        withdrawal = WithdrawalRequest.objects.select_for_update().get(pk=withdrawal.pk)
+        if withdrawal.status != WithdrawalRequest.Status.PENDING:
+            raise ValueError(f"Withdrawal #{withdrawal.pk} is not pending.")
+        wallet = cls._get_or_create_wallet(withdrawal.blogger)
+        amount = withdrawal.amount
+        if wallet.on_withdrawal < amount:
+            raise ValueError(f"On-withdrawal balance is less than withdrawal #{withdrawal.pk} amount.")
+
+        wallet.on_withdrawal -= amount
+        wallet.save(update_fields=["on_withdrawal", "updated_at"])
+        Transaction.objects.create(
+            wallet=wallet,
+            type=Transaction.Type.PAYOUT,
+            amount=-amount,
+            balance_after=wallet.available_balance,
+            description=f"Payout for withdrawal request #{withdrawal.pk}",
+        )
+        withdrawal.status = WithdrawalRequest.Status.COMPLETED
+        withdrawal.processed_at = timezone.now()
+        withdrawal.admin_comment = comment
+        withdrawal.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
+        return withdrawal
+
+    @classmethod
+    @db_transaction.atomic
+    def reject_withdrawal(cls, withdrawal: WithdrawalRequest, comment=""):
+        """Заявка на вывод отклонена: сумма возвращается на доступный баланс (REFUND)."""
+        from django.utils import timezone
+
+        withdrawal = WithdrawalRequest.objects.select_for_update().get(pk=withdrawal.pk)
+        if withdrawal.status != WithdrawalRequest.Status.PENDING:
+            raise ValueError(f"Withdrawal #{withdrawal.pk} is not pending.")
+        cls.refund(withdrawal)
+        withdrawal.status = WithdrawalRequest.Status.REJECTED
+        withdrawal.processed_at = timezone.now()
+        withdrawal.admin_comment = comment
+        withdrawal.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
+        return withdrawal
+
+    @classmethod
+    @db_transaction.atomic
     def refund(cls, withdrawal: WithdrawalRequest):
         """
         Refund withdrawal amount back to blogger's available balance
-        if the withdrawal request is rejected.
+        if the withdrawal request is rejected. Вызывать через reject_withdrawal.
         """
         wallet = cls._get_or_create_wallet(withdrawal.blogger)
         amount = withdrawal.amount
+        if wallet.on_withdrawal < amount:
+            raise ValueError(f"On-withdrawal balance is less than withdrawal #{withdrawal.pk} amount.")
 
-        wallet.on_withdrawal = max(Decimal("0"), wallet.on_withdrawal - amount)
+        wallet.on_withdrawal -= amount
         wallet.available_balance += amount
         wallet.save(update_fields=["available_balance", "on_withdrawal", "updated_at"])
 
@@ -186,6 +249,9 @@ class BillingService:
         if amount <= 0:
             raise ValueError("Amount must be positive.")
 
+        # Сначала блокировка кошелька: параллельные начисления одному пользователю идут по очереди,
+        # и сумма уже начисленного ниже читается актуальной.
+        wallet = cls._get_or_create_wallet(user)
         already_granted = (
             TestBalanceGrant.objects.filter(user=user)
             .aggregate(total=models.Sum("amount"))["total"]
@@ -198,7 +264,6 @@ class BillingService:
                 f"Limit exceeded. This account can receive at most {remaining} more test credits."
             )
 
-        wallet = cls._get_or_create_wallet(user)
         wallet.available_balance += amount
         wallet.save(update_fields=["available_balance", "updated_at"])
 
@@ -237,8 +302,19 @@ class BillingService:
         if conversion.credited:
             raise ValueError(f"Conversion #{conversion.pk} is already credited.")
 
-        deal = conversion.tracking_link.deal
+        from apps.campaigns.models import Campaign
+        from apps.campaigns.validation import budget_remaining
+        from apps.deals.models import Deal
+
+        # Статус сделки — свежий и под блокировкой: её могли завершить или отменить параллельно.
+        deal = Deal.objects.select_for_update().get(pk=conversion.tracking_link.deal_id)
         amount = conversion.amount
+        if deal.status not in CPA_BILLABLE_DEAL_STATUSES:
+            raise ValueError(f"Deal #{deal.pk} is not in progress — CPA conversions are not billed.")
+        # Все траты кампании (сделки + CPA) не больше её бюджета — блокировка кампании против гонки.
+        campaign = Campaign.objects.select_for_update().get(pk=deal.campaign_id)
+        if amount > budget_remaining(campaign):
+            raise ValueError(f"Campaign #{campaign.pk} budget is exhausted.")
 
         advertiser_wallet = cls._get_or_create_wallet(deal.advertiser)
         if advertiser_wallet.available_balance < amount:

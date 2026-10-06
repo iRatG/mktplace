@@ -21,6 +21,9 @@ def wallet_view(request):
     withdrawal_submitted = False
     min_withdrawal = getattr(settings, "CURRENCY_MIN_WITHDRAWAL", 500)
 
+    if request.method == "POST" and user.role == User.Role.BLOGGER and user.is_demo:
+        messages.error(request, "Вывод средств недоступен для демо-аккаунтов.")
+        return redirect("web:wallet")
     if request.method == "POST" and user.role == User.Role.BLOGGER:
         amount_str = request.POST.get("amount", "").strip()
         card = request.POST.get("card", "").strip()

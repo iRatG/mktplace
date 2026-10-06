@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 
 from apps.billing import metrics
 from apps.billing.formatting import format_money
-from apps.billing.models import Wallet, WithdrawalRequest
+from apps.billing.models import WithdrawalRequest
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.campaigns.services import expired_error
@@ -315,19 +315,12 @@ def admin_users(request):
 @_staff_required
 @require_POST
 def admin_withdrawal_approve(request, pk):
-    from django.db import transaction as db_transaction
-    with db_transaction.atomic():
-        wr = get_object_or_404(
-            WithdrawalRequest.objects.select_for_update(),
-            pk=pk, status=WithdrawalRequest.Status.PENDING,
-        )
-        wallet = Wallet.objects.select_for_update().get(user=wr.blogger)
-        wallet.on_withdrawal -= wr.amount
-        wallet.save(update_fields=["on_withdrawal", "updated_at"])
-        wr.status = WithdrawalRequest.Status.COMPLETED
-        wr.processed_at = timezone.now()
-        wr.admin_comment = request.POST.get("comment", "").strip()
-        wr.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
+    wr = get_object_or_404(WithdrawalRequest, pk=pk, status=WithdrawalRequest.Status.PENDING)
+    try:
+        wr = BillingService.complete_withdrawal(wr, comment=request.POST.get("comment", "").strip())
+    except ValueError as e:
+        messages.error(request, f"Выплата не проведена: {e}")
+        return redirect("web:admin_withdrawals")
     NotificationService.notify_withdrawal_approved(wr.blogger, wr.amount)
     messages.success(request, f"Выплата {format_money(wr.amount)} для {wr.blogger.email} подтверждена.")
     return redirect("web:admin_withdrawals")
@@ -337,17 +330,12 @@ def admin_withdrawal_approve(request, pk):
 @require_POST
 def admin_withdrawal_reject(request, pk):
     comment = request.POST.get("comment", "").strip()
-    from django.db import transaction as db_transaction
-    with db_transaction.atomic():
-        wr = get_object_or_404(
-            WithdrawalRequest.objects.select_for_update(),
-            pk=pk, status=WithdrawalRequest.Status.PENDING,
-        )
-        BillingService.refund(wr)
-        wr.status = WithdrawalRequest.Status.REJECTED
-        wr.processed_at = timezone.now()
-        wr.admin_comment = comment
-        wr.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
+    wr = get_object_or_404(WithdrawalRequest, pk=pk, status=WithdrawalRequest.Status.PENDING)
+    try:
+        wr = BillingService.reject_withdrawal(wr, comment=comment)
+    except ValueError as e:
+        messages.error(request, f"Отказ не проведён: {e}")
+        return redirect("web:admin_withdrawals")
     NotificationService.notify_withdrawal_rejected(wr.blogger, wr.amount, comment)
     messages.success(request, f"Заявка отклонена, средства возвращены на баланс {wr.blogger.email}.")
     return redirect("web:admin_withdrawals")

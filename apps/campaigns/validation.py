@@ -136,19 +136,26 @@ def _bloggers_word(n):
 
 
 def budget_committed(campaign):
-    """Сколько бюджета кампании уже занято сделками: все сделки, кроме отменённых (решение бизнеса 06.10.2026, вариант Б)."""
+    """Сколько бюджета кампании уже занято: сделки (кроме отменённых) + оплаченные CPA-конверсии.
+
+    Решение бизнеса 06.10.2026, вариант Б: бюджет — лимит всех трат кампании.
+    """
     from django.db.models import Sum
 
-    from apps.deals.models import Deal
+    from apps.deals.models import Conversion, Deal
 
     if campaign is None or campaign.pk is None:
         return Decimal("0")
-    total = (
+    deals = (
         Deal.objects.filter(campaign=campaign)
         .exclude(status=Deal.Status.CANCELLED)
         .aggregate(total=Sum("amount"))["total"]
-    )
-    return total or Decimal("0")
+    ) or Decimal("0")
+    cpa = (
+        Conversion.objects.filter(tracking_link__deal__campaign=campaign, credited=True)
+        .aggregate(total=Sum("amount"))["total"]
+    ) or Decimal("0")
+    return deals + cpa
 
 
 def budget_remaining(campaign):

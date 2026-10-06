@@ -19,12 +19,10 @@ def cpa_click_track(request, slug):
         from django.http import Http404
         raise Http404
 
-    # Log the click
-    ip = (
-        request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
-        or request.META.get("REMOTE_ADDR")
-        or None
-    )
+    # Log the click. IP — через client_ip(): X-Forwarded-For клиент подделывает и обходит лимит.
+    from apps.users.security import client_ip
+
+    ip = client_ip(request) or None
 
     # Rate limit: max 30 clicks per hour per IP per slug
     rate_key = f"cpa_click:{ip}:{slug}"

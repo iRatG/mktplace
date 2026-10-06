@@ -56,14 +56,23 @@ def _make_deal(advertiser, blogger, campaign=None, platform=None,
         campaign = _make_campaign(advertiser)
     if platform is None:
         platform = _make_platform(blogger)
-    return Deal.objects.create(
+    return _hold_reserve(Deal.objects.create(
         advertiser=advertiser,
         blogger=blogger,
         campaign=campaign,
         platform=platform,
         amount=Decimal(amount),
         status=status,
-    )
+    ))
+
+
+def _hold_reserve(deal):
+    """Как в процессе: под сделку в работе у рекламодателя лежит резерв на её сумму (строгий BillingService)."""
+    if deal.status not in (Deal.Status.COMPLETED, Deal.Status.CANCELLED):
+        wallet, _ = Wallet.objects.get_or_create(user=deal.advertiser)
+        wallet.reserved_balance += deal.amount
+        wallet.save(update_fields=["reserved_balance"])
+    return deal
 
 
 def _fund_wallet(user, amount):
