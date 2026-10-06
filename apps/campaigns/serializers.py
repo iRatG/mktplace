@@ -32,6 +32,7 @@ class CampaignSerializer(serializers.ModelSerializer):
             "budget",
             "start_date",
             "end_date",
+            "content_start",
             "deadline",
             "min_subscribers",
             "min_er",
@@ -78,6 +79,7 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             "budget",
             "start_date",
             "end_date",
+            "content_start",
             "deadline",
             "min_subscribers",
             "min_er",
@@ -115,6 +117,7 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             start_date=value("start_date"),
             end_date=value("end_date"),
             deadline=value("deadline"),
+            content_start=value("content_start"),
             max_bloggers=value("max_bloggers"),
             taken_slots=deals_in_cap(self.instance),
         )

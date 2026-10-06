@@ -289,10 +289,10 @@
                     <dd class="font-medium text-gray-900">{{ campaign.end_date|date:"d.m.Y" }}</dd>
                 </div>
                 {% endif %}
-                {% if campaign.deadline %}
+                {% if campaign.content_start or campaign.deadline %}
                 <div class="flex justify-between">
-                    <dt class="text-gray-500">Дедлайн</dt>
-                    <dd class="font-medium text-gray-900">{{ campaign.deadline|date:"d.m.Y" }}</dd>
+                    <dt class="text-gray-500">Приём контента</dt>
+                    <dd class="font-medium text-gray-900">{% if campaign.content_start %}с {{ campaign.content_start|date:"d.m.Y" }} {% endif %}{% if campaign.deadline %}до {{ campaign.deadline|date:"d.m.Y" }}{% endif %}</dd>
                 </div>
                 {% endif %}
                 <div class="flex justify-between">

@@ -56,7 +56,8 @@
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Бюджет</dt><dd class="text-gray-800">{{ campaign.budget|money }} {{ currency.symbol }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Начало</dt><dd class="text-gray-800">{{ campaign.start_date|date:"d.m.Y"|default:"—" }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Окончание</dt><dd class="text-gray-800">{{ campaign.end_date|date:"d.m.Y"|default:"—" }}</dd></div>
-            <div class="flex justify-between gap-4"><dt class="text-gray-600">Дедлайн контента</dt><dd class="text-gray-800">{{ campaign.deadline|date:"d.m.Y"|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-600">Приём контента с</dt><dd class="text-gray-800">{{ campaign.content_start|date:"d.m.Y"|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-600">Приём контента до</dt><dd class="text-gray-800">{{ campaign.deadline|date:"d.m.Y"|default:"—" }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Мин. подписчиков</dt><dd class="text-gray-800">{{ campaign.min_subscribers|money }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Макс. блогеров</dt><dd class="text-gray-800">{% if campaign.max_bloggers %}{{ campaign.max_bloggers }}{% else %}без ограничения{% endif %}</dd></div>
         </dl>

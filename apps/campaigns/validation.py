@@ -25,8 +25,32 @@ def deals_in_cap(campaign):
     return Deal.objects.filter(campaign=campaign, status__in=CAP_DEAL_STATUSES).count()
 
 
+# Окно приёма контента заканчивается не позже чем за столько рабочих дней до окончания кампании —
+# чтобы рекламодатель успел проверить материалы (решение бизнеса 06.10.2026, рабочие дни — пн–пт).
+CONTENT_END_WORKING_DAYS_BEFORE_END = 5
+
+
+def working_days_before(day, count):
+    """Дата, отстоящая от day на count рабочих дней назад (рабочие — пн–пт, праздники не учитываются)."""
+    from datetime import timedelta
+
+    current = day
+    left = count
+    while left > 0:
+        current -= timedelta(days=1)
+        if current.weekday() < 5:
+            left -= 1
+    return current
+
+
+def latest_content_end(end_date):
+    """Последний допустимый день окна приёма контента для кампании, заканчивающейся end_date."""
+    return working_days_before(end_date, CONTENT_END_WORKING_DAYS_BEFORE_END)
+
+
 def campaign_param_errors(*, payment_type, fixed_price, budget,
-                          start_date, end_date, deadline, max_bloggers, taken_slots=0):
+                          start_date, end_date, deadline, max_bloggers, taken_slots=0,
+                          content_start=None):
     """Вернуть {поле: сообщение} для несогласованных параметров кампании.
 
     Принимает итоговые значения полей (после разбора формы/сериализатора).
@@ -37,11 +61,19 @@ def campaign_param_errors(*, payment_type, fixed_price, budget,
     if start_date and end_date and end_date < start_date:
         errors["end_date"] = "Дата окончания не может быть раньше даты начала."
 
-    if deadline:
-        if start_date and deadline < start_date:
-            errors["deadline"] = "Дедлайн контента не может быть раньше начала кампании."
-        elif end_date and deadline > end_date:
-            errors["deadline"] = "Дедлайн контента не может быть позже окончания кампании."
+    # Окно приёма контента: начало ≤ конец; конец не раньше старта кампании (правило до 06.10.2026 сохранено)
+    # и не позже чем за N рабочих дней до её окончания.
+    if content_start and deadline and content_start > deadline:
+        errors["content_start"] = "Начало приёма контента не может быть позже его окончания."
+    if deadline and start_date and deadline < start_date:
+        errors["deadline"] = "Приём контента не может закончиться раньше начала кампании."
+    elif deadline and end_date:
+        latest = latest_content_end(end_date)
+        if deadline > latest:
+            errors["deadline"] = (
+                f"Приём контента должен закончиться не позже чем за {CONTENT_END_WORKING_DAYS_BEFORE_END} "
+                f"рабочих дней до окончания кампании — не позже {latest:%d.%m.%Y}."
+            )
 
     min_price = settings.CAMPAIGN_MIN_FIXED_PRICE
     if payment_type == Campaign.PaymentType.FIXED and fixed_price and fixed_price < min_price:

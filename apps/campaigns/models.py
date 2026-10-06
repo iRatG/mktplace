@@ -72,9 +72,14 @@ class Campaign(models.Model):
     )
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    # Окно приёма контента (решение бизнеса 06.10.2026): content_start … deadline.
+    content_start = models.DateField(
+        null=True, blank=True,
+        help_text="Приём контента с",
+    )
     deadline = models.DateField(
         null=True, blank=True,
-        help_text="Deadline for bloggers to submit content",
+        help_text="Приём контента до (конец окна); не позже чем за 5 рабочих дней до окончания кампании",
     )
     min_subscribers = models.PositiveIntegerField(default=0)
     min_er = models.DecimalField(

@@ -78,7 +78,7 @@ class CampaignForm(forms.ModelForm):
             "name", "category", "subject", "description",
             "payment_type", "fixed_price", "budget",
             "cpa_type", "cpa_rate", "cpa_tracking_url",
-            "start_date", "end_date", "deadline",
+            "start_date", "end_date", "content_start", "deadline",
             "min_subscribers", "content_types", "allowed_socials",
             "max_bloggers",
         ]
@@ -92,6 +92,7 @@ class CampaignForm(forms.ModelForm):
         widgets = {
             "start_date": forms.DateInput(attrs={"type": "date"}),
             "end_date": forms.DateInput(attrs={"type": "date"}),
+            "content_start": forms.DateInput(attrs={"type": "date"}),
             "deadline": forms.DateInput(attrs={"type": "date"}),
         }
 
@@ -132,10 +133,16 @@ class CampaignForm(forms.ModelForm):
         if budget is not None and budget <= 0:
             self.add_error("budget", "Бюджет должен быть больше нуля.")
 
-        # deadline не в прошлом (только при создании / при изменении)
-        deadline = cleaned.get("deadline")
-        if deadline and deadline < _tz.now().date():
-            self.add_error("deadline", "Дедлайн не может быть в прошлом.")
+        # Даты окна приёма контента не в прошлом — только новые или изменённые: у идущей кампании
+        # на паузе окно может уже начаться, и правка остальных полей не должна из-за этого падать.
+        today = _tz.now().date()
+        for name, message in (
+            ("content_start", "Начало приёма контента не может быть в прошлом."),
+            ("deadline", "Окончание приёма контента не может быть в прошлом."),
+        ):
+            value = cleaned.get(name)
+            if value and value < today and value != getattr(self.instance, name, None):
+                self.add_error(name, message)
 
         errors = campaign_param_errors(
             payment_type=payment_type,
@@ -144,6 +151,7 @@ class CampaignForm(forms.ModelForm):
             start_date=cleaned.get("start_date"),
             end_date=cleaned.get("end_date"),
             deadline=cleaned.get("deadline"),
+            content_start=cleaned.get("content_start"),
             max_bloggers=cleaned.get("max_bloggers"),
             taken_slots=deals_in_cap(self.instance),
         )
