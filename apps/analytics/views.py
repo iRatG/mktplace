@@ -6,7 +6,8 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.billing.models import Transaction, Wallet, WithdrawalRequest
+from apps.billing import metrics
+from apps.billing.models import Wallet, WithdrawalRequest
 from apps.campaigns.models import Campaign
 from apps.campaigns.models import Response as CampaignResponse
 from apps.deals.models import Deal
@@ -37,19 +38,14 @@ class AdvertiserDashboardView(APIView):
             deals.values("status").annotate(count=Count("id")).values_list("status", "count")
         )
 
-        total_spent = (
-            Transaction.objects.filter(
-                wallet__user=user,
-                type=Transaction.Type.PAYMENT,
-            ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
-        )
+        total_spent = metrics.advertiser_spent(user)
 
         data = {
             "total_campaigns": campaigns.count(),
             "active_campaigns": campaigns.filter(status=Campaign.Status.ACTIVE).count(),
             "total_deals": deals.count(),
             "completed_deals": deals.filter(status=Deal.Status.COMPLETED).count(),
-            "total_spent": abs(total_spent),
+            "total_spent": total_spent,
             "active_deals": deals.filter(
                 status__in=[Deal.Status.IN_PROGRESS, Deal.Status.ON_APPROVAL,
                             Deal.Status.WAITING_PUBLICATION, Deal.Status.CHECKING]
@@ -79,12 +75,7 @@ class BloggerDashboardView(APIView):
             deals.values("status").annotate(count=Count("id")).values_list("status", "count")
         )
 
-        total_earned = (
-            Transaction.objects.filter(
-                wallet__user=user,
-                type=Transaction.Type.EARNING,
-            ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
-        )
+        total_earned = metrics.blogger_earned(user)
 
         try:
             available_balance = user.wallet.available_balance
@@ -133,11 +124,7 @@ class AdminDashboardView(APIView):
             total=Sum("amount"),
         )
 
-        total_volume = (
-            Transaction.objects.filter(
-                type=Transaction.Type.PAYMENT
-            ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
-        )
+        total_volume = metrics.deal_turnover()
 
         data = {
             "total_users": User.objects.count(),

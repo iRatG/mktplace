@@ -4,13 +4,22 @@ Tests for Module 12: Analytics
 - AdvertiserAnalyticsTest: correct metrics, zero-state, completed deals list
 - BloggerAnalyticsTest: correct metrics, rating, responses stats, zero-state
 - AdminDashboardAnalyticsTest: platform revenue, new users, top lists
+- FinanceMetricsSignTest: суммы считаются по реальным знакам BillingService и неотрицательны
+
+Деньги в тестах проводятся через BillingService (_pay_deal), а не созданием Transaction
+вручную: так тесты видят те же знаки, что и прод (PAYMENT пишется с минусом).
 """
 from decimal import Decimal
 
+from datetime import timedelta
+
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
+from rest_framework.test import APIClient
 
 from apps.billing.models import Transaction, Wallet
+from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign
 from apps.campaigns.models import Response as CampaignResponse
 from apps.deals.models import Deal
@@ -68,6 +77,19 @@ def _make_deal(campaign, advertiser, blogger, platform, status=Deal.Status.COMPL
         amount=amount,
         status=status,
     )
+
+
+def _pay_deal(campaign, advertiser, blogger, platform, amount):
+    """Завершённая сделка, оплаченная реальным путём: резерв → выплата (комиссия 15%)."""
+    wallet, _ = Wallet.objects.get_or_create(user=advertiser)
+    wallet.available_balance += amount
+    wallet.save(update_fields=["available_balance"])
+    deal = _make_deal(campaign, advertiser, blogger, platform, status=Deal.Status.IN_PROGRESS, amount=amount)
+    BillingService.reserve_funds(deal)
+    BillingService.complete_deal_payment(deal)
+    deal.status = Deal.Status.COMPLETED
+    deal.save(update_fields=["status"])
+    return deal
 
 
 class AnalyticsAccessTest(TestCase):
@@ -138,12 +160,7 @@ class AdvertiserAnalyticsTest(TestCase):
         self.assertEqual(resp.context["completion_rate"], 75)
 
     def test_total_spent_from_transactions(self):
-        Transaction.objects.create(
-            wallet=self.wallet_adv,
-            type=Transaction.Type.PAYMENT,
-            amount=Decimal("150000"),
-            balance_after=Decimal("850000"),
-        )
+        _pay_deal(self.campaign, self.advertiser, self.blogger, self.platform, Decimal("150000"))
         resp = self.client.get(self.url)
         self.assertEqual(resp.context["total_spent"], Decimal("150000"))
 
@@ -201,12 +218,7 @@ class BloggerAnalyticsTest(TestCase):
         self.assertEqual(resp.context["acceptance_rate"], 0)
 
     def test_total_earned_from_transactions(self):
-        Transaction.objects.create(
-            wallet=self.wallet_blog,
-            type=Transaction.Type.EARNING,
-            amount=Decimal("85000"),
-            balance_after=Decimal("85000"),
-        )
+        _pay_deal(self.campaign, self.advertiser, self.blogger, self.platform, Decimal("100000"))
         resp = self.client.get(self.url)
         self.assertEqual(resp.context["total_earned"], Decimal("85000"))
 
@@ -271,6 +283,13 @@ class AdminDashboardAnalyticsTest(TestCase):
         self.assertEqual(resp.status_code, 200)
 
     def test_platform_revenue_calculation(self):
+        platform = _make_platform(self.blogger)
+        _pay_deal(_make_campaign(self.advertiser), self.advertiser, self.blogger, platform, Decimal("100000"))
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.context["platform_revenue"], Decimal("15000"))
+
+    def test_platform_revenue_ignores_sign_of_legacy_rows(self):
+        """Защита: запись PAYMENT «не того знака» (ручная правка, старые данные) не ломает доход."""
         Transaction.objects.create(
             wallet=self.wallet_adv, type=Transaction.Type.PAYMENT,
             amount=Decimal("100000"), balance_after=Decimal("0"),
@@ -292,19 +311,92 @@ class AdminDashboardAnalyticsTest(TestCase):
         self.assertGreaterEqual(resp.context["new_users_month"], 3)
 
     def test_top_advertisers_present(self):
-        Transaction.objects.create(
-            wallet=self.wallet_adv, type=Transaction.Type.PAYMENT,
-            amount=Decimal("200000"), balance_after=Decimal("0"),
-        )
+        platform = _make_platform(self.blogger)
+        _pay_deal(_make_campaign(self.advertiser), self.advertiser, self.blogger, platform, Decimal("200000"))
         resp = self.client.get(self.url)
         emails = [row["wallet__user__email"] for row in resp.context["top_advertisers"]]
         self.assertIn("adv@test.com", emails)
 
     def test_top_bloggers_present(self):
-        Transaction.objects.create(
-            wallet=self.wallet_blog, type=Transaction.Type.EARNING,
-            amount=Decimal("170000"), balance_after=Decimal("170000"),
-        )
+        platform = _make_platform(self.blogger)
+        _pay_deal(_make_campaign(self.advertiser), self.advertiser, self.blogger, platform, Decimal("200000"))
         resp = self.client.get(self.url)
         emails = [row["wallet__user__email"] for row in resp.context["top_bloggers"]]
         self.assertIn("blog@test.com", emails)
+
+
+class FinanceMetricsSignTest(TestCase):
+    """QA camp_test_2: доход платформы и топы были отрицательными (−1.85 × оборот)."""
+
+    def setUp(self):
+        self.staff = _make_user("staff@test.com", is_staff=True)
+        self.adv_big = _make_user("big@test.com", User.Role.ADVERTISER)
+        self.adv_small = _make_user("small@test.com", User.Role.ADVERTISER)
+        self.blogger = _make_user("blog@test.com", User.Role.BLOGGER)
+        _make_wallet(self.blogger)
+        self.platform = _make_platform(self.blogger)
+        _pay_deal(_make_campaign(self.adv_big), self.adv_big, self.blogger, self.platform, Decimal("200000"))
+        _pay_deal(_make_campaign(self.adv_big), self.adv_big, self.blogger, self.platform, Decimal("100000"))
+        _pay_deal(_make_campaign(self.adv_small), self.adv_small, self.blogger, self.platform, Decimal("100000"))
+
+    def _admin_context(self):
+        self.client.force_login(self.staff)
+        return self.client.get(reverse("web:admin_dashboard")).context
+
+    def test_admin_revenue_is_commission(self):
+        # оборот 400 000, комиссия 15% → 60 000
+        self.assertEqual(self._admin_context()["platform_revenue"], Decimal("60000"))
+
+    def test_admin_turnover_counts_only_deal_payments(self):
+        # пополнения (DEPOSIT) и резервы в оборот не входят
+        Transaction.objects.create(
+            wallet=self.adv_small.wallet, type=Transaction.Type.DEPOSIT,
+            amount=Decimal("1000000"), balance_after=Decimal("1000000"),
+        )
+        self.assertEqual(self._admin_context()["deal_turnover_month"], Decimal("400000"))
+
+    def test_admin_turnover_month_excludes_older_payments(self):
+        Transaction.objects.filter(wallet__user=self.adv_small).update(
+            created_at=timezone.now() - timedelta(days=40)
+        )
+        self.assertEqual(self._admin_context()["deal_turnover_month"], Decimal("300000"))
+
+    def test_top_advertisers_biggest_spender_first(self):
+        top = self._admin_context()["top_advertisers"]
+        self.assertEqual(
+            [(r["wallet__user__email"], r["total"]) for r in top],
+            [("big@test.com", Decimal("300000")), ("small@test.com", Decimal("100000"))],
+        )
+
+    def test_admin_dashboard_shows_amounts_with_separators(self):
+        self.client.force_login(self.staff)
+        html = self.client.get(reverse("web:admin_dashboard")).content.decode()
+        self.assertIn("60 000", html)
+        self.assertIn("400 000", html)
+        self.assertNotIn("-60 000", html)
+        self.assertNotIn("-400 000", html)
+
+    def test_advertiser_web_spent_positive(self):
+        self.client.force_login(self.adv_big)
+        ctx = self.client.get(reverse("web:analytics")).context
+        self.assertEqual(ctx["total_spent"], Decimal("300000"))
+
+    def test_blogger_web_earned_after_commission(self):
+        self.client.force_login(self.blogger)
+        ctx = self.client.get(reverse("web:analytics")).context
+        self.assertEqual(ctx["total_earned"], Decimal("340000"))
+
+    def test_api_advertiser_spent_and_admin_volume_positive(self):
+        api = APIClient()
+        api.force_authenticate(self.adv_big)
+        data = api.get(reverse("analytics:advertiser-dashboard")).json()
+        self.assertEqual(Decimal(data["total_spent"]), Decimal("300000"))
+        api.force_authenticate(self.staff)
+        data = api.get(reverse("analytics:admin-dashboard")).json()
+        self.assertEqual(Decimal(data["total_volume"]), Decimal("400000"))
+
+    def test_api_blogger_earned_positive(self):
+        api = APIClient()
+        api.force_authenticate(self.blogger)
+        data = api.get(reverse("analytics:blogger-dashboard")).json()
+        self.assertEqual(Decimal(data["total_earned"]), Decimal("340000"))

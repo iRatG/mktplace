@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Аналитика — UBlogers!{% endblock %}
 
 {% block content %}
@@ -11,12 +12,12 @@
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
     <div class="card-dark rounded-xl p-5">
         <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Заработано всего</div>
-        <div class="text-2xl font-bold text-green-600">{{ total_earned|floatformat:0 }} {{ currency.symbol }}</div>
+        <div class="text-2xl font-bold text-green-600">{{ total_earned|money }} {{ currency.symbol }}</div>
         <div class="text-xs text-gray-500 mt-1">По завершённым сделкам</div>
     </div>
     <div class="card-dark rounded-xl p-5">
         <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Средний заработок</div>
-        <div class="text-2xl font-bold text-gray-900">{{ avg_earning|floatformat:0 }} {{ currency.symbol }}</div>
+        <div class="text-2xl font-bold text-gray-900">{{ avg_earning|floatformat:0|money }} {{ currency.symbol }}</div>
         <div class="text-xs text-gray-500 mt-1">На сделку</div>
     </div>
     <div class="card-dark rounded-xl p-5">
@@ -79,7 +80,7 @@
                 <div class="text-xs text-gray-500 mt-0.5">{{ deal.updated_at|date:"d.m.Y" }}</div>
             </div>
             <div class="text-right">
-                <div class="text-sm font-semibold text-green-600">{{ deal.amount|floatformat:0 }} {{ currency.symbol }}</div>
+                <div class="text-sm font-semibold text-green-600">{{ deal.amount|money }} {{ currency.symbol }}</div>
                 <a href="{% url 'web:deal_detail' deal.pk %}" class="text-xs text-orange-600 hover:text-orange-700 transition-colors">Открыть →</a>
             </div>
         </div>

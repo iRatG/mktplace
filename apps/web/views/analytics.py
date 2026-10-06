@@ -1,10 +1,10 @@
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Avg, Sum
+from django.db.models import Avg
 from django.shortcuts import redirect, render
 
-from apps.billing.models import Transaction
+from apps.billing import metrics
 from apps.campaigns.models import Campaign
 from apps.campaigns.models import Response as CampaignResponse
 from apps.deals.models import Deal
@@ -41,16 +41,8 @@ def _analytics_advertiser(request, user):
         or Decimal("0")
     )
 
-    total_spent = (
-        Transaction.objects.filter(wallet__user=user, type=Transaction.Type.PAYMENT)
-        .aggregate(total=Sum("amount"))["total"]
-        or Decimal("0")
-    )
-    total_deposited = (
-        Transaction.objects.filter(wallet__user=user, type=Transaction.Type.DEPOSIT)
-        .aggregate(total=Sum("amount"))["total"]
-        or Decimal("0")
-    )
+    total_spent = metrics.advertiser_spent(user)
+    total_deposited = metrics.advertiser_deposited(user)
 
     campaigns_qs = Campaign.objects.filter(advertiser=user)
     campaigns_by_status = {
@@ -97,11 +89,7 @@ def _analytics_blogger(request, user):
         .aggregate(avg=Avg("amount"))["avg"]
         or Decimal("0")
     )
-    total_earned = (
-        Transaction.objects.filter(wallet__user=user, type=Transaction.Type.EARNING)
-        .aggregate(total=Sum("amount"))["total"]
-        or Decimal("0")
-    )
+    total_earned = metrics.blogger_earned(user)
 
     total_responses = CampaignResponse.objects.filter(blogger=user).count()
     accepted_responses = CampaignResponse.objects.filter(

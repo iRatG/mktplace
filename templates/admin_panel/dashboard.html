@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Панель администратора — UBlogers!{% endblock %}
 
 {% block content %}
@@ -75,13 +76,13 @@
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
     <div class="card-dark rounded-xl p-5">
         <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Доход платформы</div>
-        <div class="text-2xl font-bold text-orange-600">{{ platform_revenue|floatformat:0 }} {{ currency.symbol }}</div>
+        <div class="text-2xl font-bold text-orange-600">{{ platform_revenue|money }} {{ currency.symbol }}</div>
         <div class="text-xs text-gray-500 mt-1">Комиссия по завершённым сделкам</div>
     </div>
     <div class="card-dark rounded-xl p-5">
-        <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Объём транзакций (30д)</div>
-        <div class="text-2xl font-bold text-gray-900">{{ transaction_volume_month|floatformat:0 }} {{ currency.symbol }}</div>
-        <div class="text-xs text-gray-500 mt-1">Все типы</div>
+        <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Оборот сделок (30д)</div>
+        <div class="text-2xl font-bold text-gray-900">{{ deal_turnover_month|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-gray-500 mt-1">Оплачено рекламодателями по сделкам</div>
     </div>
     <div class="card-dark rounded-xl p-5">
         <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Новых пользователей (30д)</div>
@@ -101,7 +102,7 @@
             {% for row in top_advertisers %}
             <div class="px-5 py-3 flex items-center justify-between">
                 <span class="text-xs text-gray-700 truncate max-w-[60%]">{{ row.wallet__user__email }}</span>
-                <span class="text-xs font-semibold text-gray-900">{{ row.total|floatformat:0 }} {{ currency.symbol }}</span>
+                <span class="text-xs font-semibold text-gray-900">{{ row.total|money }} {{ currency.symbol }}</span>
             </div>
             {% endfor %}
         </div>
@@ -116,7 +117,7 @@
             {% for row in top_bloggers %}
             <div class="px-5 py-3 flex items-center justify-between">
                 <span class="text-xs text-gray-700 truncate max-w-[60%]">{{ row.wallet__user__email }}</span>
-                <span class="text-xs font-semibold text-green-600">{{ row.total|floatformat:0 }} {{ currency.symbol }}</span>
+                <span class="text-xs font-semibold text-green-600">{{ row.total|money }} {{ currency.symbol }}</span>
             </div>
             {% endfor %}
         </div>

@@ -1,14 +1,14 @@
 import functools
 from datetime import timedelta
-from decimal import Decimal
 
 from django.contrib import messages
-from django.db.models import Exists, OuterRef, Sum
+from django.db.models import Exists, OuterRef
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.billing.models import Transaction, Wallet, WithdrawalRequest
+from apps.billing import metrics
+from apps.billing.models import Wallet, WithdrawalRequest
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.deals.models import Deal, DealStatusLog
@@ -40,36 +40,10 @@ def admin_dashboard(request):
     """Дашборд администратора: операционные метрики + финансовая аналитика."""
     last_30 = timezone.now() - timedelta(days=30)
 
-    total_payments = (
-        Transaction.objects.filter(type=Transaction.Type.PAYMENT)
-        .aggregate(total=Sum("amount"))["total"]
-        or Decimal("0")
-    )
-    total_earnings = (
-        Transaction.objects.filter(type=Transaction.Type.EARNING)
-        .aggregate(total=Sum("amount"))["total"]
-        or Decimal("0")
-    )
-    platform_revenue = total_payments - total_earnings
-
-    transaction_volume_month = (
-        Transaction.objects.filter(created_at__gte=last_30)
-        .aggregate(total=Sum("amount"))["total"]
-        or Decimal("0")
-    )
-
-    top_advertisers = (
-        Transaction.objects.filter(type=Transaction.Type.PAYMENT)
-        .values("wallet__user__email")
-        .annotate(total=Sum("amount"))
-        .order_by("-total")[:5]
-    )
-    top_bloggers = (
-        Transaction.objects.filter(type=Transaction.Type.EARNING)
-        .values("wallet__user__email")
-        .annotate(total=Sum("amount"))
-        .order_by("-total")[:5]
-    )
+    platform_revenue = metrics.platform_revenue()
+    deal_turnover_month = metrics.deal_turnover(since=last_30)
+    top_advertisers = metrics.top_advertisers()
+    top_bloggers = metrics.top_bloggers()
 
     context = {
         "campaigns_moderation": Campaign.objects.filter(status=Campaign.Status.MODERATION).count(),
@@ -83,7 +57,7 @@ def admin_dashboard(request):
         "deals_total": Deal.objects.count(),
         "deals_completed": Deal.objects.filter(status=Deal.Status.COMPLETED).count(),
         "platform_revenue": platform_revenue,
-        "transaction_volume_month": transaction_volume_month,
+        "deal_turnover_month": deal_turnover_month,
         "top_advertisers": top_advertisers,
         "top_bloggers": top_bloggers,
     }
