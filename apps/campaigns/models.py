@@ -66,6 +66,10 @@ class Campaign(models.Model):
     budget = models.DecimalField(
         max_digits=14, decimal_places=2, validators=[MinValueValidator(0)]
     )
+    subject = models.CharField(
+        max_length=255, blank=True,
+        help_text="Что рекламируется: товар, услуга, бренд — заполняет рекламодатель",
+    )
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     deadline = models.DateField(

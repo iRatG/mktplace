@@ -19,6 +19,7 @@ LABELS = {
     "name": "Название",
     "description": "Описание",
     "category": "Категория",
+    "subject": "Что рекламируем",
     "payment_type": "Тип оплаты",
     "fixed_price": "Цена за размещение",
     "budget": "Общий бюджет",

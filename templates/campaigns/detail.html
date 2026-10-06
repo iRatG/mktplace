@@ -23,6 +23,9 @@
                     {{ campaign.get_status_display }}
                 </span>
             </div>
+            {% if campaign.subject %}
+            <p class="text-sm text-gray-800 mb-2"><span class="text-gray-500">Что рекламируем:</span> {{ campaign.subject }}</p>
+            {% endif %}
             <p class="text-sm text-gray-600 leading-relaxed">{{ campaign.description|default:"Описание не указано" }}</p>
 
             {% if campaign.content_types %}
@@ -49,11 +52,13 @@
                     {% csrf_token %}
                     <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">Принять правки — кампания станет активной</button>
                 </form>
-                <form method="post" action="{% url 'web:campaign_proposal_decline' campaign.pk %}">
+                <form method="post" action="{% url 'web:campaign_proposal_decline' campaign.pk %}"
+                      onsubmit="return confirm('Отклонить правки модератора? Вернуть их будет нельзя: кампания станет «Отклонена», вы исправите её сами и снова отправите на модерацию.');">
                     {% csrf_token %}
-                    <button type="submit" class="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">Отклонить и исправить самому</button>
+                    <button type="submit" class="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">Отклонить правки</button>
                 </form>
             </div>
+            <p class="text-xs text-gray-500 mt-2">«Отклонить правки» — окончательно: правки модератора не применятся, кампания станет «Отклонена», дальше вы исправляете её сами и снова отправляете на модерацию.</p>
         </div>
         {% endif %}
         {% if campaign.status == 'rejected' %}

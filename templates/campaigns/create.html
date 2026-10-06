@@ -18,7 +18,8 @@
         {% endif %}
     </div>
 
-    <form method="post" class="space-y-5">
+    {# novalidate: обязательность и правила проверяет сервер, ошибка показывается у своего поля. #}
+    <form method="post" class="space-y-5" novalidate>
         {% csrf_token %}
 
         {% if form.non_field_errors %}
@@ -34,16 +35,8 @@
             <div>
                 <label for="id_name" class="block text-sm text-gray-700 mb-1">Название кампании *</label>
                 <input type="text" name="name" id="id_name" value="{{ form.name.value|default:'' }}"
-                    class="input-dark" placeholder="Например: Запуск нового продукта" required>
+                    class="input-dark" placeholder="Например: Запуск нового продукта" spellcheck="true" lang="ru">
                 {% for error in form.name.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
-            </div>
-
-            <div>
-                <label for="id_description" class="block text-sm text-gray-700 mb-1">Описание</label>
-                <textarea name="description" id="id_description" rows="4"
-                    class="input-dark resize-none"
-                    placeholder="Опишите задачу, требования к контенту, целевую аудиторию...">{{ form.description.value|default:'' }}</textarea>
-                {% for error in form.description.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
@@ -55,6 +48,22 @@
                     {% endfor %}
                 </select>
                 {% for error in form.category.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+            </div>
+
+            <div>
+                <label for="id_subject" class="block text-sm text-gray-700 mb-1">Что рекламируем</label>
+                <input type="text" name="subject" id="id_subject" value="{{ form.subject.value|default:'' }}" maxlength="255"
+                    class="input-dark" placeholder="Например: крем для лица SPF 50, новый филиал салона" spellcheck="true" lang="ru">
+                <p class="text-xs text-gray-500 mt-1">Товар, услуга или бренд — помогает блогерам и модератору понять задачу.</p>
+                {% for error in form.subject.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+            </div>
+
+            <div>
+                <label for="id_description" class="block text-sm text-gray-700 mb-1">Описание</label>
+                <textarea name="description" id="id_description" rows="4"
+                    class="input-dark resize-none" spellcheck="true" lang="ru"
+                    placeholder="Опишите задачу, требования к контенту, целевую аудиторию...">{{ form.description.value|default:'' }}</textarea>
+                {% for error in form.description.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
             </div>
         </div>
 
@@ -81,7 +90,7 @@
 
             <div id="fixed_price_row" {% if form.payment_type.value == 'cpa' %}class="hidden"{% endif %}>
                 {% with label="Цена за размещение ("|add:currency.symbol|add:") *" %}
-                {% include "partials/number_input.html" with field=form.fixed_price label=label step=10000 placeholder="150 000" %}
+                {% include "partials/number_input.html" with field=form.fixed_price label=label step=10000 placeholder="например, 150 000" %}
                 <p class="text-xs text-gray-500 mt-1">Минимум — {{ currency.min_fixed_price|money }} {{ currency.symbol }}.</p>
                 {% endwith %}
             </div>
@@ -100,7 +109,7 @@
                     </div>
                     <div>
                         {% with label="Ставка за конверсию ("|add:currency.symbol|add:") *" %}
-                        {% include "partials/number_input.html" with field=form.cpa_rate label=label step=10000 placeholder="5 000" %}
+                        {% include "partials/number_input.html" with field=form.cpa_rate label=label step=1000 placeholder="например, 5 000" %}
                         {% endwith %}
                     </div>
                 </div>
@@ -115,7 +124,7 @@
 
             <div>
                 {% with label="Общий бюджет ("|add:currency.symbol|add:") *" %}
-                {% include "partials/number_input.html" with field=form.budget label=label step=10000 placeholder="1 500 000" required=True %}
+                {% include "partials/number_input.html" with field=form.budget label=label step=10000 placeholder="например, 1 500 000" %}
                 {% endwith %}
                 <p class="text-xs text-gray-600 mt-1" data-bloggers-hint aria-live="polite"></p>
             </div>
@@ -148,11 +157,7 @@
                     {% include "partials/number_input.html" with field=form.min_subscribers label="Мин. подписчиков" step=100 placeholder="0" %}
                 </div>
                 <div>
-                    <label for="id_max_bloggers" class="block text-sm text-gray-700 mb-1">Макс. блогеров</label>
-                    <input type="number" name="max_bloggers" id="id_max_bloggers" value="{{ form.max_bloggers.value|default_if_none:'0' }}"
-                        class="input-dark" min="0">
-                    <p class="text-xs text-gray-500 mt-1">0 — без ограничения</p>
-                    {% for error in form.max_bloggers.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    {% include "partials/number_input.html" with field=form.max_bloggers label="Макс. блогеров" step=1 placeholder="0" hint="0 — без ограничения" %}
                 </div>
             </div>
         </div>

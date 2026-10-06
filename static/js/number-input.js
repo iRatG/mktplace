@@ -1,8 +1,10 @@
 // Ввод сумм и счётчиков с пробелами между разрядами.
 //
 // Поля с атрибутом data-number-input форматируются при загрузке и при вводе
-// («1500000» → «1 500 000»; хвост «.00» убирается). ↑/↓ меняют значение на
-// data-step. Сервер сам убирает пробелы, поэтому без JS форма тоже работает.
+// («1500000» → «1 500 000»; хвост «.00» убирается). Кнопки −/+ рядом с полем
+// (data-step-button) и клавиши ↑/↓ меняют значение на data-step; кнопки скрыты,
+// пока не загрузился этот скрипт. Сервер сам убирает пробелы, поэтому без JS
+// форма тоже работает.
 //
 // Элемент data-bloggers-hint внутри формы показывает, на сколько блогеров
 // хватает бюджета при текущей цене (budget / fixed_price, с округлением вниз).
@@ -92,6 +94,14 @@
             input.addEventListener("keydown", function (e) {
                 if (e.key === "ArrowUp") { e.preventDefault(); step(input, 1); }
                 if (e.key === "ArrowDown") { e.preventDefault(); step(input, -1); }
+            });
+            var group = input.closest("[data-number-group]");
+            if (!group) return;
+            group.querySelectorAll("[data-step-button]").forEach(function (button) {
+                button.classList.remove("hidden");
+                button.addEventListener("click", function () {
+                    step(input, Number(button.dataset.stepButton));
+                });
             });
         });
 

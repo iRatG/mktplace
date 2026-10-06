@@ -1,12 +1,20 @@
 {% comment %}
 Поле суммы / счётчика с пробелами между разрядами (static/js/number-input.js).
-Параметры: field — поле формы; label; step — шаг ↑/↓; placeholder; required.
-Без JS поле принимает число как есть, сервер сам убирает пробелы.
+Параметры: field — поле формы; label; step — шаг кнопок −/+ и клавиш ↑/↓; placeholder; hint — подпись под полем.
+Кнопки −/+ показывает JS; без JS поле принимает число как есть, сервер сам убирает пробелы.
+Обязательность и все ошибки проверяет сервер (форма с novalidate) — ошибка выводится у этого поля.
 {% endcomment %}
 <label for="id_{{ field.html_name }}" class="block text-sm text-gray-700 mb-1">{{ label }}</label>
-<input type="text" inputmode="numeric" autocomplete="off" data-number-input
-    id="id_{{ field.html_name }}" name="{{ field.html_name }}"
-    value="{{ field.value|default_if_none:'' }}"
-    data-step="{{ step|default:1 }}"
-    class="input-dark" placeholder="{{ placeholder|default:'' }}"{% if required %} required{% endif %}>
+<div class="flex items-stretch gap-1" data-number-group>
+    <button type="button" data-step-button="-1" tabindex="-1" aria-label="Уменьшить на {{ step|default:1 }}"
+        class="hidden shrink-0 w-10 rounded-xl border border-gray-300 text-gray-600 hover:border-orange-400 hover:text-orange-600 transition-colors text-lg leading-none">−</button>
+    <input type="text" inputmode="numeric" autocomplete="off" data-number-input
+        id="id_{{ field.html_name }}" name="{{ field.html_name }}"
+        value="{{ field.value|default_if_none:'' }}"
+        data-step="{{ step|default:1 }}"
+        class="input-dark{% if field.errors %} border-red-400{% endif %}" placeholder="{{ placeholder|default:'' }}">
+    <button type="button" data-step-button="1" tabindex="-1" aria-label="Увеличить на {{ step|default:1 }}"
+        class="hidden shrink-0 w-10 rounded-xl border border-gray-300 text-gray-600 hover:border-orange-400 hover:text-orange-600 transition-colors text-lg leading-none">+</button>
+</div>
+{% if hint %}<p class="text-xs text-gray-500 mt-1">{{ hint }}</p>{% endif %}
 {% for error in field.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}

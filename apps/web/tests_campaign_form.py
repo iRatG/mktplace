@@ -185,7 +185,7 @@ class CampaignCreatePageTest(TestCase):
         r = self.client.get(reverse("web:campaign_create"))
         self.assertContains(r, "js/number-input.js")
         self.assertContains(r, 'name="budget"')
-        self.assertContains(r, "data-number-input", count=4)
+        self.assertContains(r, "data-number-input", count=5)
         self.assertContains(r, 'name="cpa_type"')
         self.assertContains(r, 'name="cpa_tracking_url"')
 

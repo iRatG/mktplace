@@ -26,6 +26,7 @@
         <dl class="text-sm space-y-2">
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Рекламодатель</dt><dd class="text-gray-800">{{ campaign.advertiser.email }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Категория</dt><dd class="text-gray-800">{{ campaign.category.name|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-600">Что рекламируем</dt><dd class="text-gray-800 text-right">{{ campaign.subject|default:"—" }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Создана</dt><dd class="text-gray-800">{{ campaign.created_at|date:"d.m.Y H:i" }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Обновлена</dt><dd class="text-gray-800">{{ campaign.updated_at|date:"d.m.Y H:i" }}</dd></div>
             <div>

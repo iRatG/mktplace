@@ -74,7 +74,7 @@ class CampaignForm(forms.ModelForm):
     class Meta:
         model = Campaign
         fields = [
-            "name", "description", "category",
+            "name", "category", "subject", "description",
             "payment_type", "fixed_price", "budget",
             "cpa_type", "cpa_rate", "cpa_tracking_url",
             "start_date", "end_date", "deadline",
@@ -86,6 +86,7 @@ class CampaignForm(forms.ModelForm):
             "budget": SpacedDecimalField,
             "cpa_rate": SpacedDecimalField,
             "min_subscribers": SpacedIntegerField,
+            "max_bloggers": SpacedIntegerField,
         }
         widgets = {
             "start_date": forms.DateInput(attrs={"type": "date"}),
@@ -98,6 +99,7 @@ class CampaignForm(forms.ModelForm):
         self.fields["category"].queryset = Category.objects.all()
         self.fields["category"].required = False
         self.fields["description"].required = False
+        self.fields["subject"].required = False
         # Restore saved multi-values from JSON list
         if self.instance.pk:
             self.initial["content_types"] = self.instance.content_types
