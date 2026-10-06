@@ -3,10 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, DirectOffer
-from apps.campaigns.validation import deal_acceptance_error
-from apps.deals.models import Deal, DealStatusLog
+from apps.campaigns.services import AcceptError, accept_direct_offer
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
 from apps.users.models import User
@@ -164,83 +162,16 @@ def direct_offer_create(request, platform_pk):
 @login_required
 @require_POST
 def direct_offer_accept(request, pk):
-    """Блогер принимает прямое предложение — создаётся Сделка (Модуль 10).
-
-    Доступ: только владелец оффера (blogger=request.user), статус PENDING.
-    Рекламодатель и чужие блогеры получают 404.
-
-    Логика (всё внутри atomic + select_for_update):
-        1. Проверка что кампания ACTIVE.
-        2. Определение суммы сделки: proposed_price ?? campaign.fixed_price.
-        3. Проверка лимита участников кампании (max_bloggers).
-        4. Повторная блокировка оффера (select_for_update) — гард от двойного принятия.
-        5. Deal.objects.create(status=WAITING_PAYMENT).
-        6. BillingService.reserve_funds(deal) — резервирует средства у рекламодателя.
-           При ValueError (нет средств) транзакция откатывается, deal=None.
-        7. DealStatusLog.log → статус → IN_PROGRESS.
-        8. DirectOffer.status → ACCEPTED, DirectOffer.deal → созданная сделка.
-
-    При успехе: redirect → deal_detail.
-    При ошибке резервирования: redirect → blogger_dashboard с сообщением об ошибке.
-
-    URL-параметры:
-        pk — pk DirectOffer
-    """
-    offer = get_object_or_404(
-        DirectOffer, pk=pk, blogger=request.user, status=DirectOffer.Status.PENDING
-    )
-
-    campaign = offer.campaign
-    if campaign.status != Campaign.Status.ACTIVE:
-        messages.error(request, "Кампания больше не активна.")
-        return redirect("web:blogger_dashboard")
-
-    amount = offer.proposed_price or campaign.fixed_price
-    if not amount:
-        messages.error(request, "Не удалось определить сумму сделки.")
-        return redirect("web:blogger_dashboard")
-
-    from django.db import transaction as db_transaction
-    deal = None
+    """Блогер принимает прямое предложение — логика в apps/campaigns/services.accept_direct_offer."""
+    offer = get_object_or_404(DirectOffer, pk=pk, blogger=request.user)
     try:
-        with db_transaction.atomic():
-            locked_campaign = Campaign.objects.select_for_update().get(pk=campaign.pk)
-            error = deal_acceptance_error(locked_campaign, amount)
-            if error:
-                messages.error(request, error)
-                return redirect("web:blogger_dashboard")
+        deal = accept_direct_offer(offer.pk, request.user)
+    except AcceptError as e:
+        messages.error(request, str(e))
+        return redirect("web:blogger_dashboard")
+    messages.success(request, f"Предложение принято. Сделка #{deal.pk} создана!")
+    return redirect("web:deal_detail", pk=deal.pk)
 
-            locked_offer = DirectOffer.objects.select_for_update().get(pk=offer.pk)
-            if locked_offer.status != DirectOffer.Status.PENDING:
-                messages.error(request, "Предложение уже обработано.")
-                return redirect("web:blogger_dashboard")
-
-            deal = Deal.objects.create(
-                campaign=locked_campaign,
-                blogger=request.user,
-                platform=offer.platform,
-                advertiser=offer.advertiser,
-                amount=amount,
-                status=Deal.Status.WAITING_PAYMENT,
-            )
-            BillingService.reserve_funds(deal)
-            DealStatusLog.log(deal, Deal.Status.IN_PROGRESS, changed_by=offer.advertiser, comment="Accepted direct offer.")
-            deal.status = Deal.Status.IN_PROGRESS
-            deal.save(update_fields=["status"])
-
-            locked_offer.status = DirectOffer.Status.ACCEPTED
-            locked_offer.deal = deal
-            locked_offer.save(update_fields=["status", "deal", "updated_at"])
-
-        NotificationService.notify_direct_offer_accepted(
-            offer.advertiser, locked_campaign, request.user, deal
-        )
-        messages.success(request, f"Предложение принято. Сделка #{deal.pk} создана!")
-    except ValueError as e:
-        deal = None
-        messages.error(request, f"Недостаточно средств у рекламодателя: {e}")
-
-    return redirect("web:deal_detail", pk=deal.pk) if deal else redirect("web:blogger_dashboard")
 
 
 @login_required

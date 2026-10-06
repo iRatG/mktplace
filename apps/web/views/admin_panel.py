@@ -13,7 +13,9 @@ from apps.billing.models import WithdrawalRequest
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.campaigns.services import expired_error
-from apps.deals.models import Deal, DealStatusLog
+from apps.deals import services as transitions
+from apps.deals.models import Deal
+from apps.deals.services import TransitionError
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.users.models import User
@@ -251,35 +253,13 @@ def admin_dispute_resolve(request, pk):
     resolution = request.POST.get("resolution")  # "complete" or "cancel"
     comment = request.POST.get("comment", "").strip()
 
-    if resolution not in ("complete", "cancel"):
-        messages.error(request, "Укажите решение: complete или cancel.")
+    try:
+        transitions.resolve_dispute(deal.pk, request.user, resolution, comment)
+    except TransitionError as e:
+        messages.error(request, str(e))
         return redirect("web:admin_disputes")
-
-    from django.db import transaction as db_transaction
-    with db_transaction.atomic():
-        locked = Deal.objects.select_for_update().get(pk=pk)
-        if locked.status != Deal.Status.DISPUTED:
-            messages.error(request, "Сделка уже не в статусе спора.")
-            return redirect("web:admin_disputes")
-
-        locked.dispute_resolved_at = timezone.now()
-        locked.dispute_resolution = comment
-
-        if resolution == "complete":
-            DealStatusLog.log(locked, Deal.Status.COMPLETED, changed_by=request.user,
-                              comment=f"Досудебное урегулирование: оплата переведена блогеру по итогам рассмотрения. {comment}")
-            BillingService.complete_deal_payment(locked)
-            locked.status = Deal.Status.COMPLETED
-            msg = "Досудебное урегулирование завершено — оплата переведена блогеру."
-        else:
-            DealStatusLog.log(locked, Deal.Status.CANCELLED, changed_by=request.user,
-                              comment=f"Досудебное урегулирование: средства возвращены рекламодателю по итогам рассмотрения. {comment}")
-            BillingService.release_funds(locked)
-            locked.status = Deal.Status.CANCELLED
-            msg = "Досудебное урегулирование завершено — средства возвращены рекламодателю."
-
-        locked.save(update_fields=["status", "dispute_resolved_at", "dispute_resolution", "updated_at"])
-
+    msg = ("Досудебное урегулирование завершено — оплата переведена блогеру." if resolution == "complete"
+           else "Досудебное урегулирование завершено — средства возвращены рекламодателю.")
     messages.success(request, msg)
     return redirect("web:admin_disputes")
 

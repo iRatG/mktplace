@@ -3,14 +3,12 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
-from apps.campaigns.services import expired_error
+from apps.campaigns.services import AcceptError, accept_response, expired_error
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.validation import (
-    EDITABLE_STATUSES, active_response, budget_committed, budget_remaining, deal_acceptance_error,
+    EDITABLE_STATUSES, active_response, budget_committed, budget_remaining,
 )
-from apps.deals.models import Deal, DealStatusLog
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
 from apps.users.models import User
@@ -252,57 +250,15 @@ def campaign_respond(request, pk):
 @login_required
 @require_POST
 def response_accept(request, pk):
+    """Рекламодатель принимает отклик — логика в apps/campaigns/services.accept_response (общая с API)."""
     resp = get_object_or_404(CampaignResponse, pk=pk, campaign__advertiser=request.user)
-    if resp.status != CampaignResponse.Status.PENDING:
-        messages.error(request, "Можно принять только ожидающий отклик.")
-        return redirect("web:campaign_detail", pk=resp.campaign_id)
-
-    from django.db import transaction as db_transaction
-
-    campaign = resp.campaign
-
-    # Проверяем статус кампании
-    if campaign.status != Campaign.Status.ACTIVE:
-        messages.error(request, "Нельзя принимать отклики — кампания не активна.")
-        return redirect("web:campaign_detail", pk=campaign.pk)
-
-    amount = resp.proposed_price or campaign.fixed_price
-    if not amount:
-        messages.error(request, "Не удалось определить сумму сделки.")
-        return redirect("web:campaign_detail", pk=campaign.pk)
-
     try:
-        with db_transaction.atomic():
-            # Лимит блогеров и остаток бюджета — под блокировкой кампании (гонка двух принятий).
-            locked_campaign = Campaign.objects.select_for_update().get(pk=campaign.pk)
-            error = deal_acceptance_error(locked_campaign, amount)
-            if error:
-                messages.error(request, error)
-                return redirect("web:campaign_detail", pk=campaign.pk)
-
-            resp.status = CampaignResponse.Status.ACCEPTED
-            resp.save(update_fields=["status"])
-
-            deal = Deal.objects.create(
-                campaign=campaign,
-                blogger=resp.blogger,
-                platform=resp.platform,
-                advertiser=request.user,
-                response=resp,
-                amount=amount,
-                status=Deal.Status.WAITING_PAYMENT,
-            )
-            BillingService.reserve_funds(deal)
-            DealStatusLog.log(deal, Deal.Status.IN_PROGRESS, changed_by=request.user, comment="Accepted via web.")
-            deal.status = Deal.Status.IN_PROGRESS
-            deal.save(update_fields=["status"])
-        NotificationService.notify_response_accepted(resp.blogger, campaign, deal)
-        messages.success(request, f"Отклик принят. Сделка #{deal.pk} создана.")
-    except ValueError as e:
-        deal = None
-        messages.error(request, f"Недостаточно средств: {e}")
-
-    return redirect("web:campaign_detail", pk=campaign.pk)
+        deal = accept_response(resp.pk, request.user)
+    except AcceptError as e:
+        messages.error(request, str(e))
+        return redirect("web:campaign_detail", pk=resp.campaign_id)
+    messages.success(request, f"Отклик принят. Сделка #{deal.pk} создана.")
+    return redirect("web:campaign_detail", pk=resp.campaign_id)
 
 
 @login_required

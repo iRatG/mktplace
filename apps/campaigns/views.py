@@ -1,21 +1,16 @@
-from django.db import IntegrityError
-from django.db import transaction as db_transaction
-
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
 
-from apps.billing.services import BillingService
-from apps.deals.models import Deal, DealStatusLog
 from apps.notifications.service import NotificationService
 from apps.users.models import User
 from .models import Campaign
 from .models import Response as CampaignResponse
 from .serializers import CampaignCreateSerializer, CampaignSerializer, ResponseSerializer
-from .services import expired_error
-from .validation import EDITABLE_STATUSES, deal_acceptance_error
+from .services import AcceptError, accept_response, expired_error
+from .validation import EDITABLE_STATUSES
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -167,81 +162,14 @@ class ResponseViewSet(
 
     @action(detail=True, methods=["post"])
     def accept(self, request, pk=None):
+        """Принятие отклика — apps/campaigns/services.accept_response (одна логика с сайтом)."""
         response_obj = self.get_object()
         if response_obj.campaign.advertiser != request.user:
             raise PermissionDenied("Only the campaign advertiser can accept responses.")
-        if response_obj.status != CampaignResponse.Status.PENDING:
-            return DRFResponse(
-                {"detail": "Only pending responses can be accepted."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
-            with db_transaction.atomic():
-                # Перечитываем под блокировкой строки, чтобы исключить гонку
-                # между параллельными accept одного и того же отклика.
-                campaign = Campaign.objects.select_for_update().get(
-                    pk=response_obj.campaign_id
-                )
-                response_obj = CampaignResponse.objects.select_for_update().get(
-                    pk=response_obj.pk
-                )
-
-                if response_obj.status != CampaignResponse.Status.PENDING:
-                    return DRFResponse(
-                        {"detail": "Only pending responses can be accepted."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                if campaign.status != Campaign.Status.ACTIVE:
-                    return DRFResponse(
-                        {"detail": "Cannot accept responses for a non-active campaign."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                amount = response_obj.proposed_price or campaign.fixed_price
-                if not amount:
-                    return DRFResponse(
-                        {"detail": "Cannot determine deal amount: no price agreed upon."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                error = deal_acceptance_error(campaign, amount)
-                if error:
-                    return DRFResponse({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
-
-                response_obj.status = CampaignResponse.Status.ACCEPTED
-                response_obj.save(update_fields=["status"])
-
-                deal = Deal.objects.create(
-                    campaign=campaign,
-                    blogger=response_obj.blogger,
-                    platform=response_obj.platform,
-                    advertiser=request.user,
-                    response=response_obj,
-                    amount=amount,
-                    status=Deal.Status.WAITING_PAYMENT,
-                )
-
-                BillingService.reserve_funds(deal)
-
-                DealStatusLog.log(
-                    deal,
-                    Deal.Status.IN_PROGRESS,
-                    changed_by=request.user,
-                    comment="Deal created, funds reserved.",
-                )
-                deal.status = Deal.Status.IN_PROGRESS
-                deal.save(update_fields=["status"])
-        except IntegrityError:
-            return DRFResponse(
-                {"detail": "This response has already been accepted."},
-                status=status.HTTP_409_CONFLICT,
-            )
-        except ValueError as e:
-            return DRFResponse({"detail": str(e)}, status=status.HTTP_402_PAYMENT_REQUIRED)
-
-        NotificationService.notify_response_accepted(response_obj.blogger, campaign, deal)
+            deal = accept_response(response_obj.pk, request.user)
+        except AcceptError as e:
+            return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return DRFResponse(
             {"detail": "Response accepted. Deal created.", "deal_id": deal.pk},
             status=status.HTTP_201_CREATED,

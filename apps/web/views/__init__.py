@@ -42,6 +42,7 @@ from .deals import (
     deal_approve_creative,
     deal_reject_creative,
     deal_review_submit,
+    deal_dispute,
 )
 from .platforms import (
     platform_add,

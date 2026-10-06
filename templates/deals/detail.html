@@ -195,7 +195,16 @@
             {% if deal.status == 'checking' %}
             <div class="rounded-xl p-5 bg-orange-50 border border-orange-200">
                 <p class="text-orange-700 text-sm font-medium">⏳ Ожидаем подтверждения рекламодателя</p>
-                <p class="text-orange-700 text-xs mt-1">Если рекламодатель не ответит в течение 72 часов — сделка завершится автоматически.</p>
+                <p class="text-orange-700 text-xs mt-1">Если рекламодатель не ответит в течение 72 часов после публикации — сделка завершится автоматически.</p>
+                <details class="mt-3">
+                    <summary class="text-xs text-gray-600 cursor-pointer hover:text-gray-900">С публикацией что-то не так — открыть спор</summary>
+                    <form method="post" action="{% url 'web:deal_dispute' deal.pk %}" class="mt-2 space-y-2"
+                          onsubmit="return confirm('Открыть спор? Деньги по сделке будут заморожены до решения сотрудника.');">
+                        {% csrf_token %}
+                        <textarea name="reason" rows="2" class="input-dark resize-none text-sm" placeholder="Что не так с публикацией"></textarea>
+                        <button type="submit" class="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">Открыть спор</button>
+                    </form>
+                </details>
             </div>
             {% endif %}
 
@@ -267,6 +276,15 @@
                         </button>
                     </form>
                 </div>
+                <details class="mt-3">
+                    <summary class="text-xs text-gray-600 cursor-pointer hover:text-gray-900">С публикацией что-то не так — открыть спор</summary>
+                    <form method="post" action="{% url 'web:deal_dispute' deal.pk %}" class="mt-2 space-y-2"
+                          onsubmit="return confirm('Открыть спор? Деньги по сделке будут заморожены до решения сотрудника.');">
+                        {% csrf_token %}
+                        <textarea name="reason" rows="2" class="input-dark resize-none text-sm" placeholder="Что не так с публикацией"></textarea>
+                        <button type="submit" class="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">Открыть спор</button>
+                    </form>
+                </details>
             </div>
             {% endif %}
 

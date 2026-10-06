@@ -77,6 +77,9 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "You are not a participant in this deal."
             )
+        # Как на сайте: чат завершённой или отменённой сделки — только для чтения.
+        if value.status in (Deal.Status.COMPLETED, Deal.Status.CANCELLED):
+            raise serializers.ValidationError("The deal chat is read-only after completion or cancellation.")
         return value
 
 

@@ -187,6 +187,44 @@ class NotificationService:
             deal=deal,
         )
 
+    @staticmethod
+    def notify_dispute_opened(deal, opened_by):
+        """Открыт спор → другой стороне и всем активным сотрудникам."""
+        from apps.users.models import User
+
+        other = deal.blogger if opened_by == deal.advertiser else deal.advertiser
+        who = "Рекламодатель" if opened_by == deal.advertiser else "Блогер"
+        NotificationService.notify(
+            user=other,
+            notification_type=Notification.Type.DEAL_DISPUTED,
+            title="Открыт спор по сделке",
+            body=(f"{who} открыл спор по сделке #{deal.pk} «{deal.campaign.name}». Причина: {deal.dispute_reason}. "
+                  f"Деньги заморожены до решения сотрудника."),
+            deal=deal,
+        )
+        for staff in User.objects.filter(is_staff=True, is_active=True):
+            NotificationService.notify(
+                user=staff,
+                notification_type=Notification.Type.DEAL_DISPUTED,
+                title="Новый спор",
+                body=f"Спор по сделке #{deal.pk} «{deal.campaign.name}»: {deal.dispute_reason}",
+                url=reverse("web:admin_disputes"),
+            )
+
+    @staticmethod
+    def notify_dispute_resolved(deal):
+        """Спор разрешён сотрудником → обеим сторонам."""
+        paid = deal.status == "completed"
+        result = "оплата переведена блогеру" if paid else "средства возвращены рекламодателю"
+        for user in (deal.blogger, deal.advertiser):
+            NotificationService.notify(
+                user=user,
+                notification_type=Notification.Type.DEAL_UPDATED,
+                title="Спор разрешён",
+                body=f"По сделке #{deal.pk} «{deal.campaign.name}» принято решение: {result}.",
+                deal=deal,
+            )
+
     # ── Согласование креатива (Sprint 7) ──────────────────────────────────────
 
     @staticmethod

@@ -1,21 +1,13 @@
-from django.db import transaction as db_transaction
-from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
 
-from apps.notifications.service import NotificationService
 from apps.users.models import User
+from . import services as transitions
 from .models import ChatMessage, Deal, DealStatusLog
+from .services import TransitionError
 from .serializers import ChatMessageSerializer, DealSerializer, DealStatusLogSerializer
-
-
-def _log_status_change(deal, new_status, user=None, comment=""):
-    DealStatusLog.log(deal=deal, new_status=new_status, changed_by=user, comment=comment)
-    deal.status = new_status
-    deal.save(update_fields=["status", "updated_at"])
 
 
 class DealViewSet(
@@ -40,156 +32,53 @@ class DealViewSet(
             "campaign", "blogger", "advertiser", "platform"
         )
 
+    def _transition(self, func, *args, ok="OK"):
+        """Переход сделки из apps/deals/services.py: те же правила, блокировки, журнал и уведомления, что на сайте."""
+        deal = self.get_object()
+        try:
+            func(deal.pk, *args)
+        except TransitionError as e:
+            return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return DRFResponse({"detail": ok})
+
     @action(detail=True, methods=["post"], url_path="submit-creative")
     def submit_creative(self, request, pk=None):
-        deal = self.get_object()
-        if deal.blogger != request.user:
-            raise PermissionDenied("Only the blogger can submit a creative.")
-        if deal.creative_approved_at:
-            return DRFResponse(
-                {"detail": "Creative is already approved."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if deal.status != Deal.Status.IN_PROGRESS:
-            return DRFResponse(
-                {"detail": "Creative can only be submitted when deal is in progress."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        deal.creative_text = request.data.get("creative_text", deal.creative_text)
-        if "creative_media" in request.FILES:
-            deal.creative_media = request.FILES["creative_media"]
-        deal.creative_submitted_at = timezone.now()
-        deal.save(update_fields=["creative_text", "creative_media", "creative_submitted_at"])
-        _log_status_change(deal, Deal.Status.ON_APPROVAL, user=request.user)
-        NotificationService.notify_creative_submitted(deal.advertiser, deal)
-        return DRFResponse({"detail": "Creative submitted for approval."})
+        return self._transition(
+            transitions.submit_creative, request.user, request.data.get("creative_text", ""),
+            request.FILES.get("creative_media"), ok="Creative submitted for approval.",
+        )
 
     @action(detail=True, methods=["post"], url_path="approve-creative")
     def approve_creative(self, request, pk=None):
-        deal = self.get_object()
-        if deal.advertiser != request.user:
-            raise PermissionDenied("Only the advertiser can approve a creative.")
-        if deal.status != Deal.Status.ON_APPROVAL:
-            return DRFResponse(
-                {"detail": "Creative is not pending approval."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        deal.creative_approved_at = timezone.now()
-        deal.save(update_fields=["creative_approved_at"])
-        _log_status_change(deal, Deal.Status.WAITING_PUBLICATION, user=request.user)
-        NotificationService.notify_creative_approved(deal.blogger, deal)
-        return DRFResponse({"detail": "Creative approved."})
+        return self._transition(transitions.approve_creative, request.user, ok="Creative approved.")
 
     @action(detail=True, methods=["post"], url_path="reject-creative")
     def reject_creative(self, request, pk=None):
-        deal = self.get_object()
-        if deal.advertiser != request.user:
-            raise PermissionDenied("Only the advertiser can reject a creative.")
-        if deal.status != Deal.Status.ON_APPROVAL:
-            return DRFResponse(
-                {"detail": "Creative is not pending approval."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        reason = request.data.get("reason", "")
-        deal.creative_rejection_reason = reason
-        deal.save(update_fields=["creative_rejection_reason"])
-        _log_status_change(
-            deal, Deal.Status.IN_PROGRESS, user=request.user, comment=reason
+        return self._transition(
+            transitions.reject_creative, request.user, request.data.get("reason", ""),
+            ok="Creative rejected. Blogger should revise and resubmit.",
         )
-        NotificationService.notify_creative_rejected(deal.blogger, deal)
-        return DRFResponse({"detail": "Creative rejected. Blogger should revise and resubmit."})
 
     @action(detail=True, methods=["post"], url_path="submit-publication")
     def submit_publication(self, request, pk=None):
-        deal = self.get_object()
-        if deal.blogger != request.user:
-            raise PermissionDenied("Only the blogger can submit a publication URL.")
-        if deal.status not in (Deal.Status.IN_PROGRESS, Deal.Status.WAITING_PUBLICATION):
-            return DRFResponse(
-                {"detail": "Publication can only be submitted for a deal in progress or waiting publication."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        publication_url = request.data.get("publication_url", "")
-        if not publication_url:
-            raise ValidationError({"publication_url": "Publication URL is required."})
-        deal.publication_url = publication_url
-        deal.publication_at = timezone.now()
-        deal.save(update_fields=["publication_url", "publication_at"])
-        _log_status_change(deal, Deal.Status.CHECKING, user=request.user)
-        NotificationService.notify_publication_submitted(deal)
-        return DRFResponse({"detail": "Publication submitted for checking."})
+        return self._transition(
+            transitions.submit_publication, request.user, request.data.get("publication_url", ""),
+            ok="Publication submitted for checking.",
+        )
 
     @action(detail=True, methods=["post"], url_path="confirm-publication")
     def confirm_publication(self, request, pk=None):
-        deal = self.get_object()
-        if deal.advertiser != request.user:
-            raise PermissionDenied("Only the advertiser can confirm a publication.")
-        with db_transaction.atomic():
-            deal = Deal.objects.select_for_update().get(pk=deal.pk)
-            if deal.status != Deal.Status.CHECKING:
-                return DRFResponse(
-                    {"detail": "Deal is not in checking status."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            _log_status_change(deal, Deal.Status.COMPLETED, user=request.user)
-            # Trigger payment
-            from apps.billing.services import BillingService
-            BillingService.complete_deal_payment(deal)
-            deal.last_distributed_at = timezone.now()
-            deal.save(update_fields=["last_distributed_at"])
-        NotificationService.notify_deal_completed(deal.blogger, deal)
-        return DRFResponse({"detail": "Publication confirmed. Deal completed."})
+        return self._transition(transitions.complete, request.user, ok="Publication confirmed. Deal completed.")
 
     @action(detail=True, methods=["post"])
     def dispute(self, request, pk=None):
-        deal = self.get_object()
-        user = request.user
-        if deal.blogger != user and deal.advertiser != user:
-            raise PermissionDenied("You are not a participant in this deal.")
-        reason = request.data.get("reason", "")
-        if not reason:
-            raise ValidationError({"reason": "Dispute reason is required."})
-        with db_transaction.atomic():
-            deal = Deal.objects.select_for_update().get(pk=deal.pk)
-            if deal.status not in (Deal.Status.CHECKING, Deal.Status.PUBLISHED):
-                return DRFResponse(
-                    {"detail": "Dispute can only be opened in checking or published status."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            deal.dispute_reason = reason
-            deal.dispute_opened_at = timezone.now()
-            deal.is_frozen = True
-            deal.save(update_fields=["dispute_reason", "dispute_opened_at", "is_frozen"])
-            _log_status_change(deal, Deal.Status.DISPUTED, user=user, comment=reason)
-        return DRFResponse({"detail": "Dispute opened."})
+        return self._transition(
+            transitions.open_dispute, request.user, request.data.get("reason", ""), ok="Dispute opened.",
+        )
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
-        deal = self.get_object()
-        user = request.user
-        if deal.blogger != user and deal.advertiser != user:
-            raise PermissionDenied("You are not a participant in this deal.")
-        if user == deal.blogger:
-            cancellable_statuses = (Deal.Status.WAITING_PAYMENT,)
-        else:
-            cancellable_statuses = (
-                Deal.Status.WAITING_PAYMENT,
-                Deal.Status.IN_PROGRESS,
-                Deal.Status.WAITING_PUBLICATION,
-            )
-        with db_transaction.atomic():
-            deal = Deal.objects.select_for_update().get(pk=deal.pk)
-            if deal.status not in cancellable_statuses:
-                return DRFResponse(
-                    {"detail": "Deal cannot be cancelled at this stage."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            _log_status_change(deal, Deal.Status.CANCELLED, user=user)
-            # Release reserved funds
-            from apps.billing.services import BillingService
-            BillingService.release_funds(deal)
-        NotificationService.notify_deal_cancelled(deal, cancelled_by=user)
-        return DRFResponse({"detail": "Deal cancelled."})
+        return self._transition(transitions.cancel, request.user, ok="Deal cancelled.")
 
     @action(detail=True, methods=["get"], url_path="status-log")
     def status_log(self, request, pk=None):

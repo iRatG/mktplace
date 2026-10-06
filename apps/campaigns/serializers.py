@@ -172,10 +172,14 @@ class ResponseSerializer(serializers.ModelSerializer):
         campaign = attrs.get("campaign")
         platform = attrs.get("platform")
 
+        if request.user.role != "blogger":
+            raise serializers.ValidationError({"detail": "Only bloggers can respond to campaigns."})
         if platform and platform.blogger != request.user:
             raise serializers.ValidationError(
                 {"platform": "You can only respond with your own platform."}
             )
+        if platform and platform.status != "approved":
+            raise serializers.ValidationError({"platform": "Only an approved platform can be used to respond."})
 
         if campaign and campaign.status != Campaign.Status.ACTIVE:
             raise serializers.ValidationError(

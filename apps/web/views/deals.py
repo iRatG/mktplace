@@ -7,13 +7,21 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.billing.services import BillingService
-from apps.deals.models import ChatMessage, Deal, DealStatusLog, Review
-from apps.notifications.service import NotificationService
+from apps.deals import services as transitions
+from apps.deals.models import ChatMessage, Deal, Review
+from apps.deals.services import TransitionError
 from apps.profiles.models import BloggerProfile
 from apps.users.models import User
 
 from ..forms import ChatMessageForm, CreativeSubmitForm, ReviewForm
+
+
+def _own_deal(request, pk, side=None):
+    """Сделка пользователя (404 для чужих). side — «blogger» или «advertiser», если действие только одной стороны."""
+    user = request.user
+    if side == "blogger" or (side is None and user.role == User.Role.BLOGGER):
+        return get_object_or_404(Deal, pk=pk, blogger=user)
+    return get_object_or_404(Deal, pk=pk, advertiser=user)
 
 
 @login_required
@@ -63,7 +71,6 @@ def deal_detail(request, pk):
         existing_review — объект Review (если уже оставлен), иначе None
         review_form     — ReviewForm (только если can_review=True)
     """
-    from django.db import transaction as _tx
     user = request.user
     if user.is_staff:
         deal = get_object_or_404(Deal, pk=pk)
@@ -72,27 +79,13 @@ def deal_detail(request, pk):
     else:
         deal = get_object_or_404(Deal, pk=pk, blogger=user)
 
-    # Fallback auto-complete: if Celery is down, complete overdue CHECKING deals on page open
-    if deal.status == Deal.Status.CHECKING:
-        overdue_threshold = timezone.now() - timedelta(hours=72)
-        if deal.updated_at <= overdue_threshold:
-            try:
-                with _tx.atomic():
-                    deal_locked = Deal.objects.select_for_update().get(
-                        pk=deal.pk, status=Deal.Status.CHECKING
-                    )
-                    deal_locked.status = Deal.Status.COMPLETED
-                    deal_locked.save(update_fields=["status", "updated_at"])
-                    DealStatusLog.log(
-                        deal=deal_locked,
-                        new_status=Deal.Status.COMPLETED,
-                        comment="Auto-completed after 72h timeout (fallback).",
-                    )
-                    from apps.billing.services import BillingService
-                    BillingService.complete_deal_payment(deal_locked)
-                    deal = deal_locked
-            except Deal.DoesNotExist:
-                deal.refresh_from_db()
+    # Запасное автозавершение (если таймер не сработал): тот же переход, что у Celery — 72 ч после публикации.
+    if deal.status == Deal.Status.CHECKING and transitions.checking_overdue(deal):
+        try:
+            transitions.complete(deal.pk, actor=None)
+        except TransitionError:
+            pass
+        deal.refresh_from_db()
 
     logs = deal.status_logs.select_related("changed_by").order_by("created_at")
 
@@ -104,7 +97,7 @@ def deal_detail(request, pk):
             existing_review = deal.review
         except Review.DoesNotExist:
             if user == deal.advertiser:
-                window_open = timezone.now() - deal.updated_at < timedelta(days=7)
+                window_open = timezone.now() - (deal.last_distributed_at or deal.updated_at) < timedelta(days=7)
                 if window_open:
                     can_review = True
                     review_form = ReviewForm()
@@ -145,39 +138,11 @@ def deal_detail(request, pk):
 @login_required
 @require_POST
 def deal_submit_publication(request, pk):
-    """Blogger submits publication URL → status CHECKING.
-
-    Статус: IN_PROGRESS (креатив пропущен) или WAITING_PUBLICATION (креатив одобрен).
-    """
-    url = request.POST.get("publication_url", "").strip()
-    if not url:
-        messages.error(request, "Укажите ссылку на публикацию.")
+    try:
+        transitions.submit_publication(_own_deal(request, pk, "blogger").pk, request.user, request.POST.get("publication_url", ""))
+    except TransitionError as e:
+        messages.error(request, str(e))
         return redirect("web:deal_detail", pk=pk)
-    if not (url.startswith("http://") or url.startswith("https://")):
-        messages.error(request, "Ссылка должна начинаться с http:// или https://")
-        return redirect("web:deal_detail", pk=pk)
-
-    from django.db import transaction as db_transaction
-    with db_transaction.atomic():
-        deal = Deal.objects.select_for_update().filter(pk=pk, blogger=request.user).first()
-        if deal is None:
-            from django.http import Http404
-            raise Http404
-        if deal.status not in (Deal.Status.IN_PROGRESS, Deal.Status.WAITING_PUBLICATION):
-            messages.error(request, "Добавить публикацию можно только для сделки «В работе» или «Ждёт публикации».")
-            return redirect("web:deal_detail", pk=pk)
-
-        DealStatusLog.log(
-            deal, Deal.Status.CHECKING,
-            changed_by=request.user,
-            comment=f"Публикация размещена: {url}",
-        )
-        deal.publication_url = url
-        deal.publication_at = timezone.now()
-        deal.status = Deal.Status.CHECKING
-        deal.save(update_fields=["publication_url", "publication_at", "status", "updated_at"])
-
-    NotificationService.notify_publication_submitted(deal)
     messages.success(request, "Ссылка добавлена. Ожидайте подтверждения рекламодателя.")
     return redirect("web:deal_detail", pk=pk)
 
@@ -185,33 +150,11 @@ def deal_submit_publication(request, pk):
 @login_required
 @require_POST
 def deal_confirm(request, pk):
-    """Advertiser confirms publication → COMPLETED + payment."""
-    from django.db import transaction as db_transaction
-
-    with db_transaction.atomic():
-        # select_for_update: lock the row to prevent double-confirm race condition
-        deal = Deal.objects.select_for_update().filter(
-            pk=pk, advertiser=request.user
-        ).first()
-        if deal is None:
-            from django.http import Http404
-            raise Http404
-
-        if deal.status != Deal.Status.CHECKING:
-            messages.error(request, "Подтвердить можно только сделку «На проверке».")
-            return redirect("web:deal_detail", pk=pk)
-
-        DealStatusLog.log(
-            deal, Deal.Status.COMPLETED,
-            changed_by=request.user,
-            comment="Рекламодатель подтвердил публикацию. Оплата выполнена.",
-        )
-        BillingService.complete_deal_payment(deal)
-        deal.status = Deal.Status.COMPLETED
-        deal.last_distributed_at = timezone.now()
-        deal.save(update_fields=["status", "last_distributed_at", "updated_at"])
-
-    NotificationService.notify_deal_completed(deal.blogger, deal)
+    try:
+        transitions.complete(_own_deal(request, pk, "advertiser").pk, request.user)
+    except TransitionError as e:
+        messages.error(request, str(e))
+        return redirect("web:deal_detail", pk=pk)
     messages.success(request, "Сделка завершена. Блогер получил оплату.")
     return redirect("web:deal_detail", pk=pk)
 
@@ -219,40 +162,11 @@ def deal_confirm(request, pk):
 @login_required
 @require_POST
 def deal_cancel(request, pk):
-    """Cancel deal → CANCELLED + release funds."""
-    user = request.user
-    # Blogger can only cancel before work starts (WAITING_PAYMENT).
-    # IN_PROGRESS means funds are reserved and work is underway — only advertiser can cancel then.
-    if user.role == User.Role.BLOGGER:
-        cancellable = {Deal.Status.WAITING_PAYMENT}
-    else:
-        cancellable = {
-            Deal.Status.WAITING_PAYMENT, Deal.Status.IN_PROGRESS, Deal.Status.WAITING_PUBLICATION,
-        }
-
-    from django.db import transaction as db_transaction
-    with db_transaction.atomic():
-        if user.role == User.Role.ADVERTISER:
-            deal = Deal.objects.select_for_update().filter(pk=pk, advertiser=user).first()
-        else:
-            deal = Deal.objects.select_for_update().filter(pk=pk, blogger=user).first()
-        if deal is None:
-            from django.http import Http404
-            raise Http404
-        if deal.status not in cancellable:
-            messages.error(request, "Эту сделку нельзя отменить на текущем этапе.")
-            return redirect("web:deal_detail", pk=pk)
-
-        DealStatusLog.log(
-            deal, Deal.Status.CANCELLED,
-            changed_by=user,
-            comment=f"Отменено пользователем ({user.email}).",
-        )
-        BillingService.release_funds(deal)
-        deal.status = Deal.Status.CANCELLED
-        deal.save(update_fields=["status", "updated_at"])
-
-    NotificationService.notify_deal_cancelled(deal, cancelled_by=user)
+    try:
+        transitions.cancel(_own_deal(request, pk).pk, request.user)
+    except TransitionError as e:
+        messages.error(request, str(e))
+        return redirect("web:deal_detail", pk=pk)
     messages.success(request, "Сделка отменена. Средства возвращены рекламодателю.")
     return redirect("web:deal_list")
 
@@ -302,105 +216,45 @@ def deal_send_message(request, pk):
 @login_required
 @require_POST
 def deal_submit_creative(request, pk):
-    """Blogger submits creative for approval → status ON_APPROVAL.
-
-    Доступ: только блогер сделки.
-    Статус: только IN_PROGRESS и только пока креатив не одобрен (creative_approved_at пуст).
-    Сохраняет: creative_text, creative_media, creative_submitted_at.
-    Уведомляет рекламодателя.
-    """
-    from django.db import transaction as db_transaction
-
-    deal = get_object_or_404(Deal, pk=pk, blogger=request.user)
-    if deal.creative_approved_at:
-        messages.error(request, "Креатив уже согласован — можно публиковать.")
-        return redirect("web:deal_detail", pk=pk)
-    if deal.status != Deal.Status.IN_PROGRESS:
-        messages.error(request, "Отправить креатив можно только для сделки «В работе».")
-        return redirect("web:deal_detail", pk=pk)
-
+    """Блогер отправляет креатив на согласование → «На согласовании» (переход — apps/deals/services.py)."""
+    deal = _own_deal(request, pk, "blogger")
     form = CreativeSubmitForm(request.POST, request.FILES)
     if not form.is_valid():
         for error in form.errors.get("__all__", []):
             messages.error(request, error)
         return redirect("web:deal_detail", pk=pk)
-
-    text = form.cleaned_data["creative_text"].strip()
-    media = form.cleaned_data.get("creative_media")
-
-    with db_transaction.atomic():
-        deal = Deal.objects.select_for_update().get(pk=pk)
-        if deal.status != Deal.Status.IN_PROGRESS or deal.creative_approved_at:
-            messages.error(request, "Статус сделки изменился. Попробуйте ещё раз.")
-            return redirect("web:deal_detail", pk=pk)
-
-        DealStatusLog.log(
-            deal, Deal.Status.ON_APPROVAL,
-            changed_by=request.user,
-            comment="Блогер отправил креатив на согласование.",
+    try:
+        transitions.submit_creative(
+            deal.pk, request.user, form.cleaned_data["creative_text"].strip(), form.cleaned_data.get("creative_media"),
         )
-        deal.creative_text = text
-        if media:
-            deal.creative_media = media
-        deal.creative_submitted_at = timezone.now()
-        deal.creative_rejection_reason = ""
-        deal.status = Deal.Status.ON_APPROVAL
-        deal.save(update_fields=[
-            "creative_text", "creative_media", "creative_submitted_at",
-            "creative_rejection_reason", "status", "updated_at",
-        ])
-
-    ChatMessage.objects.create(
-        deal=deal,
-        text="Блогер отправил креатив на согласование.",
-        is_system=True,
-    )
-    NotificationService.notify_creative_submitted(deal.advertiser, deal)
+    except TransitionError as e:
+        messages.error(request, str(e))
+        return redirect("web:deal_detail", pk=pk)
     messages.success(request, "Креатив отправлен на согласование рекламодателю.")
     return redirect("web:deal_detail", pk=pk)
 
 
 @login_required
 @require_POST
-def deal_approve_creative(request, pk):
-    """Advertiser approves creative → status WAITING_PUBLICATION.
-
-    Доступ: только рекламодатель сделки.
-    Статус: только ON_APPROVAL.
-    Устанавливает creative_approved_at.
-    Уведомляет блогера.
-    """
-    from django.db import transaction as db_transaction
-
-    deal = get_object_or_404(Deal, pk=pk, advertiser=request.user)
-    if deal.status != Deal.Status.ON_APPROVAL:
-        messages.error(request, "Согласовать можно только сделку «На согласовании».")
+def deal_dispute(request, pk):
+    """Участник сделки открывает спор на проверке публикации → «Оспорена», деньги заморожены."""
+    try:
+        transitions.open_dispute(_own_deal(request, pk).pk, request.user, request.POST.get("reason", ""))
+    except TransitionError as e:
+        messages.error(request, str(e))
         return redirect("web:deal_detail", pk=pk)
+    messages.success(request, "Спор открыт. Сотрудник рассмотрит его, деньги заморожены до решения.")
+    return redirect("web:deal_detail", pk=pk)
 
-    with db_transaction.atomic():
-        deal = Deal.objects.select_for_update().get(pk=pk)
-        if deal.status != Deal.Status.ON_APPROVAL:
-            messages.error(request, "Статус сделки изменился. Попробуйте ещё раз.")
-            return redirect("web:deal_detail", pk=pk)
 
-        DealStatusLog.log(
-            deal, Deal.Status.WAITING_PUBLICATION,
-            changed_by=request.user,
-            comment="Рекламодатель согласовал креатив.",
-        )
-        deal.creative_approved_at = timezone.now()
-        deal.creative_rejection_reason = ""
-        deal.status = Deal.Status.WAITING_PUBLICATION
-        deal.save(update_fields=[
-            "creative_approved_at", "creative_rejection_reason", "status", "updated_at",
-        ])
-
-    ChatMessage.objects.create(
-        deal=deal,
-        text="Рекламодатель согласовал креатив. Можно публиковать!",
-        is_system=True,
-    )
-    NotificationService.notify_creative_approved(deal.blogger, deal)
+@login_required
+@require_POST
+def deal_approve_creative(request, pk):
+    try:
+        transitions.approve_creative(_own_deal(request, pk, "advertiser").pk, request.user)
+    except TransitionError as e:
+        messages.error(request, str(e))
+        return redirect("web:deal_detail", pk=pk)
     messages.success(request, "Креатив согласован. Блогер может публиковать.")
     return redirect("web:deal_detail", pk=pk)
 
@@ -408,46 +262,11 @@ def deal_approve_creative(request, pk):
 @login_required
 @require_POST
 def deal_reject_creative(request, pk):
-    """Advertiser rejects creative → status back to IN_PROGRESS with rejection reason.
-
-    Доступ: только рекламодатель сделки.
-    Статус: только ON_APPROVAL.
-    Сохраняет creative_rejection_reason.
-    Уведомляет блогера.
-    """
-    from django.db import transaction as db_transaction
-
-    deal = get_object_or_404(Deal, pk=pk, advertiser=request.user)
-    if deal.status != Deal.Status.ON_APPROVAL:
-        messages.error(request, "Отклонить можно только сделку «На согласовании».")
+    try:
+        transitions.reject_creative(_own_deal(request, pk, "advertiser").pk, request.user, request.POST.get("rejection_reason", ""))
+    except TransitionError as e:
+        messages.error(request, str(e))
         return redirect("web:deal_detail", pk=pk)
-
-    reason = request.POST.get("rejection_reason", "").strip()
-    if not reason:
-        messages.error(request, "Укажите причину отклонения.")
-        return redirect("web:deal_detail", pk=pk)
-
-    with db_transaction.atomic():
-        deal = Deal.objects.select_for_update().get(pk=pk)
-        if deal.status != Deal.Status.ON_APPROVAL:
-            messages.error(request, "Статус сделки изменился. Попробуйте ещё раз.")
-            return redirect("web:deal_detail", pk=pk)
-
-        DealStatusLog.log(
-            deal, Deal.Status.IN_PROGRESS,
-            changed_by=request.user,
-            comment=f"Рекламодатель отклонил креатив: {reason}",
-        )
-        deal.creative_rejection_reason = reason
-        deal.status = Deal.Status.IN_PROGRESS
-        deal.save(update_fields=["creative_rejection_reason", "status", "updated_at"])
-
-    ChatMessage.objects.create(
-        deal=deal,
-        text=f"Рекламодатель отклонил креатив. Причина: {reason}",
-        is_system=True,
-    )
-    NotificationService.notify_creative_rejected(deal.blogger, deal)
     messages.success(request, "Креатив отклонён. Блогер получил уведомление.")
     return redirect("web:deal_detail", pk=pk)
 
@@ -475,7 +294,8 @@ def deal_review_submit(request, pk):
         pass
 
     # Guard: 7-day window
-    if timezone.now() - deal.updated_at > timedelta(days=7):
+    # 7 дней от завершения сделки (last_distributed_at ставит каждый путь завершения), а не от любого сохранения.
+    if timezone.now() - (deal.last_distributed_at or deal.updated_at) > timedelta(days=7):
         messages.error(request, "Срок для оставления отзыва (7 дней) истёк.")
         return redirect("web:deal_detail", pk=pk)
 
