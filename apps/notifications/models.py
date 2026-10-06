@@ -21,6 +21,8 @@ class Notification(models.Model):
         CAMPAIGN_CHANGES_PROPOSED = "campaign_changes_proposed", "Campaign Changes Proposed"
         CAMPAIGN_CHANGES_ACCEPTED = "campaign_changes_accepted", "Campaign Changes Accepted"
         CAMPAIGN_CHANGES_DECLINED = "campaign_changes_declined", "Campaign Changes Declined"
+        CAMPAIGN_MODERATION_REQUESTED = "campaign_moderation_requested", "Campaign Moderation Requested"
+        PUBLICATION_SUBMITTED = "publication_submitted", "Publication Submitted"
         PLATFORM_MODERATED = "platform_moderated", "Platform Moderated"
         RESPONSE_ACCEPTED = "response_accepted", "Response Accepted"
         RESPONSE_REJECTED = "response_rejected", "Response Rejected"

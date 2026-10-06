@@ -177,6 +177,7 @@ def deal_submit_publication(request, pk):
         deal.status = Deal.Status.CHECKING
         deal.save(update_fields=["publication_url", "publication_at", "status", "updated_at"])
 
+    NotificationService.notify_publication_submitted(deal)
     messages.success(request, "Ссылка добавлена. Ожидайте подтверждения рекламодателя.")
     return redirect("web:deal_detail", pk=pk)
 

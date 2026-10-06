@@ -6,6 +6,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
 
+from apps.notifications.service import NotificationService
 from apps.users.models import User
 from .models import ChatMessage, Deal, DealStatusLog
 from .serializers import ChatMessageSerializer, DealSerializer, DealStatusLogSerializer
@@ -60,6 +61,7 @@ class DealViewSet(
         deal.creative_submitted_at = timezone.now()
         deal.save(update_fields=["creative_text", "creative_media", "creative_submitted_at"])
         _log_status_change(deal, Deal.Status.ON_APPROVAL, user=request.user)
+        NotificationService.notify_creative_submitted(deal.advertiser, deal)
         return DRFResponse({"detail": "Creative submitted for approval."})
 
     @action(detail=True, methods=["post"], url_path="approve-creative")
@@ -75,6 +77,7 @@ class DealViewSet(
         deal.creative_approved_at = timezone.now()
         deal.save(update_fields=["creative_approved_at"])
         _log_status_change(deal, Deal.Status.WAITING_PUBLICATION, user=request.user)
+        NotificationService.notify_creative_approved(deal.blogger, deal)
         return DRFResponse({"detail": "Creative approved."})
 
     @action(detail=True, methods=["post"], url_path="reject-creative")
@@ -93,6 +96,7 @@ class DealViewSet(
         _log_status_change(
             deal, Deal.Status.IN_PROGRESS, user=request.user, comment=reason
         )
+        NotificationService.notify_creative_rejected(deal.blogger, deal)
         return DRFResponse({"detail": "Creative rejected. Blogger should revise and resubmit."})
 
     @action(detail=True, methods=["post"], url_path="submit-publication")
@@ -112,6 +116,7 @@ class DealViewSet(
         deal.publication_at = timezone.now()
         deal.save(update_fields=["publication_url", "publication_at"])
         _log_status_change(deal, Deal.Status.CHECKING, user=request.user)
+        NotificationService.notify_publication_submitted(deal)
         return DRFResponse({"detail": "Publication submitted for checking."})
 
     @action(detail=True, methods=["post"], url_path="confirm-publication")
@@ -132,6 +137,7 @@ class DealViewSet(
             BillingService.complete_deal_payment(deal)
             deal.last_distributed_at = timezone.now()
             deal.save(update_fields=["last_distributed_at"])
+        NotificationService.notify_deal_completed(deal.blogger, deal)
         return DRFResponse({"detail": "Publication confirmed. Deal completed."})
 
     @action(detail=True, methods=["post"])
@@ -182,6 +188,7 @@ class DealViewSet(
             # Release reserved funds
             from apps.billing.services import BillingService
             BillingService.release_funds(deal)
+        NotificationService.notify_deal_cancelled(deal, cancelled_by=user)
         return DRFResponse({"detail": "Deal cancelled."})
 
     @action(detail=True, methods=["get"], url_path="status-log")

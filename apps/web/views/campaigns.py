@@ -135,6 +135,9 @@ def campaign_edit(request, pk):
             campaign.status = Campaign.Status.MODERATION
         campaign.save()
         if was_paused:
+            NotificationService.notify_campaign_moderation_requested(
+                campaign, NotificationService.MODERATION_AFTER_PAUSE_EDIT
+            )
             messages.success(request, "Изменения сохранены и отправлены на модерацию.")
             return redirect("web:campaign_detail", pk=campaign.pk)
         messages.success(request, "Кампания обновлена.")
@@ -151,8 +154,14 @@ def campaign_submit(request, pk):
     if campaign.status not in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
         messages.error(request, "На модерацию можно отправить только черновик или отклонённую кампанию.")
     else:
+        source = (
+            NotificationService.MODERATION_AFTER_REJECTION
+            if campaign.status == Campaign.Status.REJECTED
+            else NotificationService.MODERATION_FIRST
+        )
         campaign.status = Campaign.Status.MODERATION
         campaign.save(update_fields=["status"])
+        NotificationService.notify_campaign_moderation_requested(campaign, source)
         messages.success(request, "Кампания отправлена на модерацию.")
     return redirect("web:campaign_detail", pk=pk)
 

@@ -59,6 +59,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.users.middleware.BlockedIPMiddleware',
+    'apps.notifications.middleware.NotificationResolveMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'

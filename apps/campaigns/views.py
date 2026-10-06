@@ -9,6 +9,7 @@ from rest_framework.response import Response as DRFResponse
 
 from apps.billing.services import BillingService
 from apps.deals.models import Deal, DealStatusLog
+from apps.notifications.service import NotificationService
 from apps.users.models import User
 from .models import Campaign
 from .models import Response as CampaignResponse
@@ -51,6 +52,9 @@ class CampaignViewSet(viewsets.ModelViewSet):
         if instance.status == Campaign.Status.PAUSED:
             campaign.status = Campaign.Status.MODERATION
             campaign.save(update_fields=["status"])
+            NotificationService.notify_campaign_moderation_requested(
+                campaign, NotificationService.MODERATION_AFTER_PAUSE_EDIT
+            )
 
     def perform_destroy(self, instance):
         if instance.advertiser != self.request.user:
@@ -69,8 +73,14 @@ class CampaignViewSet(viewsets.ModelViewSet):
                 {"detail": "Only draft or rejected campaigns can be submitted for moderation."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        source = (
+            NotificationService.MODERATION_AFTER_REJECTION
+            if campaign.status == Campaign.Status.REJECTED
+            else NotificationService.MODERATION_FIRST
+        )
         campaign.status = Campaign.Status.MODERATION
         campaign.save(update_fields=["status"])
+        NotificationService.notify_campaign_moderation_requested(campaign, source)
         return DRFResponse({"detail": "Campaign submitted for moderation."})
 
     @action(detail=True, methods=["post"])
@@ -137,6 +147,12 @@ class ResponseViewSet(
                 campaign__advertiser=user
             ).select_related("blogger", "campaign", "platform")
         return CampaignResponse.objects.none()
+
+    def perform_create(self, serializer):
+        response_obj = serializer.save()
+        NotificationService.notify_new_response(
+            response_obj.campaign.advertiser, response_obj.campaign, response_obj.blogger
+        )
 
     def perform_destroy(self, instance):
         if instance.blogger != self.request.user:
@@ -225,6 +241,7 @@ class ResponseViewSet(
         except ValueError as e:
             return DRFResponse({"detail": str(e)}, status=status.HTTP_402_PAYMENT_REQUIRED)
 
+        NotificationService.notify_response_accepted(response_obj.blogger, campaign, deal)
         return DRFResponse(
             {"detail": "Response accepted. Deal created.", "deal_id": deal.pk},
             status=status.HTTP_201_CREATED,
@@ -242,4 +259,5 @@ class ResponseViewSet(
             )
         response_obj.status = CampaignResponse.Status.REJECTED
         response_obj.save(update_fields=["status"])
+        NotificationService.notify_response_rejected(response_obj.blogger, response_obj.campaign)
         return DRFResponse({"detail": "Response rejected."})

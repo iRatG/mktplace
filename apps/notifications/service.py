@@ -25,6 +25,11 @@ NotificationService — синхронный сервис создания in-ap
     notify_platform_rejected()      — площадка отклонена → блогеру
     notify_withdrawal_approved()    — вывод подтверждён → блогеру
     notify_withdrawal_rejected()    — вывод отклонён → блогеру
+    notify_publication_submitted()  — публикация добавлена → рекламодателю
+    notify_campaign_moderation_requested() — кампания на модерации → всем активным staff
+
+Уведомление гаснет само, когда адресат открывает страницу, на которую оно ведёт
+(apps/notifications/middleware.py) — во views гасить не нужно.
 """
 
 from django.urls import reverse
@@ -193,6 +198,20 @@ class NotificationService:
         )
 
     @staticmethod
+    def notify_publication_submitted(deal):
+        """Блогер добавил публикацию → рекламодателю (подтвердить или открыть спор)."""
+        NotificationService.notify(
+            user=deal.advertiser,
+            notification_type=Notification.Type.PUBLICATION_SUBMITTED,
+            title="Блогер добавил публикацию",
+            body=(
+                f"Блогер разместил публикацию по сделке #{deal.pk} «{deal.campaign.name}». "
+                f"Проверьте и подтвердите — без ответа сделка завершится автоматически через 72 часа."
+            ),
+            deal=deal,
+        )
+
+    @staticmethod
     def notify_creative_approved(blogger, deal):
         """Рекламодатель согласовал креатив → блогеру."""
         NotificationService.notify(
@@ -245,6 +264,32 @@ class NotificationService:
             body=f"Кампания «{campaign.name}» отклонена модератором. Причина: {reason}",
             url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
         )
+
+    # Откуда кампания пришла на модерацию — для заголовка уведомления сотрудникам.
+    MODERATION_FIRST = "first"
+    MODERATION_AFTER_REJECTION = "after_rejection"
+    MODERATION_AFTER_PAUSE_EDIT = "after_pause_edit"
+
+    @staticmethod
+    def notify_campaign_moderation_requested(campaign, source):
+        """Кампания пришла на модерацию → всем активным сотрудникам."""
+        from apps.users.models import User
+
+        titles = {
+            NotificationService.MODERATION_FIRST: "Новая кампания на модерации",
+            NotificationService.MODERATION_AFTER_REJECTION: "Кампания повторно на модерации после отклонения",
+            NotificationService.MODERATION_AFTER_PAUSE_EDIT: "Кампания на модерации после правки на паузе",
+        }
+        title = titles.get(source, titles[NotificationService.MODERATION_FIRST])
+        url = reverse("web:admin_campaign_detail", kwargs={"pk": campaign.pk})
+        for staff in User.objects.filter(is_staff=True, is_active=True):
+            NotificationService.notify(
+                user=staff,
+                notification_type=Notification.Type.CAMPAIGN_MODERATION_REQUESTED,
+                title=title,
+                body=f"Кампания «{campaign.name}» ({campaign.advertiser.email}) ждёт проверки.",
+                url=url,
+            )
 
     @staticmethod
     def notify_campaign_changes_proposed(advertiser, campaign):
