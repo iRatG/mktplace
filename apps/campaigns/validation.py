@@ -71,5 +71,23 @@ def _bloggers_word(n):
     return "блогеров"
 
 
+def active_response(campaign, blogger):
+    """Ожидающий или принятый отклик блогера на кампанию — пока он есть, новый отклик не подать.
+
+    Отклонённый и отозванный отклики не мешают: после отклонения блогер может откликнуться снова
+    (решение бизнеса 06.10.2026). Одно правило для сайта и API.
+    """
+    from .models import Response
+
+    return (
+        Response.objects.filter(
+            campaign=campaign, blogger=blogger,
+            status__in=(Response.Status.PENDING, Response.Status.ACCEPTED),
+        )
+        .order_by("-created_at")
+        .first()
+    )
+
+
 def _spaced(value):
     return format_money(value)

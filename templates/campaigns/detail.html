@@ -143,6 +143,9 @@
                             {% if resp.message %}
                             <div class="text-xs text-gray-500 mt-1 italic">"{{ resp.message|truncatechars:120 }}"</div>
                             {% endif %}
+                            {% if resp.status == 'rejected' and resp.rejection_reason %}
+                            <div class="text-xs text-red-600 mt-1">Комментарий при отклонении: {{ resp.rejection_reason }}</div>
+                            {% endif %}
                         </div>
                     </div>
                     {% if resp.status == 'pending' %}
@@ -151,10 +154,18 @@
                             {% csrf_token %}
                             <button class="bg-green-100 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs hover:bg-green-200 transition-colors">Принять</button>
                         </form>
-                        <form method="post" action="{% url 'web:response_reject' resp.pk %}">
-                            {% csrf_token %}
-                            <button class="bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg text-xs hover:bg-red-200 transition-colors">Отклонить</button>
-                        </form>
+                        <details class="relative">
+                            <summary class="list-none cursor-pointer bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg text-xs hover:bg-red-200 transition-colors">Отклонить</summary>
+                            <form method="post" action="{% url 'web:response_reject' resp.pk %}"
+                                  class="absolute right-0 z-10 mt-1 w-72 card-dark rounded-xl p-3 space-y-2">
+                                {% csrf_token %}
+                                <label class="block text-xs text-gray-600">Комментарий блогеру (необязательно)</label>
+                                <textarea name="reason" rows="2" class="input-dark resize-none text-xs"
+                                    placeholder="Например: готовы на 150 000 — откликнитесь с этой ценой"></textarea>
+                                <p class="text-xs text-gray-500">Блогер сможет откликнуться снова.</p>
+                                <button class="bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg text-xs hover:bg-red-200 transition-colors">Отклонить отклик</button>
+                            </form>
+                        </details>
                     </div>
                     {% else %}
                     <span class="text-xs px-2 py-1 rounded-full
@@ -181,6 +192,12 @@
                 Вы уже откликнулись на эту кампанию.
             </div>
             {% else %}
+            {% if last_rejected %}
+            <div class="alert-error text-sm mb-3">
+                Ваш прошлый отклик отклонён{% if last_rejected.rejection_reason %}. Комментарий рекламодателя: {{ last_rejected.rejection_reason }}{% endif %}.
+                Можно откликнуться снова — например, с другой ценой.
+            </div>
+            {% endif %}
             <form method="post" action="{% url 'web:campaign_respond' campaign.pk %}" class="space-y-3">
                 {% csrf_token %}
                 <div>

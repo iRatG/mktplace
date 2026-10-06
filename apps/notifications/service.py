@@ -98,13 +98,17 @@ class NotificationService:
         )
 
     @staticmethod
-    def notify_response_rejected(blogger, campaign):
-        """Отклик отклонён → блогеру."""
+    def notify_response_rejected(blogger, campaign, reason=""):
+        """Отклик отклонён → блогеру (с комментарием рекламодателя, если он есть)."""
+        body = f"Рекламодатель отклонил ваш отклик на кампанию «{campaign.name}»."
+        if reason:
+            body += f" Комментарий: {reason}"
+        body += " Вы можете откликнуться снова."
         NotificationService.notify(
             user=blogger,
             notification_type=Notification.Type.RESPONSE_REJECTED,
             title="Отклик отклонён",
-            body=f"Рекламодатель отклонил ваш отклик на кампанию «{campaign.name}».",
+            body=body,
             url=reverse("web:my_responses"),
         )
 

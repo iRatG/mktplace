@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from .models import Campaign, Response
-from .validation import campaign_param_errors, deals_in_cap
+from .validation import active_response, campaign_param_errors, deals_in_cap
 
 
 class CampaignSerializer(serializers.ModelSerializer):
@@ -145,6 +145,7 @@ class ResponseSerializer(serializers.ModelSerializer):
             "proposed_price",
             "message",
             "status",
+            "rejection_reason",
             "created_at",
             "updated_at",
         )
@@ -154,6 +155,7 @@ class ResponseSerializer(serializers.ModelSerializer):
             "campaign_name",
             "platform_url",
             "status",
+            "rejection_reason",
             "created_at",
             "updated_at",
         )
@@ -171,6 +173,11 @@ class ResponseSerializer(serializers.ModelSerializer):
         if campaign and campaign.status != Campaign.Status.ACTIVE:
             raise serializers.ValidationError(
                 {"campaign": "This campaign is not accepting responses."}
+            )
+
+        if campaign and active_response(campaign, request.user) is not None:
+            raise serializers.ValidationError(
+                {"campaign": "You already have a pending or accepted response to this campaign."}
             )
 
         return attrs

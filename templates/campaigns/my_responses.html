@@ -26,6 +26,9 @@
                     {% if resp.proposed_price %}{{ resp.proposed_price|money }} {{ currency.symbol }}{% else %}цена кампании{% endif %}
                     · {{ resp.created_at|date:"d.m.Y" }}
                 </div>
+                {% if resp.status == 'rejected' and resp.rejection_reason %}
+                <div class="text-xs text-red-600 mt-1">Комментарий рекламодателя: {{ resp.rejection_reason }}</div>
+                {% endif %}
             </div>
             <span class="text-xs px-2 py-1 rounded-full whitespace-nowrap
                 {% if resp.status == 'accepted' %}bg-green-50 text-green-600

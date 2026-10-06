@@ -139,6 +139,9 @@ class Response(models.Model):
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING
     )
+    rejection_reason = models.TextField(
+        blank=True, help_text="Комментарий рекламодателя при отклонении — его видит блогер",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -146,10 +149,17 @@ class Response(models.Model):
         verbose_name = "Campaign Response"
         verbose_name_plural = "Campaign Responses"
         constraints = [
+            # Решение бизнеса 06.10.2026: после отклонения блогер может откликнуться снова.
             models.UniqueConstraint(
                 fields=["blogger", "campaign", "platform"],
-                condition=~Q(status="withdrawn"),
+                condition=~Q(status__in=["withdrawn", "rejected"]),
                 name="unique_active_response_per_platform",
+            ),
+            # …но ждать решения может только один его отклик на кампанию.
+            models.UniqueConstraint(
+                fields=["blogger", "campaign"],
+                condition=Q(status="pending"),
+                name="one_pending_response_per_campaign",
             ),
         ]
         ordering = ["-created_at"]

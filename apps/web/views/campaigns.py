@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.campaigns.models import Response as CampaignResponse
-from apps.campaigns.validation import EDITABLE_STATUSES, deals_in_cap
+from apps.campaigns.validation import EDITABLE_STATUSES, active_response, deals_in_cap
 from apps.deals.models import Deal, DealStatusLog
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
@@ -85,14 +85,19 @@ def campaign_detail(request, pk):
         }
     else:
         campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)
-        already_responded = CampaignResponse.objects.filter(
-            campaign=campaign, blogger=user
-        ).exclude(status=CampaignResponse.Status.WITHDRAWN).exists()
+        already_responded = active_response(campaign, user) is not None
+        last_rejected = (
+            CampaignResponse.objects.filter(
+                campaign=campaign, blogger=user, status=CampaignResponse.Status.REJECTED,
+            ).order_by("-updated_at").first()
+            if not already_responded else None
+        )
         my_platforms = Platform.objects.filter(blogger=user, status=Platform.Status.APPROVED)
         context = {
             "campaign": campaign,
             "is_owner": False,
             "already_responded": already_responded,
+            "last_rejected": last_rejected,
             "my_platforms": my_platforms,
         }
     return render(request, "campaigns/detail.html", context)
@@ -201,11 +206,8 @@ def campaign_respond(request, pk):
 
     campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)
 
-    already = CampaignResponse.objects.filter(
-        campaign=campaign, blogger=request.user
-    ).exclude(status=CampaignResponse.Status.WITHDRAWN).exists()
-    if already:
-        messages.error(request, "Вы уже откликнулись на эту кампанию.")
+    if active_response(campaign, request.user) is not None:
+        messages.error(request, "Вы уже откликнулись на эту кампанию — дождитесь решения рекламодателя.")
         return redirect("web:campaign_detail", pk=pk)
 
     platform_id = request.POST.get("platform")
@@ -310,9 +312,10 @@ def response_reject(request, pk):
     resp = get_object_or_404(CampaignResponse, pk=pk, campaign__advertiser=request.user)
     if resp.status == CampaignResponse.Status.PENDING:
         resp.status = CampaignResponse.Status.REJECTED
-        resp.save(update_fields=["status"])
-        NotificationService.notify_response_rejected(resp.blogger, resp.campaign)
-        messages.success(request, "Отклик отклонён.")
+        resp.rejection_reason = request.POST.get("reason", "").strip()
+        resp.save(update_fields=["status", "rejection_reason", "updated_at"])
+        NotificationService.notify_response_rejected(resp.blogger, resp.campaign, resp.rejection_reason)
+        messages.success(request, "Отклик отклонён. Блогер может откликнуться снова — например, с другой ценой.")
     return redirect("web:campaign_detail", pk=resp.campaign_id)
 
 

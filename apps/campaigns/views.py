@@ -258,6 +258,9 @@ class ResponseViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
         response_obj.status = CampaignResponse.Status.REJECTED
-        response_obj.save(update_fields=["status"])
-        NotificationService.notify_response_rejected(response_obj.blogger, response_obj.campaign)
+        response_obj.rejection_reason = str(request.data.get("reason", "")).strip()
+        response_obj.save(update_fields=["status", "rejection_reason", "updated_at"])
+        NotificationService.notify_response_rejected(
+            response_obj.blogger, response_obj.campaign, response_obj.rejection_reason
+        )
         return DRFResponse({"detail": "Response rejected."})
