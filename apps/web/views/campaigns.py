@@ -12,7 +12,7 @@ from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
 from apps.users.models import User
 
-from ..campaign_proposals import describe_changes, proposal_form, save_campaign_form
+from ..campaign_proposals import describe_changes, mark_approved, proposal_form, save_campaign_form
 from ..forms import CampaignForm, _strip_spaces
 from .pages import _redirect_dashboard
 
@@ -356,7 +356,8 @@ def _answer_proposal(request, pk, accept):
             campaign = save_campaign_form(form)
             campaign.status = Campaign.Status.ACTIVE
             campaign.rejection_reason = ""
-            campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
+            mark_approved(campaign)
+            campaign.save(update_fields=["status", "rejection_reason", "approved_snapshot", "updated_at"])
             proposal.status = CampaignEditProposal.Status.ACCEPTED
         else:
             campaign.status = Campaign.Status.REJECTED

@@ -89,6 +89,11 @@ class Campaign(models.Model):
         max_length=20, choices=Status.choices, default=Status.DRAFT
     )
     rejection_reason = models.TextField(blank=True)
+    approved_snapshot = models.JSONField(
+        null=True, blank=True,
+        help_text="Параметры кампании (сырые данные CampaignForm) на момент последнего одобрения — "
+                  "чтобы при повторной модерации показать «было → стало»",
+    )
     max_bloggers = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

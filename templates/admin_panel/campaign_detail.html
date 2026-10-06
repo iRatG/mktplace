@@ -89,6 +89,16 @@
     {% include "campaigns/_proposal_changes.html" with rows=proposal_rows %}
 </div>
 {% elif campaign.status == 'moderation' %}
+{% if since_approval_rows is not None %}
+<div class="card-dark rounded-xl p-6 mb-4 border border-blue-200">
+    <div class="text-sm font-semibold text-blue-700 mb-1">Повторная модерация: что изменилось с последнего одобрения</div>
+    {% if since_approval_rows %}
+    {% include "campaigns/_proposal_changes.html" with rows=since_approval_rows %}
+    {% else %}
+    <div class="text-sm text-gray-600">Параметры не менялись.</div>
+    {% endif %}
+</div>
+{% endif %}
 <div class="card-dark rounded-xl p-6 flex flex-wrap gap-3 items-start">
     <form method="post" action="{% url 'web:admin_campaign_approve' campaign.pk %}">
         {% csrf_token %}

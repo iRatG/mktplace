@@ -16,7 +16,7 @@ from apps.notifications.service import NotificationService
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.users.models import User
 
-from ..campaign_proposals import compute_changes, describe_changes
+from ..campaign_proposals import changes_since_approval, compute_changes, describe, describe_changes, mark_approved
 from ..forms import CampaignForm, CategoryForm
 from .pages import _redirect_dashboard
 
@@ -98,7 +98,16 @@ def admin_campaign_detail(request, pk):
         "campaign": campaign,
         "proposal": proposal,
         "proposal_rows": describe_changes(proposal) if proposal else [],
+        **_since_approval_context(campaign, proposal),
     })
+
+
+def _since_approval_context(campaign, proposal):
+    """Повторная модерация: что изменилось с последнего одобрения (None — одобрения не было)."""
+    if proposal or campaign.status != Campaign.Status.MODERATION:
+        return {"since_approval_rows": None}
+    changes = changes_since_approval(campaign)
+    return {"since_approval_rows": None if changes is None else describe(changes)}
 
 
 @_staff_required
@@ -146,7 +155,8 @@ def admin_campaign_approve(request, pk):
         return redirect("web:admin_campaign_detail", pk=pk)
     campaign.status = Campaign.Status.ACTIVE
     campaign.rejection_reason = ""
-    campaign.save(update_fields=["status", "rejection_reason", "updated_at"])
+    mark_approved(campaign)
+    campaign.save(update_fields=["status", "rejection_reason", "approved_snapshot", "updated_at"])
     NotificationService.notify_campaign_approved(campaign.advertiser, campaign)
     messages.success(request, f"Кампания «{campaign.name}» одобрена и опубликована.")
     return redirect("web:admin_campaigns")

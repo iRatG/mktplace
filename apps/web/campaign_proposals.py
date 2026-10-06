@@ -91,6 +91,36 @@ def compute_changes(campaign, form):
     return changes
 
 
+def campaign_snapshot(campaign):
+    """Параметры кампании в виде JSON-словаря сырых значений формы (списки — списками)."""
+    data = form_data_from_campaign(campaign)
+    return {
+        name: data.getlist(name) if name in LIST_FIELDS else data.get(name, "")
+        for name in CampaignForm.Meta.fields
+    }
+
+
+def mark_approved(campaign):
+    """Запомнить одобренную версию — вызывать при каждом переходе кампании в ACTIVE после модерации."""
+    campaign.approved_snapshot = campaign_snapshot(campaign)
+
+
+def changes_since_approval(campaign):
+    """{поле: {"old", "new"}} — что изменилось с последнего одобрения; None, если одобрения не было."""
+    snapshot = campaign.approved_snapshot
+    if not snapshot:
+        return None
+    current = campaign_snapshot(campaign)
+    fields = CampaignForm().fields
+    changes = {}
+    for name in CampaignForm.Meta.fields:
+        empty = [] if name in LIST_FIELDS else ""
+        old_raw, new_raw = snapshot.get(name, empty), current.get(name, empty)
+        if _comparable(fields[name], old_raw) != _comparable(fields[name], new_raw):
+            changes[name] = {"old": old_raw, "new": new_raw}
+    return changes
+
+
 def proposal_form(proposal):
     """CampaignForm с текущими значениями кампании и наложенными правками (для применения)."""
     data = form_data_from_campaign(proposal.campaign)
@@ -135,13 +165,18 @@ def _display(field, raw):
         return raw
 
 
-def describe_changes(proposal):
-    """[(подпись, было, стало)] для показа рекламодателю и модератору."""
+def describe(changes):
+    """{поле: {"old", "new"}} → [(подпись, было, стало)] в порядке полей формы."""
     fields = CampaignForm().fields
     rows = []
     for name in CampaignForm.Meta.fields:
-        if name in proposal.changes:
-            change = proposal.changes[name]
+        if name in changes:
+            change = changes[name]
             field = fields[name]
             rows.append((LABELS.get(name, name), _display(field, change["old"]), _display(field, change["new"])))
     return rows
+
+
+def describe_changes(proposal):
+    """[(подпись, было, стало)] правок модератора — для рекламодателя и модератора."""
+    return describe(proposal.changes)
