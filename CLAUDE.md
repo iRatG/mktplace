@@ -39,18 +39,19 @@ elif user.role == User.Role.ADVERTISER:
     obj = get_object_or_404(Model, pk=pk, owner=user)
 ```
 
-### DealStatusLog — log() ДО изменения статуса
-```python
-DealStatusLog.log(deal, Deal.Status.CHECKING, ...)  # сначала лог
-deal.status = Deal.Status.CHECKING                   # потом статус
-deal.save(...)
-```
+### Статус сделки — только через `apps/deals/services.py`
+Сайт, API, таймеры Celery и панель не меняют `deal.status` сами, а вызывают переходы из `apps/deals/services.py`
+(`submit_creative`, `approve_creative`, `reject_creative`, `submit_publication`, `complete`, `open_dispute`,
+`resolve_dispute`, `cancel`, таймеры `auto_*`). Внутри каждого перехода: `atomic` + `select_for_update`, проверка стороны и
+статуса (`TransitionError` с текстом для пользователя), `DealStatusLog.log()` ДО смены статуса (помощник `_move`),
+деньги через `BillingService`, системное сообщение в чат, уведомления. Сделка создаётся только `create_deal`
+(через `apps/campaigns/services.accept_response` / `accept_direct_offer`). Новый переход — новая функция там же.
 
-### Изменение статуса сделки — atomic + select_for_update
-```python
-with db_transaction.atomic():
-    deal = Deal.objects.select_for_update().filter(pk=pk).first()
-```
+### Кампания: срок и деньги
+Срок кампании — `apps/campaigns/services.py` (`expired_error`, таймер `auto_complete_expired_campaigns` раз в час:
+ACTIVE/PAUSED после `end_date` → COMPLETED, ожидающие отклики и предложения → EXPIRED). Лимит блогеров, бюджет и срок
+при создании сделки — одна функция `deal_acceptance_error`. Деньги двигаются только через `BillingService` (строго,
+без `max(0)`; выплата вывода — `complete_withdrawal`, тип PAYOUT); в Django admin денежные и статусные поля — только чтение.
 
 ### Креатив сделки — одобрение ведёт в WAITING_PUBLICATION, повторной отправки нет
 Одобрение креатива (веб `deal_approve_creative`, DRF `approve-creative`, Celery `auto_approve_creative`)
