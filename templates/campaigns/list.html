@@ -30,6 +30,13 @@
                 {{ campaign.get_status_display }}
             </span>
         </div>
+        {% if campaign.my_response_status == 'pending' %}
+        <div class="mb-2 text-xs text-yellow-700 bg-yellow-50 inline-block px-2 py-0.5 rounded">Ваш отклик ждёт решения</div>
+        {% elif campaign.my_response_status == 'rejected' %}
+        <div class="mb-2 text-xs text-red-700 bg-red-50 inline-block px-2 py-0.5 rounded">Ваш отклик отклонён — можно откликнуться снова</div>
+        {% elif campaign.my_response_status == 'accepted' %}
+        <div class="mb-2 text-xs text-green-700 bg-green-50 inline-block px-2 py-0.5 rounded">Ваш отклик принят</div>
+        {% endif %}
         <p class="text-xs text-gray-500 mb-3 line-clamp-2">{{ campaign.description|default:"Описание не указано" }}</p>
         <div class="flex items-center justify-between text-xs text-gray-500">
             <span>Бюджет: <strong class="text-gray-700">{{ campaign.budget|money }} {{ currency.symbol }}</strong></span>

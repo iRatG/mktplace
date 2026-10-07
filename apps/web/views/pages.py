@@ -154,6 +154,39 @@ def advertiser_dashboard(request):
     return render(request, "dashboard/advertiser.html", context)
 
 
+def rejected_responses_to_retry(blogger, limit=10):
+    """Отклонённые отклики с комментарием, на которые можно откликнуться снова (QA camp_test_3, шаг 7.1).
+
+    Кампания активна и срок не истёк, у блогера нет по ней ожидающего или принятого отклика; по кампании —
+    только последний отклонённый.
+    """
+    from django.utils import timezone
+
+    busy = CampaignResponse.objects.filter(
+        blogger=blogger, status__in=(CampaignResponse.Status.PENDING, CampaignResponse.Status.ACCEPTED),
+    ).values("campaign")
+    today = timezone.localdate()
+    candidates = (
+        CampaignResponse.objects.filter(
+            blogger=blogger, status=CampaignResponse.Status.REJECTED, campaign__status=Campaign.Status.ACTIVE,
+        )
+        .exclude(rejection_reason="")
+        .exclude(campaign__in=busy)
+        .exclude(campaign__end_date__lt=today)
+        .select_related("campaign")
+        .order_by("-updated_at")
+    )
+    result, seen = [], set()
+    for resp in candidates:
+        if resp.campaign_id in seen:
+            continue
+        seen.add(resp.campaign_id)
+        result.append(resp)
+        if len(result) == limit:
+            break
+    return result
+
+
 @login_required
 def blogger_dashboard(request):
     user = request.user
@@ -189,5 +222,6 @@ def blogger_dashboard(request):
                 blogger=user, status__in=[Deal.Status.IN_PROGRESS, Deal.Status.WAITING_PUBLICATION],
             ).select_related("campaign").order_by("-updated_at")[:10]
         ),
+        "rejected_responses": rejected_responses_to_retry(user),
     }
     return render(request, "dashboard/blogger.html", context)

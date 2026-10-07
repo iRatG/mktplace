@@ -66,7 +66,15 @@ def campaign_list(request):
     elif user.role == User.Role.ADVERTISER:
         qs = Campaign.objects.filter(advertiser=user).select_related("category").order_by("-created_at")
     else:
-        qs = Campaign.objects.filter(status=Campaign.Status.ACTIVE).select_related("category").order_by("-created_at")
+        # Метка «вы откликались» в каталоге (QA camp_test_3, шаг 7.1): статус последнего отклика блогера.
+        from django.db.models import OuterRef, Subquery
+
+        last_response = CampaignResponse.objects.filter(campaign=OuterRef("pk"), blogger=user).order_by("-created_at")
+        qs = (
+            Campaign.objects.filter(status=Campaign.Status.ACTIVE).select_related("category")
+            .annotate(my_response_status=Subquery(last_response.values("status")[:1]))
+            .order_by("-created_at")
+        )
     page_obj = Paginator(qs, 20).get_page(request.GET.get("page", 1))
     return render(request, "campaigns/list.html", {"campaigns": page_obj, "page_obj": page_obj})
 
