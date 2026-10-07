@@ -11,15 +11,15 @@ def _generate_slug():
 
 class Deal(models.Model):
     class Status(models.TextChoices):
-        WAITING_PAYMENT = "waiting_payment", "Waiting Payment"
-        IN_PROGRESS = "in_progress", "In Progress"
-        ON_APPROVAL = "on_approval", "On Approval"
-        WAITING_PUBLICATION = "waiting_publication", "Waiting Publication"
-        PUBLISHED = "published", "Published"
-        CHECKING = "checking", "Checking"
-        COMPLETED = "completed", "Completed"
-        DISPUTED = "disputed", "Disputed"
-        CANCELLED = "cancelled", "Cancelled"
+        WAITING_PAYMENT = "waiting_payment", "Ожидает оплаты"
+        IN_PROGRESS = "in_progress", "В работе"
+        ON_APPROVAL = "on_approval", "На согласовании"
+        WAITING_PUBLICATION = "waiting_publication", "Ждёт публикации"
+        PUBLISHED = "published", "Опубликована"
+        CHECKING = "checking", "На проверке"
+        COMPLETED = "completed", "Завершена"
+        DISPUTED = "disputed", "Оспорена"
+        CANCELLED = "cancelled", "Отменена"
 
     campaign = models.ForeignKey(
         "campaigns.Campaign",
@@ -276,10 +276,10 @@ class Conversion(models.Model):
     """
 
     class ConversionType(models.TextChoices):
-        CLICK = "click", "Click"
-        LEAD = "lead", "Lead"
-        SALE = "sale", "Sale"
-        INSTALL = "install", "Install"
+        CLICK = "click", "Клик"
+        LEAD = "lead", "Заявка"
+        SALE = "sale", "Продажа"
+        INSTALL = "install", "Установка"
 
     tracking_link = models.ForeignKey(
         TrackingLink,

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load money static %}
+{% load money static labels %}
 
 {% block title %}{{ campaign.name }} — UBlogers!{% endblock %}
 
@@ -33,7 +33,7 @@
                 <div class="text-xs font-medium text-gray-500 mb-2">Типы контента:</div>
                 <div class="flex flex-wrap gap-2">
                     {% for ct in campaign.content_types %}
-                    <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">{{ ct }}</span>
+                    <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">{{ ct|content_type_label }}</span>
                     {% endfor %}
                 </div>
             </div>
@@ -219,7 +219,7 @@
                     <select name="content_type" class="input-dark" required>
                         <option value="">Выберите тип...</option>
                         {% for ct in campaign.content_types %}
-                        <option value="{{ ct }}">{{ ct }}</option>
+                        <option value="{{ ct }}">{{ ct|content_type_label }}</option>
                         {% endfor %}
                         {% if not campaign.content_types %}
                         <option value="post">Пост</option>
@@ -282,19 +282,19 @@
                 {% if campaign.start_date %}
                 <div class="flex justify-between">
                     <dt class="text-gray-500">Начало</dt>
-                    <dd class="font-medium text-gray-900">{{ campaign.start_date|date:"d.m.Y" }}</dd>
+                    <dd class="font-medium text-gray-900">{{ campaign.start_date|long_date }}</dd>
                 </div>
                 {% endif %}
                 {% if campaign.end_date %}
                 <div class="flex justify-between">
                     <dt class="text-gray-500">Окончание</dt>
-                    <dd class="font-medium text-gray-900">{{ campaign.end_date|date:"d.m.Y" }}</dd>
+                    <dd class="font-medium text-gray-900">{{ campaign.end_date|long_date }}</dd>
                 </div>
                 {% endif %}
                 {% if campaign.content_start or campaign.deadline %}
                 <div class="flex justify-between">
                     <dt class="text-gray-500">Приём контента</dt>
-                    <dd class="font-medium text-gray-900">{% if campaign.content_start %}с {{ campaign.content_start|date:"d.m.Y" }} {% endif %}{% if campaign.deadline %}до {{ campaign.deadline|date:"d.m.Y" }}{% endif %}</dd>
+                    <dd class="font-medium text-gray-900">{% if campaign.content_start %}с {{ campaign.content_start|long_date }} {% endif %}{% if campaign.deadline %}до {{ campaign.deadline|long_date }}{% endif %}</dd>
                 </div>
                 {% endif %}
                 <div class="flex justify-between">
@@ -315,7 +315,7 @@
             <h3 class="font-semibold text-gray-900 mb-3 text-sm">Соцсети</h3>
             <div class="flex flex-wrap gap-2">
                 {% for social in campaign.allowed_socials %}
-                <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">{{ social }}</span>
+                <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">{{ social|social_label }}</span>
                 {% endfor %}
             </div>
         </div>

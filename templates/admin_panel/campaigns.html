@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load money %}
+{% load money labels %}
 {% block title %}Модерация кампаний — UBlogers!{% endblock %}
 
 {% block content %}
@@ -31,7 +31,8 @@
                     <span>Цена: {% if campaign.fixed_price is not None %}{{ campaign.fixed_price|money }} {{ currency.symbol }}{% else %}—{% endif %}</span>
                     {% endif %}
                     <span>Бюджет: {{ campaign.budget|money }} {{ currency.symbol }}</span>
-                    <span>Сроки: {{ campaign.start_date|date:"d.m.Y"|default:"—" }} – {{ campaign.end_date|date:"d.m.Y"|default:"—" }}, дедлайн {{ campaign.deadline|date:"d.m.Y"|default:"—" }}</span>
+                    <span>Сроки: {{ campaign.start_date|long_date|default:"—" }} – {{ campaign.end_date|long_date|default:"—" }}</span>
+                    <span>Приём контента: {% if campaign.content_start %}с {{ campaign.content_start|long_date }} {% endif %}до {{ campaign.deadline|long_date|default:"—" }}</span>
                     <span>Блогеров: {% if campaign.max_bloggers %}до {{ campaign.max_bloggers }}{% else %}без ограничения{% endif %}</span>
                 </div>
                 {% if campaign.rejection_reason %}
@@ -40,44 +41,18 @@
                 <p class="text-sm text-gray-700 line-clamp-3">{{ campaign.description }}</p>
                 <div class="flex flex-wrap gap-2 mt-3">
                     {% for ct in campaign.content_types %}
-                    <span class="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded-full">{{ ct }}</span>
+                    <span class="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded-full">{{ ct|content_type_label }}</span>
                     {% endfor %}
                     {% for soc in campaign.allowed_socials %}
-                    <span class="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded-full">{{ soc }}</span>
+                    <span class="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded-full">{{ soc|social_label }}</span>
                     {% endfor %}
                 </div>
             </div>
             <a href="{% url 'web:admin_campaign_detail' campaign.pk %}"
-               class="shrink-0 px-3 py-1.5 text-sm text-gray-700 border border-gray-200 rounded-xl hover:text-gray-900 transition-colors">Открыть</a>
+               class="shrink-0 btn-orange px-4 py-2 text-sm">Открыть и решить</a>
         </div>
 
-        <!-- Actions -->
-        {% if not campaign.has_pending_proposal %}
-        <div class="mt-5 pt-4 border-t border-gray-200 flex flex-wrap gap-3 items-start">
-            <form method="post" action="{% url 'web:admin_campaign_approve' campaign.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">
-                    ✅ Одобрить
-                </button>
-            </form>
-
-            <details class="flex-1">
-                <summary class="cursor-pointer px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors inline-block">
-                    ❌ Отклонить
-                </summary>
-                <form method="post" action="{% url 'web:admin_campaign_reject' campaign.pk %}" class="mt-3">
-                    {% csrf_token %}
-                    <textarea name="reason" rows="2" placeholder="Причина отклонения (обязательно)" required
-                              class="input-dark mb-2 resize-none"></textarea>
-                    <button type="submit" class="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">
-                        Подтвердить отклонение
-                    </button>
-                </form>
-            </details>
-            <a href="{% url 'web:admin_campaign_propose' campaign.pk %}"
-               class="px-4 py-2 text-sm text-gray-800 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">✏️ Предложить правки</a>
-        </div>
-        {% endif %}
+        {# Одобрить и отклонить — только в карточке кампании: в очереди мало данных для решения (QA camp_test_3, шаг 3.2). #}
     </div>
     {% endfor %}
 </div>

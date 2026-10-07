@@ -4,25 +4,43 @@ from django.db import models
 from django.db.models import Q
 
 
+# Форматы контента и соцсети кампании — один список подписей для форм и шаблонов
+# (фильтры content_type_label / social_label в apps/web/templatetags/labels.py).
+CONTENT_TYPE_CHOICES = [
+    ("post", "Пост"),
+    ("stories", "Сторис"),
+    ("video", "Видео"),
+    ("review", "Обзор"),
+    ("reels", "Reels"),
+]
+SOCIAL_CHOICES = [
+    ("instagram", "Instagram"),
+    ("telegram", "Telegram"),
+    ("youtube", "YouTube"),
+    ("vk", "ВКонтакте"),
+    ("tiktok", "TikTok"),
+]
+
+
 class Campaign(models.Model):
     class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        MODERATION = "moderation", "Moderation"
-        ACTIVE = "active", "Active"
-        PAUSED = "paused", "Paused"
-        COMPLETED = "completed", "Completed"
-        REJECTED = "rejected", "Rejected"
-        CANCELLED = "cancelled", "Cancelled"
+        DRAFT = "draft", "Черновик"
+        MODERATION = "moderation", "На модерации"
+        ACTIVE = "active", "Активна"
+        PAUSED = "paused", "На паузе"
+        COMPLETED = "completed", "Завершена"
+        REJECTED = "rejected", "Отклонена"
+        CANCELLED = "cancelled", "Отменена"
 
     class PaymentType(models.TextChoices):
-        FIXED = "fixed", "Fixed"
+        FIXED = "fixed", "Фиксированная"
         CPA = "cpa", "CPA"
 
     class CPAType(models.TextChoices):
-        CLICK = "click", "Click"
-        LEAD = "lead", "Lead"
-        SALE = "sale", "Sale"
-        INSTALL = "install", "Install"
+        CLICK = "click", "Клик"
+        LEAD = "lead", "Заявка"
+        SALE = "sale", "Продажа"
+        INSTALL = "install", "Установка"
 
     advertiser = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -114,11 +132,11 @@ class Campaign(models.Model):
 
 class Response(models.Model):
     class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
-        ACCEPTED = "accepted", "Accepted"
-        REJECTED = "rejected", "Rejected"
-        WITHDRAWN = "withdrawn", "Withdrawn"
-        EXPIRED = "expired", "Expired"  # кампания завершилась, пока отклик ждал решения
+        PENDING = "pending", "Ждёт решения"
+        ACCEPTED = "accepted", "Принят"
+        REJECTED = "rejected", "Отклонён"
+        WITHDRAWN = "withdrawn", "Отозван"
+        EXPIRED = "expired", "Истёк"  # кампания завершилась, пока отклик ждал решения
 
     blogger = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -178,10 +196,10 @@ class DirectOffer(models.Model):
     """Advertiser initiates a deal directly to a blogger (reverse of Response)."""
 
     class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
-        ACCEPTED = "accepted", "Accepted"
-        REJECTED = "rejected", "Rejected"
-        EXPIRED = "expired", "Expired"  # кампания завершилась, пока предложение ждало ответа
+        PENDING = "pending", "Ждёт ответа"
+        ACCEPTED = "accepted", "Принято"
+        REJECTED = "rejected", "Отклонено"
+        EXPIRED = "expired", "Истекло"  # кампания завершилась, пока предложение ждало ответа
 
     advertiser = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -249,9 +267,9 @@ class CampaignEditProposal(models.Model):
     """
 
     class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
-        ACCEPTED = "accepted", "Accepted"
-        DECLINED = "declined", "Declined"
+        PENDING = "pending", "Ждёт ответа рекламодателя"
+        ACCEPTED = "accepted", "Принято"
+        DECLINED = "declined", "Отклонено"
 
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="edit_proposals")
     author = models.ForeignKey(

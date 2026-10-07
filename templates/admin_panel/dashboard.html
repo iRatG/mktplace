@@ -71,21 +71,21 @@
 <!-- Analytics section -->
 <div class="mt-8 mb-4 flex items-center gap-3">
     <h2 class="text-base font-semibold text-gray-900">Финансовая аналитика</h2>
-    <span class="text-xs text-gray-500">за всё время / последние 30 дней</span>
+    <span class="text-xs text-gray-500">период указан на каждой карточке</span>
 </div>
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
     <div class="card-dark rounded-xl p-5">
-        <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Доход платформы</div>
+        <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Доход платформы · за всё время</div>
         <div class="text-2xl font-bold text-orange-600">{{ platform_revenue|money }} {{ currency.symbol }}</div>
-        <div class="text-xs text-gray-500 mt-1">Комиссия по завершённым сделкам</div>
+        <div class="text-xs text-gray-500 mt-1">Комиссия со всех оплат (сделки и CPA)</div>
     </div>
     <div class="card-dark rounded-xl p-5">
-        <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Оборот сделок (30д)</div>
+        <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Оборот сделок · за последние 30 дней</div>
         <div class="text-2xl font-bold text-gray-900">{{ deal_turnover_month|money }} {{ currency.symbol }}</div>
         <div class="text-xs text-gray-500 mt-1">Оплачено рекламодателями по сделкам</div>
     </div>
     <div class="card-dark rounded-xl p-5">
-        <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Новых пользователей (30д)</div>
+        <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Новых пользователей · за последние 30 дней</div>
         <div class="text-2xl font-bold text-gray-900">{{ new_users_month }}</div>
         <div class="text-xs text-gray-500 mt-1">Регистраций за месяц</div>
     </div>
@@ -96,7 +96,7 @@
     {% if top_advertisers %}
     <div class="card-dark rounded-xl overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-200">
-            <span class="text-sm font-medium text-gray-900">Топ рекламодателей по расходам</span>
+            <span class="text-sm font-medium text-gray-900">Топ рекламодателей по расходам</span> <span class="text-xs text-gray-500">· за всё время</span>
         </div>
         <div class="divide-y divide-gray-100">
             {% for row in top_advertisers %}
@@ -111,7 +111,7 @@
     {% if top_bloggers %}
     <div class="card-dark rounded-xl overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-200">
-            <span class="text-sm font-medium text-gray-900">Топ блогеров по заработку</span>
+            <span class="text-sm font-medium text-gray-900">Топ блогеров по заработку</span> <span class="text-xs text-gray-500">· за всё время</span>
         </div>
         <div class="divide-y divide-gray-100">
             {% for row in top_bloggers %}

@@ -104,11 +104,11 @@ class Platform(models.Model):
         ZEN = "zen", "Zen"
 
     class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
-        APPROVED = "approved", "Approved"
-        REJECTED = "rejected", "Rejected"
-        SUSPENDED = "suspended", "Suspended"
-        BLOCKED = "blocked", "Blocked"
+        PENDING = "pending", "На проверке"
+        APPROVED = "approved", "Одобрена"
+        REJECTED = "rejected", "Отклонена"
+        SUSPENDED = "suspended", "Приостановлена"
+        BLOCKED = "blocked", "Заблокирована"
 
     blogger = models.ForeignKey(
         settings.AUTH_USER_MODEL,

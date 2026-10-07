@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 
 from apps.business_queries.models import Ticket
-from apps.campaigns.models import Campaign, DirectOffer
+from apps.campaigns.models import CONTENT_TYPE_CHOICES, SOCIAL_CHOICES, Campaign, DirectOffer
 from apps.campaigns.validation import budget_committed, campaign_param_errors, deals_in_cap, past_date_errors
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
@@ -44,20 +44,8 @@ class SpacedIntegerField(forms.IntegerField):
 
 
 class CampaignForm(forms.ModelForm):
-    CONTENT_TYPE_CHOICES = [
-        ("post", "Пост"),
-        ("stories", "Сторис"),
-        ("video", "Видео"),
-        ("review", "Обзор"),
-        ("reels", "Reels"),
-    ]
-    SOCIAL_CHOICES = [
-        ("instagram", "Instagram"),
-        ("telegram", "Telegram"),
-        ("youtube", "YouTube"),
-        ("vk", "ВКонтакте"),
-        ("tiktok", "TikTok"),
-    ]
+    CONTENT_TYPE_CHOICES = CONTENT_TYPE_CHOICES
+    SOCIAL_CHOICES = SOCIAL_CHOICES
 
     content_types = forms.MultipleChoiceField(
         choices=CONTENT_TYPE_CHOICES,
@@ -333,13 +321,7 @@ class DirectOfferForm(forms.Form):
         Ограничивает queryset кампаний: только advertiser=advertiser, status=ACTIVE.
     """
 
-    CONTENT_TYPE_CHOICES = [
-        ("post", "Пост"),
-        ("stories", "Сторис"),
-        ("video", "Видео"),
-        ("review", "Обзор"),
-        ("reels", "Reels"),
-    ]
+    CONTENT_TYPE_CHOICES = CONTENT_TYPE_CHOICES
 
     campaign = forms.ModelChoiceField(
         queryset=Campaign.objects.none(),

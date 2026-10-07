@@ -38,16 +38,16 @@ class Wallet(models.Model):
 
 class Transaction(models.Model):
     class Type(models.TextChoices):
-        DEPOSIT = "deposit", "Deposit"
-        RESERVE = "reserve", "Reserve"
-        RELEASE = "release", "Release"
-        PAYMENT = "payment", "Payment"
-        EARNING = "earning", "Earning"
-        WITHDRAWAL = "withdrawal", "Withdrawal"
-        REFUND = "refund", "Refund"
-        CORRECTION = "correction", "Correction"
+        DEPOSIT = "deposit", "Пополнение"
+        RESERVE = "reserve", "Резерв"
+        RELEASE = "release", "Возврат резерва"
+        PAYMENT = "payment", "Оплата сделки"
+        EARNING = "earning", "Заработок"
+        WITHDRAWAL = "withdrawal", "Вывод"
+        REFUND = "refund", "Возврат вывода"
+        CORRECTION = "correction", "Корректировка"
         TEST_CREDIT = "test_credit", "Test Credit (Demo)"
-        PAYOUT = "payout", "Payout"  # заявка на вывод выплачена: деньги ушли с «на выводе» из системы
+        PAYOUT = "payout", "Выплата"  # заявка на вывод выплачена: деньги ушли с «на выводе» из системы
 
     wallet = models.ForeignKey(
         Wallet,
@@ -78,10 +78,10 @@ class Transaction(models.Model):
 
 class WithdrawalRequest(models.Model):
     class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
-        APPROVED = "approved", "Approved"
-        REJECTED = "rejected", "Rejected"
-        COMPLETED = "completed", "Completed"
+        PENDING = "pending", "На рассмотрении"
+        APPROVED = "approved", "Одобрена"
+        REJECTED = "rejected", "Отклонена"
+        COMPLETED = "completed", "Выплачена"
 
     blogger = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -24,14 +24,14 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
-        ADVERTISER = "advertiser", "Advertiser"
-        BLOGGER = "blogger", "Blogger"
+        ADVERTISER = "advertiser", "Рекламодатель"
+        BLOGGER = "blogger", "Блогер"
 
     class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
-        ACTIVE = "active", "Active"
-        BLOCKED = "blocked", "Blocked"
-        DELETED = "deleted", "Deleted"
+        PENDING = "pending", "Ожидает подтверждения"
+        ACTIVE = "active", "Активен"
+        BLOCKED = "blocked", "Заблокирован"
+        DELETED = "deleted", "Удалён"
 
     email = models.EmailField(unique=True, db_index=True)
     role = models.CharField(max_length=20, choices=Role.choices)

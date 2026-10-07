@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Модерация площадок — UBlogers!{% endblock %}
 
 {% block content %}
@@ -20,7 +21,7 @@
                 </div>
                 <div class="text-xs text-gray-500 mb-3">
                     Блогер: {{ platform.blogger.email }} ·
-                    Подписчиков: {{ platform.subscribers|default:0 }} ·
+                    Подписчиков: {{ platform.subscribers|default:0|money }} ·
                     Добавлена: {{ platform.created_at|date:"d.m.Y" }}
                 </div>
                 <a href="{{ platform.url }}" target="_blank" rel="noopener noreferrer"
