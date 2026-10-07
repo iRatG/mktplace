@@ -7,7 +7,11 @@
 // форма тоже работает.
 //
 // Элемент data-bloggers-hint внутри формы показывает, на сколько блогеров
-// хватает бюджета при текущей цене (budget / fixed_price, с округлением вниз).
+// хватает бюджета при текущей цене (budget / fixed_price, с округлением вниз);
+// если «Макс. блогеров» больше — поле выделяется красным ещё до отправки.
+// Поле с data-min выделяется красным, пока значение меньше минимума (подсказка
+// data-min-hint-for тоже краснеет). Живое выделение помечено data-live-invalid —
+// static/js/form-errors.js его не снимает.
 (function () {
     "use strict";
 
@@ -57,6 +61,29 @@
         input.dispatchEvent(new Event("input", { bubbles: true }));
     }
 
+    function setLiveInvalid(input, on) {
+        if (!input) return;
+        if (on) {
+            input.setAttribute("aria-invalid", "true");
+            input.dataset.liveInvalid = "1";
+        } else if (input.dataset.liveInvalid) {
+            input.removeAttribute("aria-invalid");
+            delete input.dataset.liveInvalid;
+        }
+    }
+
+    function checkMin(input) {
+        var min = Number(input.dataset.min);
+        var value = parse(input.value);
+        var below = value !== null && value > 0 && value < min;
+        setLiveInvalid(input, below);
+        var hint = input.form && input.form.querySelector('[data-min-hint-for="' + input.name + '"]');
+        if (hint) {
+            hint.classList.toggle("text-red-600", below);
+            hint.classList.toggle("text-gray-500", !below);
+        }
+    }
+
     function bloggersWord(n) {
         return n % 10 === 1 && n % 100 !== 11 ? "блогера" : "блогеров";
     }
@@ -67,14 +94,17 @@
         var budget = parse(form.elements.budget && form.elements.budget.value);
         var price = parse(form.elements.fixed_price && form.elements.fixed_price.value);
         var maxBloggers = parse(form.elements.max_bloggers && form.elements.max_bloggers.value);
+        var maxInput = form.elements.max_bloggers;
         var paymentType = form.querySelector("input[name=payment_type]:checked");
         if (paymentType && paymentType.value !== "fixed") {
             hint.textContent = "";
+            setLiveInvalid(maxInput, false);
             return;
         }
         if (!budget || !price) {
             hint.textContent = "";
             hint.classList.remove("text-red-600");
+            setLiveInvalid(maxInput, false);
             return;
         }
         var fits = Math.floor(budget / price);
@@ -84,6 +114,7 @@
         hint.textContent = text;
         hint.classList.toggle("text-red-600", !!over);
         hint.classList.toggle("text-gray-600", !over);
+        setLiveInvalid(maxInput, !!over);
     }
 
     function init() {
@@ -91,6 +122,10 @@
         inputs.forEach(function (input) {
             input.value = format(stripZeroFraction(input.value));
             input.addEventListener("input", function () { reformat(input); });
+            if (input.dataset.min) {
+                input.addEventListener("input", function () { checkMin(input); });
+                checkMin(input);
+            }
             input.addEventListener("keydown", function (e) {
                 if (e.key === "ArrowUp") { e.preventDefault(); step(input, 1); }
                 if (e.key === "ArrowDown") { e.preventDefault(); step(input, -1); }

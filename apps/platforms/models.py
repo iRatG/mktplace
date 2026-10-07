@@ -3,6 +3,9 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 
+OTHER_CATEGORY_SLUG = "other"
+
+
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
@@ -19,7 +22,11 @@ class Category(models.Model):
     class Meta:
         verbose_name = "Category"
         verbose_name_plural = "Categories"
-        ordering = ["name"]
+        # «Другое» — последней, остальные по алфавиту: в середине списка её не замечали (QA camp_test_3, шаг 1.1).
+        ordering = [
+            models.Case(models.When(slug=OTHER_CATEGORY_SLUG, then=1), default=0, output_field=models.IntegerField()),
+            "name",
+        ]
 
     def __str__(self):
         return self.name

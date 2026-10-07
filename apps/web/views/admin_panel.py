@@ -129,12 +129,14 @@ def admin_campaign_propose(request, pk):
     # Отдельный экземпляр: ModelForm при проверке меняет instance в памяти, а кампанию
     # до ответа рекламодателя трогать нельзя.
     form = CampaignForm(request.POST or None, instance=Campaign.objects.get(pk=pk))
-    if request.method == "POST" and form.is_valid():
+    # Пустой комментарий — ошибка у поля, вместе с остальными ошибками формы (QA camp_test_3, шаг 3.3).
+    comment_error = ""
+    if request.method == "POST" and not comment:
+        comment_error = "Напишите комментарий: рекламодатель увидит, зачем эти правки."
+    if request.method == "POST" and form.is_valid() and not comment_error:
         changes = compute_changes(campaign, form)
         if not changes:
             messages.error(request, "Вы ничего не изменили — предлагать нечего.")
-        elif not comment:
-            messages.error(request, "Напишите комментарий: рекламодатель увидит, зачем эти правки.")
         else:
             CampaignEditProposal.objects.create(
                 campaign=campaign, author=request.user, changes=changes, comment=comment,
@@ -145,6 +147,7 @@ def admin_campaign_propose(request, pk):
 
     return render(request, "campaigns/create.html", {
         "form": form, "campaign": campaign, "proposal_mode": True, "proposal_comment": comment,
+        "proposal_comment_error": comment_error,
     })
 
 

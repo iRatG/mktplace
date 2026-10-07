@@ -43,6 +43,9 @@
         }
         .input-dark::placeholder { color: #9CA3AF; }
         .input-dark:focus { border-color: #F97316; box-shadow: 0 0 0 3px rgba(249,115,22,0.15); }
+        /* Поле с ошибкой (aria-invalid ставят сервер и static/js/form-errors.js) — красное и при фокусе. */
+        .input-dark[aria-invalid="true"] { border-color: #F87171; }
+        .input-dark[aria-invalid="true"]:focus { border-color: #EF4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
         .input-dark option { background: #FFFFFF; color: #1F2937; }
         .btn-orange { background: linear-gradient(135deg, #FF8A1F, #F25C05); color: white; font-weight: 600; border-radius: 0.75rem; transition: opacity 0.15s; }
         .btn-orange:hover { opacity: 0.9; }
@@ -123,23 +126,26 @@
 {% if messages %}
 <div id="flash-messages" class="max-w-6xl mx-auto px-5 mt-4 space-y-2">
     {% for message in messages %}
-    <div class="flash-msg {% if message.tags == 'error' %}alert-error{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}"
+    {# Ошибки и предупреждения висят, пока их не закроют; остальные скрываются через 6 с (QA camp_test_3). #}
+    <div class="flash-msg flex items-start gap-3 {% if message.tags == 'error' %}alert-error{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}"
+         {% if message.tags == 'error' or message.tags == 'warning' %}data-flash-sticky{% endif %}
+         role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}"
          style="transition: opacity 0.5s ease;">
-        {{ message }}
+        <span class="flex-1">{{ message }}</span>
+        <button type="button" data-flash-close aria-label="Закрыть" class="shrink-0 leading-none text-lg opacity-60 hover:opacity-100">×</button>
     </div>
     {% endfor %}
 </div>
 <script>
 (function() {
-    var msgs = document.querySelectorAll('.flash-msg');
-    if (!msgs.length) return;
-    setTimeout(function() {
-        msgs.forEach(function(el) { el.style.opacity = '0'; });
-        setTimeout(function() {
-            var wrap = document.getElementById('flash-messages');
-            if (wrap) wrap.style.display = 'none';
-        }, 500);
-    }, 3500);
+    function hide(el) {
+        el.style.opacity = '0';
+        setTimeout(function() { el.remove(); }, 500);
+    }
+    document.querySelectorAll('.flash-msg').forEach(function(el) {
+        el.querySelector('[data-flash-close]').addEventListener('click', function() { hide(el); });
+        if (!el.hasAttribute('data-flash-sticky')) setTimeout(function() { hide(el); }, 6000);
+    });
 })();
 </script>
 {% endif %}

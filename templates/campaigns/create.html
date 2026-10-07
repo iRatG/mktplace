@@ -19,8 +19,10 @@
     </div>
 
     {# novalidate: обязательность и правила проверяет сервер, ошибка показывается у своего поля. #}
-    <form method="post" class="space-y-5" novalidate>
+    <form method="post" class="space-y-5" novalidate
+          data-error-groups="fixed_price budget max_bloggers|start_date end_date content_start deadline|payment_type cpa_type cpa_rate">
         {% csrf_token %}
+        <p class="text-xs text-gray-500">* — обязательное поле</p>
 
         {% if form.non_field_errors %}
         <div class="alert-error">
@@ -35,35 +37,35 @@
             <div>
                 <label for="id_name" class="block text-sm text-gray-700 mb-1">Название кампании *</label>
                 <input type="text" name="name" id="id_name" value="{{ form.name.value|default:'' }}"
-                    class="input-dark" placeholder="Например: Запуск нового продукта" spellcheck="true" lang="ru">
-                {% for error in form.name.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    {% if form.name.errors %}aria-invalid="true" {% endif %}class="input-dark" placeholder="Например: Запуск нового продукта" spellcheck="true" lang="ru">
+                {% for error in form.name.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="name">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
                 <label for="id_category" class="block text-sm text-gray-700 mb-1">Категория</label>
-                <select name="category" id="id_category" class="input-dark">
+                <select name="category" id="id_category" {% if form.category.errors %}aria-invalid="true" {% endif %}class="input-dark">
                     <option value="">— не выбрана —</option>
                     {% for cat in form.fields.category.queryset %}
                     <option value="{{ cat.pk }}" {% if form.category.value|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
                     {% endfor %}
                 </select>
-                {% for error in form.category.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.category.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="category">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
                 <label for="id_subject" class="block text-sm text-gray-700 mb-1">Что рекламируем</label>
                 <input type="text" name="subject" id="id_subject" value="{{ form.subject.value|default:'' }}" maxlength="255"
-                    class="input-dark" placeholder="Например: крем для лица SPF 50, новый филиал салона" spellcheck="true" lang="ru">
+                    {% if form.subject.errors %}aria-invalid="true" {% endif %}class="input-dark" placeholder="Например: крем для лица SPF 50, новый филиал салона" spellcheck="true" lang="ru">
                 <p class="text-xs text-gray-500 mt-1">Товар, услуга или бренд — помогает блогерам и модератору понять задачу.</p>
-                {% for error in form.subject.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.subject.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="subject">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
                 <label for="id_description" class="block text-sm text-gray-700 mb-1">Описание</label>
                 <textarea name="description" id="id_description" rows="4"
-                    class="input-dark resize-none" spellcheck="true" lang="ru"
+                    {% if form.description.errors %}aria-invalid="true" {% endif %}class="input-dark resize-none" spellcheck="true" lang="ru"
                     placeholder="Опишите задачу, требования к контенту, целевую аудиторию...">{{ form.description.value|default:'' }}</textarea>
-                {% for error in form.description.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.description.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="description">{{ error }}</p>{% endfor %}
             </div>
         </div>
 
@@ -85,13 +87,13 @@
                         <span class="text-sm text-gray-900">CPA</span>
                     </label>
                 </div>
-                {% for error in form.payment_type.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.payment_type.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="payment_type">{{ error }}</p>{% endfor %}
             </div>
 
             <div id="fixed_price_row" {% if form.payment_type.value == 'cpa' %}class="hidden"{% endif %}>
                 {% with label="Цена за размещение ("|add:currency.symbol|add:") *" %}
-                {% include "partials/number_input.html" with field=form.fixed_price label=label step=10000 placeholder="например, 150 000" %}
-                <p class="text-xs text-gray-500 mt-1">Минимум — {{ currency.min_fixed_price|money }} {{ currency.symbol }}.</p>
+                {% include "partials/number_input.html" with field=form.fixed_price label=label step=10000 min=currency.min_fixed_price placeholder="например, 150 000" %}
+                <p class="text-xs text-gray-500 mt-1" data-min-hint-for="fixed_price">Минимум — {{ currency.min_fixed_price|money }} {{ currency.symbol }}.</p>
                 {% endwith %}
             </div>
 
@@ -99,13 +101,13 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label for="id_cpa_type" class="block text-sm text-gray-700 mb-1">Тип конверсии *</label>
-                        <select name="cpa_type" id="id_cpa_type" class="input-dark">
+                        <select name="cpa_type" id="id_cpa_type" {% if form.cpa_type.errors %}aria-invalid="true" {% endif %}class="input-dark">
                             <option value="">— выберите —</option>
                             {% for value, label in form.fields.cpa_type.choices %}{% if value %}
                             <option value="{{ value }}" {% if form.cpa_type.value == value %}selected{% endif %}>{{ label }}</option>
                             {% endif %}{% endfor %}
                         </select>
-                        {% for error in form.cpa_type.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                        {% for error in form.cpa_type.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="cpa_type">{{ error }}</p>{% endfor %}
                     </div>
                     <div>
                         {% with label="Ставка за конверсию ("|add:currency.symbol|add:") *" %}
@@ -117,8 +119,8 @@
                     <label for="id_cpa_tracking_url" class="block text-sm text-gray-700 mb-1">Ссылка трекинга</label>
                     <input type="url" name="cpa_tracking_url" id="id_cpa_tracking_url"
                         value="{{ form.cpa_tracking_url.value|default:'' }}"
-                        class="input-dark" placeholder="https://example.com/landing">
-                    {% for error in form.cpa_tracking_url.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                        {% if form.cpa_tracking_url.errors %}aria-invalid="true" {% endif %}class="input-dark" placeholder="https://example.com/landing">
+                    {% for error in form.cpa_tracking_url.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="cpa_tracking_url">{{ error }}</p>{% endfor %}
                 </div>
             </div>
 
@@ -137,26 +139,26 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label for="id_start_date" class="block text-sm text-gray-700 mb-1">Начало кампании</label>
-                    <input type="date" name="start_date" id="id_start_date" value="{{ form.start_date.value|default:''|stringformat:'s' }}" class="input-dark">
-                    {% for error in form.start_date.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    <input type="date" name="start_date" id="id_start_date" value="{{ form.start_date.value|default:''|stringformat:'s' }}" {% if form.start_date.errors %}aria-invalid="true" {% endif %}class="input-dark">
+                    {% for error in form.start_date.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="start_date">{{ error }}</p>{% endfor %}
                 </div>
                 <div>
                     <label for="id_end_date" class="block text-sm text-gray-700 mb-1">Конец кампании</label>
-                    <input type="date" name="end_date" id="id_end_date" value="{{ form.end_date.value|default:''|stringformat:'s' }}" class="input-dark">
-                    {% for error in form.end_date.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    <input type="date" name="end_date" id="id_end_date" value="{{ form.end_date.value|default:''|stringformat:'s' }}" {% if form.end_date.errors %}aria-invalid="true" {% endif %}class="input-dark">
+                    {% for error in form.end_date.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="end_date">{{ error }}</p>{% endfor %}
                 </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label for="id_content_start" class="block text-sm text-gray-700 mb-1">Приём контента с</label>
-                    <input type="date" name="content_start" id="id_content_start" value="{{ form.content_start.value|default:''|stringformat:'s' }}" class="input-dark">
-                    {% for error in form.content_start.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    <input type="date" name="content_start" id="id_content_start" value="{{ form.content_start.value|default:''|stringformat:'s' }}" {% if form.content_start.errors %}aria-invalid="true" {% endif %}class="input-dark">
+                    {% for error in form.content_start.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="content_start">{{ error }}</p>{% endfor %}
                 </div>
                 <div>
                     <label for="id_deadline" class="block text-sm text-gray-700 mb-1">Приём контента до</label>
-                    <input type="date" name="deadline" id="id_deadline" value="{{ form.deadline.value|default:''|stringformat:'s' }}" class="input-dark">
-                    {% for error in form.deadline.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                    <input type="date" name="deadline" id="id_deadline" value="{{ form.deadline.value|default:''|stringformat:'s' }}" {% if form.deadline.errors %}aria-invalid="true" {% endif %}class="input-dark">
+                    {% for error in form.deadline.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="deadline">{{ error }}</p>{% endfor %}
                 </div>
             </div>
             <p class="text-xs text-gray-500" data-content-window-hint>Приём контента заканчивается не раньше начала кампании и не позже чем за 5 рабочих дней (пн–пт) до её окончания — чтобы вы успели проверить материалы.</p>
@@ -186,7 +188,7 @@
                     </label>
                     {% endfor %}
                 </div>
-                {% for error in form.content_types.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.content_types.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="content_types">{{ error }}</p>{% endfor %}
             </div>
 
             <div>
@@ -200,15 +202,17 @@
                     </label>
                     {% endfor %}
                 </div>
-                {% for error in form.allowed_socials.errors %}<p class="text-red-600 text-xs mt-1">{{ error }}</p>{% endfor %}
+                {% for error in form.allowed_socials.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="allowed_socials">{{ error }}</p>{% endfor %}
             </div>
         </div>
 
         {% if proposal_mode %}
         <div class="card-dark rounded-xl p-5">
             <label for="proposal_comment" class="block text-sm text-gray-700 mb-1">Комментарий для рекламодателя *</label>
-            <textarea name="proposal_comment" id="proposal_comment" rows="3" required class="input-dark resize-none"
+            <textarea name="proposal_comment" id="proposal_comment" rows="3"
+                {% if proposal_comment_error %}aria-invalid="true" {% endif %}class="input-dark resize-none"
                 placeholder="Что и почему исправлено">{{ proposal_comment }}</textarea>
+            {% if proposal_comment_error %}<p class="text-red-600 text-xs mt-1" data-error-for="proposal_comment">{{ proposal_comment_error }}</p>{% endif %}
         </div>
         {% endif %}
 
@@ -228,6 +232,7 @@
 
 {% block extra_scripts %}
 <script src="{% static 'js/number-input.js' %}"></script>
+<script src="{% static 'js/form-errors.js' %}"></script>
 <script>
 (function () {
     // Тип оплаты: показать цену за размещение или блок CPA.
