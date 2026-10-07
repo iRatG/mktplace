@@ -74,13 +74,12 @@ class ResolveOnOpenTest(TestCase):
         self.client.get(reverse("web:deal_detail", kwargs={"pk": self.deal.pk}))
         self.assertFalse(_unread(self.adv).exists())
 
-    def test_badge_counter_drops_after_opening_deal(self):
+    def test_badge_counter_drops_on_the_same_page(self):
+        # QA camp_test_3: счётчик на открытой странице уже без этого уведомления, а не на следующей
         NotificationService.notify_creative_submitted(self.adv, self.deal)
         self.client.force_login(self.adv)
         resp = self.client.get(reverse("web:deal_detail", kwargs={"pk": self.deal.pk}))
         self.assertEqual(resp.status_code, 200)
-        # счётчик на следующей странице уже без этого уведомления
-        resp = self.client.get(reverse("web:advertiser_dashboard"))
         self.assertEqual(resp.context["unread_notifications_count"], 0)
 
     def test_opening_campaign_resolves_only_that_campaign(self):
@@ -240,3 +239,73 @@ class ApiParityTest(TestCase):
         self.api.force_authenticate(self.adv)
         self.api.post(reverse("campaigns:campaign-submit-for-moderation", kwargs={"pk": campaign.pk}))
         self.assertTrue(_unread(self.staff, type=T.CAMPAIGN_MODERATION_REQUESTED).exists())
+
+
+class SamePageBadgeQA3Test(TestCase):
+    """QA camp_test_3, шаги 4.1, 6.1, 9.2, 10.1, 10.4: значок гаснет на той же странице, которую открыли."""
+
+    def setUp(self):
+        self.adv = _user("adv@test.com")
+        self.blogger = _user("bl@test.com", User.Role.BLOGGER)
+        self.campaign = _campaign(self.adv)
+        self.deal = _deal(self.campaign, self.blogger, _platform(self.blogger))
+        self.campaign_url = reverse("web:campaign_detail", kwargs={"pk": self.campaign.pk})
+        self.deal_url = reverse("web:deal_detail", kwargs={"pk": self.deal.pk})
+
+    def _count_on(self, user, url):
+        self.client.force_login(user)
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        return resp.context["unread_notifications_count"]
+
+    def test_proposed_edits_on_campaign_page(self):  # 4.1
+        NotificationService.notify_campaign_changes_proposed(self.adv, self.campaign)
+        self.assertEqual(self._count_on(self.adv, self.campaign_url), 0)
+
+    def test_new_response_on_campaign_page(self):  # 6.1
+        NotificationService.notify_new_response(self.adv, self.campaign, self.blogger)
+        self.assertEqual(self._count_on(self.adv, self.campaign_url), 0)
+
+    def test_response_accepted_on_deal_page(self):  # 9.2
+        NotificationService.notify_response_accepted(self.blogger, self.campaign, self.deal)
+        self.assertEqual(self._count_on(self.blogger, self.deal_url), 0)
+
+    def test_creative_submitted_on_deal_page(self):  # 10.1
+        NotificationService.notify_creative_submitted(self.adv, self.deal)
+        self.assertEqual(self._count_on(self.adv, self.deal_url), 0)
+
+    def test_payment_received_resolves_in_wallet(self):  # 10.4
+        NotificationService.notify_deal_completed(self.blogger, self.deal)
+        note = Notification.objects.get(user=self.blogger, type=T.PAYMENT_RECEIVED)
+        self.assertEqual(note.target_url, reverse("web:wallet"))
+        self.assertEqual(self._count_on(self.blogger, reverse("web:wallet")), 0)
+
+    def test_payment_received_also_resolves_on_deal_page(self):
+        NotificationService.notify_deal_completed(self.blogger, self.deal)
+        self.assertEqual(self._count_on(self.blogger, self.deal_url), 0)
+
+    def test_response_rejected_resolves_on_campaign_page(self):
+        NotificationService.notify_response_rejected(self.blogger, self.campaign, "Готовы на 150 000")
+        note = Notification.objects.get(user=self.blogger, type=T.RESPONSE_REJECTED)
+        self.assertEqual(note.target_url, reverse("web:my_responses"))
+        self.assertEqual(self._count_on(self.blogger, self.campaign_url), 0)
+
+    def test_response_rejected_other_campaign_untouched(self):
+        other = _campaign(self.adv, name="Другая")
+        NotificationService.notify_response_rejected(self.blogger, other)
+        self.assertEqual(self._count_on(self.blogger, self.campaign_url), 1)
+
+    def test_direct_offer_rejected_leads_to_campaign(self):
+        NotificationService.notify_direct_offer_rejected(self.adv, self.campaign, self.blogger)
+        note = Notification.objects.get(user=self.adv, type=T.DIRECT_OFFER_REJECTED)
+        self.assertEqual(note.target_url, self.campaign_url)
+        self.assertEqual(self._count_on(self.adv, self.campaign_url), 0)
+
+    def test_failed_page_restores_unread(self):
+        # блогер не видит неактивную чужую кампанию (404) — уведомление о ней остаётся непрочитанным
+        self.campaign.status = Campaign.Status.PAUSED
+        self.campaign.save(update_fields=["status"])
+        NotificationService.notify_response_rejected(self.blogger, self.campaign)
+        self.client.force_login(self.blogger)
+        self.assertEqual(self.client.get(self.campaign_url).status_code, 404)
+        self.assertTrue(_unread(self.blogger, type=T.RESPONSE_REJECTED).exists())

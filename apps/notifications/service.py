@@ -46,7 +46,7 @@ class NotificationService:
     """
 
     @staticmethod
-    def notify(user, notification_type, title, body, deal=None, url=""):
+    def notify(user, notification_type, title, body, deal=None, url="", campaign=None):
         """Базовый метод создания уведомления.
 
         Args:
@@ -56,6 +56,7 @@ class NotificationService:
             body (str):               текст уведомления
             deal (Deal|None):         связанная сделка (если применимо)
             url (str):                куда вести по клику на уведомление (относительный путь)
+            campaign (Campaign|None): связанная кампания — её страница тоже гасит уведомление
         """
         try:
             Notification.objects.create(
@@ -64,6 +65,7 @@ class NotificationService:
                 title=title,
                 body=body,
                 related_deal=deal,
+                related_campaign=campaign,
                 url=url,
             )
         except Exception:
@@ -110,6 +112,7 @@ class NotificationService:
             title="Отклик отклонён",
             body=body,
             url=reverse("web:my_responses"),
+            campaign=campaign,
         )
 
     # ── Прямые предложения ────────────────────────────────────────────────────
@@ -153,6 +156,8 @@ class NotificationService:
                 f"Блогер {blogger.email} отклонил ваше предложение "
                 f"по кампании «{campaign.name}»."
             ),
+            url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
+            campaign=campaign,
         )
 
     # ── Сделки ────────────────────────────────────────────────────────────────
@@ -169,6 +174,7 @@ class NotificationService:
                 f"«{deal.campaign.name}». Средства переведены на ваш баланс."
             ),
             deal=deal,
+            url=reverse("web:wallet"),
         )
 
     @staticmethod

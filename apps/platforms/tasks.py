@@ -1,5 +1,6 @@
 from celery import shared_task
 
+from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 
@@ -29,6 +30,7 @@ def check_permit_expiry():
             type=Notification.Type.SYSTEM,
             title=f"Документ истекает через 30 дней: {permit.category.name}",
             defaults={
+                "url": reverse("web:permit_list"),
                 "body": (
                     f"Разрешительный документ «{permit.get_doc_type_display()} № {permit.doc_number}» "
                     f"для категории «{permit.category.name}» истекает {permit.expires_at}. "
@@ -59,6 +61,7 @@ def check_permit_expiry():
             user=permit.user,
             type=Notification.Type.SYSTEM,
             title=f"Документ истёк, площадки приостановлены: {permit.category.name}",
+            url=reverse("web:permit_list"),
             body=(
                 f"Разрешительный документ «{permit.get_doc_type_display()} № {permit.doc_number}» "
                 f"для категории «{permit.category.name}» истёк. "

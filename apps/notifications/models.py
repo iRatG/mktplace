@@ -52,6 +52,14 @@ class Notification(models.Model):
         blank=True,
         related_name="notifications",
     )
+    related_campaign = models.ForeignKey(
+        "campaigns.Campaign",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications",
+        help_text="Кампания, страница которой тоже гасит уведомление",
+    )
     url = models.CharField(
         max_length=255,
         blank=True,

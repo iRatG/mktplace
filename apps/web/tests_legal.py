@@ -610,6 +610,10 @@ class REQ2PermitExpiryTaskTest(TestCase):
         check_permit_expiry()
         p.refresh_from_db()
         self.assertEqual(p.status, PermitDocument.Status.EXPIRED)
+        # уведомление ведёт к списку документов и гаснет там (QA camp_test_3)
+        from django.urls import reverse
+        from apps.notifications.models import Notification
+        self.assertEqual(Notification.objects.get(user=self.user).url, reverse("web:permit_list"))
 
     def test_active_permit_not_touched(self):
         from apps.platforms.tasks import check_permit_expiry
@@ -644,6 +648,8 @@ class REQ2PermitExpiryTaskTest(TestCase):
         check_permit_expiry()
         count_after = Notification.objects.filter(user=self.user).count()
         self.assertGreater(count_after, count_before)
+        from django.urls import reverse
+        self.assertEqual(Notification.objects.get(user=self.user).url, reverse("web:permit_list"))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
