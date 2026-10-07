@@ -236,7 +236,7 @@ def cancel(pk, actor):
             raise TransitionError("Отменить сделку может только её участник.")
         _require(deal, allowed, "Эту сделку нельзя отменить на текущем этапе.")
         BillingService.release_funds(deal)
-        _move(deal, S.CANCELLED, actor, f"Отменено пользователем ({actor.email}).")
+        _move(deal, S.CANCELLED, actor, "Отменено блогером." if actor == deal.blogger else "Отменено рекламодателем.")
         _chat(deal, "Сделка отменена. Зарезервированные средства возвращены рекламодателю.")
     _after_commit(NotificationService.notify_deal_cancelled, deal, cancelled_by=actor)
     return deal

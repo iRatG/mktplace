@@ -58,14 +58,14 @@
                 </div>
                 <div>
                     <div class="text-xs text-gray-500 mb-0.5">Рекламодатель</div>
-                    <div class="text-sm text-gray-900">{{ deal.advertiser.email }}</div>
+                    <div class="text-sm text-gray-900">{{ deal.advertiser.public_name }}{% if user.is_staff %} <span class="text-gray-400">({{ deal.advertiser.email }})</span>{% endif %}</div>
                 </div>
                 <div>
                     <div class="text-xs text-gray-500 mb-0.5">Блогер</div>
                     {% if user.role == 'advertiser' or user.is_staff %}
-                    <a href="{% url 'web:blogger_public_profile' deal.blogger.pk %}" class="text-sm text-gray-900 hover:text-orange-700 transition-colors">{{ deal.blogger.email }}</a>
+                    <a href="{% url 'web:blogger_public_profile' deal.blogger.pk %}" class="text-sm text-gray-900 hover:text-orange-700 transition-colors">{{ deal.blogger.public_name }}</a>{% if user.is_staff %} <span class="text-gray-400">({{ deal.blogger.email }})</span>{% endif %}
                     {% else %}
-                    <div class="text-sm text-gray-900">{{ deal.blogger.email }}</div>
+                    <div class="text-sm text-gray-900">{{ deal.blogger.public_name }}</div>
                     {% endif %}
                 </div>
                 <div>
@@ -540,7 +540,7 @@
             <div class="flex justify-start gap-2">
                 <div class="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center shrink-0 mt-0.5">
                     <span class="text-xs text-gray-700 font-medium">
-                        {{ msg.sender.email|slice:":1"|upper }}
+                        {{ msg.sender.public_name|slice:":1"|upper }}
                     </span>
                 </div>
                 <div class="max-w-[70%]">

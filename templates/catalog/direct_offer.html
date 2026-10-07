@@ -14,12 +14,12 @@
     <div class="card-dark rounded-xl p-5 flex items-start gap-4">
         <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold flex-shrink-0">
             {% with profile=blogger.blogger_profile %}
-            {{ profile.nickname|first|upper|default:blogger.email|first|upper }}
+            {{ blogger.public_name|first|upper }}
             {% endwith %}
         </div>
         <div class="flex-1 min-w-0">
             {% with profile=blogger.blogger_profile %}
-            <div class="font-semibold">{{ profile.nickname|default:blogger.email }}</div>
+            <div class="font-semibold">{{ blogger.public_name }}</div>
             {% endwith %}
             <div class="text-sm text-orange-600 mt-0.5">{{ platform.get_social_type_display }}</div>
             <a href="{{ platform.url }}" target="_blank" class="text-xs text-gray-500 hover:text-gray-800 transition-colors truncate block mt-1">{{ platform.url }}</a>

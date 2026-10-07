@@ -62,6 +62,22 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.email} ({self.role})"
 
     @property
+    def public_name(self):
+        """Имя для второй стороны сделки — без email (QA camp_test_3, шаг 9.3).
+
+        Email виден только сотруднику: по нему стороны договорились бы в обход площадки.
+        Рекламодатель — компания, затем контактное лицо; блогер — ник; иначе — роль.
+        """
+        if self.role == self.Role.ADVERTISER:
+            profile = getattr(self, "advertiser_profile", None)
+            name = profile and (profile.company_name or profile.contact_name)
+            return name or "Рекламодатель"
+        if self.role == self.Role.BLOGGER:
+            profile = getattr(self, "blogger_profile", None)
+            return (profile and profile.nickname) or "Блогер"
+        return "Поддержка"
+
+    @property
     def login_display(self):
         """Логин для показа: ИНН у аккаунта юрлица, иначе email."""
         from apps.registration.services import inn_from_login

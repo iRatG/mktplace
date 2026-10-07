@@ -30,9 +30,9 @@
                 </div>
                 <div class="flex items-center gap-4 mt-1.5 flex-wrap">
                     {% if user.role == 'advertiser' %}
-                    <span class="text-xs text-gray-500">Блогер: {{ deal.blogger.email }}</span>
+                    <span class="text-xs text-gray-500">Блогер: {{ deal.blogger.public_name }}{% if user.is_staff %} <span class="text-gray-400">({{ deal.blogger.email }})</span>{% endif %}</span>
                     {% else %}
-                    <span class="text-xs text-gray-500">Рекл.: {{ deal.advertiser.email }}</span>
+                    <span class="text-xs text-gray-500">Рекл.: {{ deal.advertiser.public_name }}{% if user.is_staff %} <span class="text-gray-400">({{ deal.advertiser.email }})</span>{% endif %}</span>
                     {% endif %}
                     <span class="text-xs text-gray-500">{{ deal.platform.get_social_type_display }}</span>
                     <span class="text-xs text-gray-500">{{ deal.created_at|date:"d.m.Y" }}</span>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}{{ profile.nickname|default:blogger.email }} | UBlogers!{% endblock %}
+{% block title %}{{ blogger.public_name }} | UBlogers!{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
@@ -9,7 +9,7 @@
     <div class="card-dark rounded-xl p-6">
         <div class="flex items-start gap-5">
             <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center text-3xl font-bold flex-shrink-0">
-                {{ profile.nickname|first|upper|default:blogger.email|first|upper }}
+                {{ blogger.public_name|first|upper }}
             </div>
             <div class="flex-1 min-w-0">
                 <h1 class="text-xl font-bold">{{ profile.nickname|default:"Блогер" }}</h1>
@@ -121,7 +121,7 @@
                 {% if review.text %}
                 <p class="text-sm text-gray-700 leading-relaxed">{{ review.text }}</p>
                 {% endif %}
-                <p class="text-xs text-gray-400 mt-1">{{ review.author.email }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ review.author.public_name }}</p>
             </div>
             {% endfor %}
         </div>

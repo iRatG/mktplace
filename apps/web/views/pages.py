@@ -168,7 +168,7 @@ def blogger_dashboard(request):
 
     incoming_offers = (
         DirectOffer.objects.filter(blogger=user, status=DirectOffer.Status.PENDING)
-        .select_related("advertiser", "campaign", "platform")
+        .select_related("advertiser", "advertiser__advertiser_profile", "campaign", "platform")
         .order_by("-created_at")
     )
 

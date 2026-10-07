@@ -81,7 +81,7 @@ class NotificationService:
             user=advertiser,
             notification_type=Notification.Type.CAMPAIGN_RESPONSE,
             title="Новый отклик на кампанию",
-            body=f"Блогер {blogger.email} откликнулся на кампанию «{campaign.name}».",
+            body=f"Блогер {blogger.public_name} откликнулся на кампанию «{campaign.name}».",
             url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
         )
 
@@ -125,7 +125,7 @@ class NotificationService:
             notification_type=Notification.Type.DIRECT_OFFER_RECEIVED,
             title="Новое предложение от рекламодателя",
             body=(
-                f"Рекламодатель {advertiser.email} предлагает вам участие "
+                f"Рекламодатель {advertiser.public_name} предлагает вам участие "
                 f"в кампании «{campaign.name}». Проверьте входящие предложения."
             ),
             url=reverse("web:blogger_dashboard"),
@@ -139,7 +139,7 @@ class NotificationService:
             notification_type=Notification.Type.DIRECT_OFFER_ACCEPTED,
             title="Предложение принято",
             body=(
-                f"Блогер {blogger.email} принял ваше предложение по кампании "
+                f"Блогер {blogger.public_name} принял ваше предложение по кампании "
                 f"«{campaign.name}». Сделка #{deal.pk} создана."
             ),
             deal=deal,
@@ -153,7 +153,7 @@ class NotificationService:
             notification_type=Notification.Type.DIRECT_OFFER_REJECTED,
             title="Предложение отклонено",
             body=(
-                f"Блогер {blogger.email} отклонил ваше предложение "
+                f"Блогер {blogger.public_name} отклонил ваше предложение "
                 f"по кампании «{campaign.name}»."
             ),
             url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),

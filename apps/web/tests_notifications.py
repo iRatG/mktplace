@@ -88,7 +88,9 @@ class NotificationServiceTest(TestCase):
         NotificationService.notify_new_response(self.advertiser, self.campaign, self.blogger)
         n = Notification.objects.get(user=self.advertiser)
         self.assertEqual(n.type, Notification.Type.CAMPAIGN_RESPONSE)
-        self.assertIn(self.blogger.email, n.body)
+        # вторая сторона — по публичному имени, без email (QA camp_test_3, шаг 9.3)
+        self.assertIn(self.blogger.public_name, n.body)
+        self.assertNotIn(self.blogger.email, n.body)
 
     def test_notify_response_accepted(self):
         from apps.deals.models import Deal

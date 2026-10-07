@@ -120,11 +120,11 @@
                         {% if profile.avatar %}
                         <img src="{{ profile.avatar.url }}" alt="" class="w-10 h-10 rounded-full object-cover flex-shrink-0">
                         {% else %}
-                        <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-semibold flex-shrink-0">{{ profile.nickname|default:resp.blogger.email|slice:":1"|upper }}</div>
+                        <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-semibold flex-shrink-0">{{ resp.blogger.public_name|slice:":1"|upper }}</div>
                         {% endif %}
                         <div class="min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <a href="{% url 'web:blogger_public_profile' resp.blogger.pk %}" class="text-sm font-medium text-gray-900 hover:text-orange-700 transition-colors">{{ profile.nickname|default:resp.blogger.email }}</a>
+                                <a href="{% url 'web:blogger_public_profile' resp.blogger.pk %}" class="text-sm font-medium text-gray-900 hover:text-orange-700 transition-colors">{{ resp.blogger.public_name }}</a>
                                 <a href="{{ p.url }}" target="_blank" rel="noopener" class="text-xs text-orange-600 hover:text-orange-700">{{ p.get_social_type_display }} ↗</a>
                                 {% if profile.rating %}<span class="text-xs text-yellow-700">★ {{ profile.rating }}</span>{% endif %}
                                 <span class="text-xs text-gray-500">завершённых сделок: {{ profile.deals_count|default:0 }}</span>
@@ -210,7 +210,7 @@
                     <select name="platform" class="input-dark" required>
                         <option value="">Выберите площадку...</option>
                         {% for platform in my_platforms %}
-                        <option value="{{ platform.pk }}">{{ platform }} ({{ platform.subscribers|money }} подп.)</option>
+                        <option value="{{ platform.pk }}">{{ platform.get_social_type_display }} · {{ platform.url }} ({{ platform.subscribers|money }} подп.)</option>
                         {% endfor %}
                     </select>
                 </div>

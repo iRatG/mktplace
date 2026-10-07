@@ -54,7 +54,7 @@ def _analytics_advertiser(request, user):
 
     recent_completed = (
         deals_qs.filter(status=Deal.Status.COMPLETED)
-        .select_related("blogger", "campaign")
+        .select_related("blogger", "blogger__blogger_profile", "campaign")
         .order_by("-updated_at")[:5]
     )
 

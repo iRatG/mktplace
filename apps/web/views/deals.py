@@ -31,19 +31,22 @@ def deal_list(request):
     if user.is_staff:
         qs = (
             Deal.objects.all()
-            .select_related("campaign", "blogger", "advertiser", "platform")
+            .select_related(
+                "campaign", "blogger", "advertiser", "platform",
+                "blogger__blogger_profile", "advertiser__advertiser_profile",
+            )
             .order_by("-created_at")
         )
     elif user.role == User.Role.ADVERTISER:
         qs = (
             Deal.objects.filter(advertiser=user)
-            .select_related("campaign", "blogger", "platform")
+            .select_related("campaign", "blogger", "platform", "blogger__blogger_profile")
             .order_by("-created_at")
         )
     else:
         qs = (
             Deal.objects.filter(blogger=user)
-            .select_related("campaign", "advertiser", "platform")
+            .select_related("campaign", "advertiser", "platform", "advertiser__advertiser_profile")
             .order_by("-created_at")
         )
     status_filter = request.GET.get("status", "")
@@ -103,7 +106,7 @@ def deal_detail(request, pk):
                     review_form = ReviewForm()
 
     # Chat context (Sprint 6)
-    chat_messages = deal.messages.select_related("sender").all()
+    chat_messages = deal.messages.select_related("sender__blogger_profile", "sender__advertiser_profile").all()
     chat_form = ChatMessageForm()
     read_only_statuses = {Deal.Status.COMPLETED, Deal.Status.CANCELLED}
     can_send_message = (

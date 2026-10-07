@@ -107,10 +107,10 @@
                     <!-- Шапка карточки -->
                     <div class="flex items-start gap-3">
                         <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg font-bold flex-shrink-0">
-                            {{ profile.nickname|first|upper|default:p.blogger.email|first|upper }}
+                            {{ p.blogger.public_name|first|upper }}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <div class="font-semibold text-sm truncate">{{ profile.nickname|default:p.blogger.email }}</div>
+                            <div class="font-semibold text-sm truncate">{{ p.blogger.public_name }}</div>
                             <div class="flex items-center gap-2 mt-0.5">
                                 <span class="text-xs text-orange-600 font-medium">{{ p.get_social_type_display }}</span>
                                 {% if profile.rating %}

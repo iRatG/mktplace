@@ -148,7 +148,7 @@ def direct_offer_create(request, platform_pk):
             message=form.cleaned_data.get("message", ""),
         )
         NotificationService.notify_direct_offer_received(blogger, campaign, request.user)
-        messages.success(request, f"Предложение отправлено блогеру {blogger.email}!")
+        messages.success(request, f"Предложение отправлено блогеру {blogger.public_name}!")
         return redirect("web:blogger_catalog")
 
     return render(request, "catalog/direct_offer.html", {
