@@ -1,6 +1,6 @@
 {% comment %}
 Поле суммы / счётчика с пробелами между разрядами (static/js/number-input.js).
-Параметры: field — поле формы (или name — имя поля без формы Django); label; min — минимум для живой подсказки; step — шаг кнопок −/+ и клавиш ↑/↓; placeholder; hint — подпись под полем.
+Параметры: field — поле формы (или name и value — поле без формы Django); label; min — минимум для живой подсказки; step — шаг кнопок −/+ и клавиш ↑/↓; placeholder; hint — подпись под полем.
 Кнопки −/+ показывает JS; без JS поле принимает число как есть, сервер сам убирает пробелы.
 Обязательность и все ошибки проверяет сервер (форма с novalidate) — ошибка выводится у этого поля.
 {% endcomment %}
@@ -10,7 +10,7 @@
         class="hidden shrink-0 w-10 rounded-xl border border-gray-300 text-gray-600 hover:border-orange-400 hover:text-orange-600 transition-colors text-lg leading-none">−</button>
     <input type="text" inputmode="numeric" autocomplete="off" data-number-input
         id="id_{% firstof field.html_name name %}" name="{% firstof field.html_name name %}"
-        value="{{ field.value|default_if_none:'' }}"
+        value="{% if field %}{{ field.value|default_if_none:'' }}{% else %}{{ value|default:'' }}{% endif %}"
         data-step="{{ step|default:1 }}"
         {% if min %}data-min="{{ min }}" {% endif %}{% if field.errors %}aria-invalid="true" {% endif %}class="input-dark" placeholder="{{ placeholder|default:'' }}">
     <button type="button" data-step-button="1" tabindex="-1" aria-label="Увеличить на {{ step|default:1 }}"

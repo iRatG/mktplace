@@ -140,6 +140,17 @@
             });
         });
 
+        // Номер карты: только цифры, группами по 4 (QA camp_test_3, шаг 14). Длину проверяет сервер.
+        document.querySelectorAll("input[data-card-input]").forEach(function (input) {
+            function group() {
+                var digits = input.value.replace(/\D/g, "").slice(0, 16);
+                var grouped = digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+                if (grouped !== input.value) input.value = grouped;
+            }
+            input.addEventListener("input", group);
+            group();
+        });
+
         var hints = document.querySelectorAll("[data-bloggers-hint]");
         hints.forEach(function (hint) {
             var form = hint.closest("form");
