@@ -272,6 +272,12 @@ docker exec mktplace-celery-1 celery -A config inspect registered
 # docker-compose.vps.yml задан SKIP_MIGRATIONS=1). Применённые миграции —
 # в логе web:
 docker logs mktplace-web-1 2>&1 | grep -A3 "Apply all migrations"
+
+# Статика отдаётся с хэшем в имени (CompressedManifestStaticFilesStorage в
+# config/settings/production.py) — иначе браузеры держат старый JS до года
+# (WHITENOISE_MAX_AGE). Страница должна ссылаться на number-input.<хэш>.js;
+# если collectstatic упал на отсутствующем файле — web не стартует, смотреть лог.
+curl -s http://127.0.0.1:8080/login/ | grep -o 'tailwind\.cdn\.[0-9a-f]*\.js'
 ```
 
 Сайт: `https://ublogers.uz` (хостовой nginx → `127.0.0.1:8080`)

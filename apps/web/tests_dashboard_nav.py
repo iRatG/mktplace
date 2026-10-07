@@ -239,7 +239,11 @@ class ResponsePriceTest(TestCase):
 
     def test_form_field_is_spaced_input(self):
         r = self.client.get(reverse("web:campaign_detail", args=[self.campaign.pk]))
-        self.assertContains(r, 'data-number-input data-step="10000"')
+        # Поле на общем шаблоне числового поля (QA camp_test_3): пробелы между разрядами и кнопки −/+ с шагом 10 000.
+        html = r.content.decode()
+        field = html[html.index('name="proposed_price"') - 300:html.index('name="proposed_price"') + 300]
+        self.assertIn("data-number-input", field)
+        self.assertIn('data-step="10000"', field)
         self.assertContains(r, "js/number-input.js")
 
 

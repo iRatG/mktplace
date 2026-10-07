@@ -229,10 +229,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Предложить цену ({{ currency.symbol }}, необязательно)</label>
-                    <input type="text" inputmode="numeric" autocomplete="off" data-number-input data-step="10000"
-                        name="proposed_price" class="input-dark"
-                        placeholder="Оставьте пустым, чтобы принять цену кампании">
+                    {% include "partials/number_input.html" with name="proposed_price" label="Предложить цену ("|add:currency.symbol|add:", необязательно)" step=10000 placeholder="Оставьте пустым, чтобы принять цену кампании" %}
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Сообщение</label>

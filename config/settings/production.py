@@ -9,6 +9,14 @@ CSRF_TRUSTED_ORIGINS = env.list(
     default=['https://ublogers.uz', 'https://www.ublogers.uz'],
 )
 
+# Статика с хэшем содержимого в имени: WhiteNoise кэширует файлы на год (WHITENOISE_MAX_AGE), и без
+# версии в имени браузер держал бы старый JS после выпуска (QA camp_test_3: не было кнопок −/+).
+# Только для production — local и тесты работают без собранного manifest.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
