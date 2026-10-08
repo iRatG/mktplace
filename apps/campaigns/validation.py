@@ -177,7 +177,7 @@ def deal_acceptance_error(campaign, amount):
     if amount > remaining:
         return (
             f"Не хватает бюджета кампании: осталось {format_money(remaining)}, а сделка на {format_money(amount)}. "
-            f"Увеличьте бюджет (пауза → правка → модерация) или отклоните отклик с комментарием."
+            f"Увеличьте бюджет (кнопка «Увеличить бюджет» на странице кампании) или отклоните отклик с комментарием."
         )
     return None
 
