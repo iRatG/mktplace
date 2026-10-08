@@ -75,7 +75,9 @@ class CampaignExpiryTest(TestCase):
         self.assertEqual(offer.status, DirectOffer.Status.EXPIRED)
         self.assertEqual(deal.status, Deal.Status.IN_PROGRESS)
         self.assertTrue(Notification.objects.filter(user=self.adv, title="Кампания завершена").exists())
-        self.assertEqual(Notification.objects.filter(user=self.blogger).count(), 2)
+        # отклик и предложение закрыты + «ваша сделка продолжается» (BZ-4, #32)
+        self.assertEqual(Notification.objects.filter(user=self.blogger).count(), 3)
+        self.assertTrue(Notification.objects.filter(user=self.blogger, related_deal=deal).exists())
 
     def test_idempotent(self):
         self._campaign()

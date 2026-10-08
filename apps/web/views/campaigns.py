@@ -206,6 +206,22 @@ def campaign_pause(request, pk):
 
 @login_required
 @require_POST
+def campaign_finish(request, pk):
+    """«Завершить кампанию» досрочно — те же последствия, что по сроку (apps/campaigns/services.complete_campaign)."""
+    from apps.campaigns.services import complete_campaign
+
+    campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
+    try:
+        complete_campaign(campaign.pk, actor=request.user)
+    except AcceptError as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, "Кампания завершена. Начатые сделки продолжаются до конца и оплаты.")
+    return redirect("web:campaign_detail", pk=pk)
+
+
+@login_required
+@require_POST
 def campaign_resume(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
     if campaign.status != Campaign.Status.PAUSED:

@@ -31,15 +31,36 @@ def expired_error(campaign, today=None):
     )
 
 
-def complete_campaign(campaign_pk, today=None):
-    """Завершить одну кампанию по сроку. Возвращает True, если кампания завершена этим вызовом."""
+def complete_campaign(campaign_pk, today=None, actor=None):
+    """Завершить кампанию — по сроку (таймер) или досрочно владельцем (``actor``). Последствия одни.
+
+    По сроку: только ACTIVE/PAUSED с прошедшей датой окончания, иначе False. Досрочно: владелец, статус —
+    ACTIVE, PAUSED или MODERATION после одобрения (Р7), иначе AcceptError с текстом; ставится отметка
+    ``completed_early_at``, ожидающее предложение правок закрывается. Возвращает True, если кампания
+    завершена этим вызовом.
+    """
+    from .models import CampaignEditProposal
+
     today = today or timezone.localdate()
+    early = actor is not None
     with transaction.atomic():
         campaign = Campaign.objects.select_for_update().filter(pk=campaign_pk).first()
-        if campaign is None or campaign.status not in COMPLETABLE_STATUSES or not is_expired(campaign, today):
+        if early:
+            if campaign is None or campaign.advertiser_id != actor.pk:
+                raise AcceptError("Кампания не найдена.")
+            if not campaign.can_finish_early:
+                raise AcceptError(
+                    "Завершить можно активную кампанию, кампанию на паузе или на повторной модерации "
+                    "после одобрения."
+                )
+        elif campaign is None or campaign.status not in COMPLETABLE_STATUSES or not is_expired(campaign, today):
             return False
         campaign.status = Campaign.Status.COMPLETED
-        campaign.save(update_fields=["status", "updated_at"])
+        fields = ["status", "updated_at"]
+        if early:
+            campaign.completed_early_at = timezone.now()
+            fields.append("completed_early_at")
+        campaign.save(update_fields=fields)
 
         responses = list(
             Response.objects.select_for_update()
@@ -54,12 +75,36 @@ def complete_campaign(campaign_pk, today=None):
         Response.objects.filter(pk__in=[r.pk for r in responses]).update(status=Response.Status.EXPIRED)
         DirectOffer.objects.filter(pk__in=[o.pk for o in offers]).update(status=DirectOffer.Status.EXPIRED)
 
-    NotificationService.notify_campaign_completed(campaign)
+        proposal = (
+            CampaignEditProposal.objects.select_for_update()
+            .filter(campaign=campaign, status=CampaignEditProposal.Status.PENDING).first()
+        )
+        if proposal:
+            proposal.status = CampaignEditProposal.Status.CLOSED
+            proposal.responded_at = timezone.now()
+            proposal.save(update_fields=["status", "responded_at"])
+
+    if early:
+        NotificationService.notify_campaign_finished_early(campaign)
+    else:
+        NotificationService.notify_campaign_completed(campaign)
     for resp in responses:
         NotificationService.notify_response_expired(resp.blogger, campaign)
     for offer in offers:
         NotificationService.notify_direct_offer_expired(offer.blogger, campaign)
+    if proposal and proposal.author:
+        NotificationService.notify_edit_proposal_closed(proposal.author, campaign)
+    _notify_bloggers_with_running_deals(campaign)
     return True
+
+
+def _notify_bloggers_with_running_deals(campaign):
+    """Кампания завершена, а сделки идут — блогеру: «ваша сделка продолжается»."""
+    from apps.deals.models import Deal
+
+    finished = (Deal.Status.COMPLETED, Deal.Status.CANCELLED)
+    for deal in Deal.objects.filter(campaign=campaign).exclude(status__in=finished).select_related("blogger", "campaign"):
+        NotificationService.notify_deal_continues_after_campaign(deal)
 
 
 def complete_expired_campaigns(today=None):

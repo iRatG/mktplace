@@ -135,6 +135,9 @@ class Campaign(models.Model):
                   "чтобы при повторной модерации показать «было → стало»",
     )
     max_bloggers = models.PositiveIntegerField(default=0)
+    completed_early_at = models.DateTimeField(
+        null=True, blank=True, help_text="Когда рекламодатель завершил кампанию досрочно (не по сроку)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -145,6 +148,13 @@ class Campaign(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.status})"
+
+    @property
+    def can_finish_early(self):
+        """Рекламодатель может завершить досрочно: идёт, на паузе или на повторной модерации после одобрения (Р7)."""
+        if self.status in (self.Status.ACTIVE, self.Status.PAUSED):
+            return True
+        return self.status == self.Status.MODERATION and bool(self.approved_snapshot)
 
 
 class Response(models.Model):
@@ -301,6 +311,7 @@ class CampaignEditProposal(models.Model):
         PENDING = "pending", "Ждёт ответа рекламодателя"
         ACCEPTED = "accepted", "Принято"
         DECLINED = "declined", "Отклонено"
+        CLOSED = "closed", "Закрыто — кампания завершена"
 
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="edit_proposals")
     author = models.ForeignKey(

@@ -113,17 +113,22 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
+        """То же, что complete: досрочное завершение (CANCELLED больше не ставится, решение 07.10.2026)."""
+        return self.complete(request, pk)
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        """Досрочное завершение владельцем — apps/campaigns/services.complete_campaign(actor=...)."""
+        from .services import complete_campaign
+
         campaign = self.get_object()
         if campaign.advertiser != request.user:
             raise PermissionDenied()
-        if campaign.status in (Campaign.Status.COMPLETED, Campaign.Status.CANCELLED):
-            return DRFResponse(
-                {"detail": "Campaign is already completed or cancelled."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        campaign.status = Campaign.Status.CANCELLED
-        campaign.save(update_fields=["status"])
-        return DRFResponse({"detail": "Campaign cancelled."})
+        try:
+            complete_campaign(campaign.pk, actor=request.user)
+        except AcceptError as e:
+            return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return DRFResponse({"detail": "Campaign completed."})
 
     @action(detail=True, methods=["post"], url_path="increase-budget")
     def increase_budget(self, request, pk=None):

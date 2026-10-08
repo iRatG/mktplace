@@ -26,6 +26,7 @@ urlpatterns = [
     path("campaigns/", views.campaign_list, name="campaign_list"),
     path("campaigns/create/", views.campaign_create, name="campaign_create"),
     path("campaigns/<int:pk>/", views.campaign_detail, name="campaign_detail"),
+    path("campaigns/<int:pk>/finish/", views.campaign_finish, name="campaign_finish"),
     path("campaigns/<int:pk>/edit/", views.campaign_edit, name="campaign_edit"),
     path("campaigns/<int:pk>/submit/", views.campaign_submit, name="campaign_submit"),
     path("campaigns/<int:pk>/pause/", views.campaign_pause, name="campaign_pause"),

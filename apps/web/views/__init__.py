@@ -31,6 +31,7 @@ from .campaigns import (
     my_responses,
     campaign_proposal_accept,
     campaign_proposal_decline,
+    campaign_finish,
 )
 from .deals import (
     deal_list,

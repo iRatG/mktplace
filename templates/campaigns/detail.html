@@ -20,7 +20,7 @@
                     {% elif campaign.status == 'draft' %}bg-gray-100 text-gray-600
                     {% elif campaign.status == 'paused' %}bg-orange-50 text-orange-600
                     {% else %}bg-red-50 text-red-600{% endif %}">
-                    {{ campaign.get_status_display }}
+                    {{ campaign.get_status_display }}{% if campaign.completed_early_at %} досрочно {{ campaign.completed_early_at|date:"d.m.Y" }}{% endif %}
                 </span>
             </div>
             {% if campaign.subject %}
@@ -98,6 +98,23 @@
                     class="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-50">
                     Редактировать
                 </a>
+                {% endif %}
+                {% if campaign.can_finish_early and campaign.advertiser_id == request.user.pk %}
+                <details class="relative">
+                    <summary class="list-none cursor-pointer bg-white border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Завершить кампанию</summary>
+                    <form method="post" action="{% url 'web:campaign_finish' campaign.pk %}"
+                          class="absolute left-0 z-10 mt-1 w-80 card-dark rounded-xl p-4 space-y-2">
+                        {% csrf_token %}
+                        <p class="text-sm font-semibold text-gray-900">Завершить кампанию досрочно?</p>
+                        <ul class="text-xs text-gray-700 list-disc pl-4 space-y-1">
+                            <li>Кампания станет «Завершена», возобновить её будет нельзя.</li>
+                            <li>Ожидающие отклики и предложения закроются, блогеры получат уведомление.</li>
+                            <li>Начатые сделки продолжатся до конца и оплаты.</li>
+                            {% if proposal %}<li>Предложение правок модератора закроется.</li>{% endif %}
+                        </ul>
+                        <button class="bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg text-xs hover:bg-red-200 transition-colors">Да, завершить</button>
+                    </form>
+                </details>
                 {% endif %}
             </div>
             {% if campaign.status == 'paused' %}

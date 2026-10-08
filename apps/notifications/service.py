@@ -318,6 +318,45 @@ class NotificationService:
         )
 
     @staticmethod
+    def notify_campaign_finished_early(campaign):
+        """Рекламодатель завершил кампанию досрочно → ему же, подтверждение с последствиями."""
+        NotificationService.notify(
+            user=campaign.advertiser,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Кампания завершена досрочно",
+            body=(
+                f"Кампания «{campaign.name}» завершена досрочно. Ожидавшие решения отклики и предложения "
+                f"закрыты, начатые сделки продолжаются до конца и оплаты."
+            ),
+            url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
+        )
+
+    @staticmethod
+    def notify_edit_proposal_closed(moderator, campaign):
+        """Кампанию завершили, пока ждали ответа на правки модератора → автору правок."""
+        NotificationService.notify(
+            user=moderator,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Предложение правок закрыто",
+            body=f"Рекламодатель завершил кампанию «{campaign.name}» — ваше предложение правок закрыто без ответа.",
+            url=reverse("web:admin_campaign_detail", kwargs={"pk": campaign.pk}),
+        )
+
+    @staticmethod
+    def notify_deal_continues_after_campaign(deal):
+        """Кампания завершена (по сроку или досрочно), а сделка идёт → блогеру."""
+        NotificationService.notify(
+            user=deal.blogger,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Кампания завершена — ваша сделка продолжается",
+            body=(
+                f"Кампания «{deal.campaign.name}» завершена. Ваша сделка #{deal.pk} продолжается: "
+                f"выполните её как обычно, оплата — по правилам сделки."
+            ),
+            deal=deal,
+        )
+
+    @staticmethod
     def notify_response_expired(blogger, campaign):
         """Кампания завершилась, пока отклик ждал решения → блогеру."""
         NotificationService.notify(
