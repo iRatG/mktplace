@@ -3,8 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from apps.billing.formatting import format_money
 from apps.campaigns.models import Campaign, CampaignEditProposal
-from apps.campaigns.services import AcceptError, accept_response, expired_error
+from apps.campaigns.services import AcceptError, accept_response, expired_error, increase_budget
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.validation import (
     EDITABLE_STATUSES, active_response, budget_committed, budget_remaining,
@@ -215,6 +216,26 @@ def campaign_resume(request, pk):
         campaign.status = Campaign.Status.ACTIVE
         campaign.save(update_fields=["status"])
         messages.success(request, "Кампания возобновлена.")
+    return redirect("web:campaign_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def campaign_increase_budget(request, pk):
+    campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
+    try:
+        new_budget = _parse_price(request.POST.get("budget"))
+    except ValueError:
+        new_budget = None
+    if new_budget is None:
+        messages.error(request, "Укажите число больше текущего бюджета.")
+        return redirect("web:campaign_detail", pk=pk)
+    try:
+        increase_budget(campaign.pk, new_budget, request.user)
+    except AcceptError as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, f"Бюджет кампании увеличен до {format_money(new_budget)}.")
     return redirect("web:campaign_detail", pk=pk)
 
 

@@ -22,6 +22,7 @@ from .campaigns import (
     campaign_create,
     campaign_edit,
     campaign_submit,
+    campaign_increase_budget,
     campaign_pause,
     campaign_resume,
     campaign_respond,

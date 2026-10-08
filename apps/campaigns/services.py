@@ -164,6 +164,33 @@ def accept_response(response_pk, actor):
     return deal
 
 
+# ── Увеличение бюджета без паузы и модерации (решение бизнеса 07.10.2026) ────
+
+def increase_budget(campaign_pk, new_budget, actor):
+    """Увеличить бюджет кампании, не трогая статус и модерацию.
+
+    Новый снимок (``approved_snapshot``) обновляется тем же бюджетом, чтобы следующая
+    ре-модерация не показала увеличение как непроверенную правку (Р8).
+    """
+    from apps.web.campaign_proposals import mark_approved
+
+    with transaction.atomic():
+        campaign = Campaign.objects.select_for_update().filter(pk=campaign_pk).first()
+        if campaign is None or campaign.advertiser_id != getattr(actor, "pk", None):
+            raise AcceptError("Кампания не найдена.")
+        if campaign.status not in COMPLETABLE_STATUSES:
+            raise AcceptError("Увеличить бюджет можно только у активной кампании или кампании на паузе.")
+        error = expired_error(campaign)
+        if error:
+            raise AcceptError(error)
+        if new_budget is None or new_budget <= campaign.budget:
+            raise AcceptError("Новый бюджет должен быть больше текущего.")
+        campaign.budget = new_budget
+        mark_approved(campaign)
+        campaign.save(update_fields=["budget", "approved_snapshot", "updated_at"])
+    return campaign
+
+
 def accept_direct_offer(offer_pk, actor):
     """Блогер принимает прямое предложение: сделка в работе, деньги рекламодателя в резерве."""
     from apps.deals.services import create_deal

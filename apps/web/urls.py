@@ -30,6 +30,7 @@ urlpatterns = [
     path("campaigns/<int:pk>/submit/", views.campaign_submit, name="campaign_submit"),
     path("campaigns/<int:pk>/pause/", views.campaign_pause, name="campaign_pause"),
     path("campaigns/<int:pk>/resume/", views.campaign_resume, name="campaign_resume"),
+    path("campaigns/<int:pk>/increase-budget/", views.campaign_increase_budget, name="campaign_increase_budget"),
     path("campaigns/<int:pk>/respond/", views.campaign_respond, name="campaign_respond"),
     path("campaigns/<int:pk>/proposal/accept/", views.campaign_proposal_accept, name="campaign_proposal_accept"),
     path("campaigns/<int:pk>/proposal/decline/", views.campaign_proposal_decline, name="campaign_proposal_decline"),

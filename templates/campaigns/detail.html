@@ -103,6 +103,19 @@
             {% if campaign.status == 'paused' %}
             <p class="text-xs text-gray-600 mt-3">Изменить условия можно только на паузе: после сохранения правок кампания уйдёт на повторную модерацию и снова станет видна блогерам после одобрения.</p>
             {% endif %}
+            {% if campaign.status == 'active' or campaign.status == 'paused' %}
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <p class="text-xs text-gray-600 mb-2">Бюджет {{ campaign.budget|money }} · занято сделками {{ budget_committed|money }} · осталось <span class="font-semibold text-gray-900">{{ budget_remaining|money }}</span> {{ currency.symbol }}</p>
+                <form method="post" action="{% url 'web:campaign_increase_budget' campaign.pk %}" class="flex items-end gap-2">
+                    {% csrf_token %}
+                    <div class="w-48">
+                        {% include "partials/number_input.html" with name="budget" value=campaign.budget label="Увеличить бюджет до" step=10000 min=campaign.budget %}
+                    </div>
+                    <button class="btn-orange px-3 py-2 text-sm">Увеличить</button>
+                </form>
+                <p class="text-xs text-gray-500 mt-1">Без паузы и модерации — новое значение должно быть больше текущего.</p>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Responses list for advertiser -->

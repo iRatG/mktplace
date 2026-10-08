@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -9,7 +11,7 @@ from apps.users.models import User
 from .models import Campaign
 from .models import Response as CampaignResponse
 from .serializers import CampaignCreateSerializer, CampaignSerializer, ResponseSerializer
-from .services import AcceptError, accept_response, expired_error
+from .services import AcceptError, accept_response, expired_error, increase_budget
 from .validation import EDITABLE_STATUSES
 
 
@@ -122,6 +124,22 @@ class CampaignViewSet(viewsets.ModelViewSet):
         campaign.status = Campaign.Status.CANCELLED
         campaign.save(update_fields=["status"])
         return DRFResponse({"detail": "Campaign cancelled."})
+
+    @action(detail=True, methods=["post"], url_path="increase-budget")
+    def increase_budget(self, request, pk=None):
+        """Увеличение бюджета без паузы и модерации — apps/campaigns/services.increase_budget."""
+        campaign = self.get_object()
+        if campaign.advertiser != request.user:
+            raise PermissionDenied("You can only edit your own campaigns.")
+        try:
+            new_budget = Decimal(str(request.data.get("budget", "")))
+        except (InvalidOperation, ValueError, TypeError):
+            return DRFResponse({"detail": "Укажите число для нового бюджета."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            campaign = increase_budget(campaign.pk, new_budget, request.user)
+        except AcceptError as e:
+            return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return DRFResponse({"detail": "Budget increased.", "budget": str(campaign.budget)})
 
 
 class ResponseViewSet(
