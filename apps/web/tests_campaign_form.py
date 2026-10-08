@@ -78,8 +78,9 @@ class CampaignParamErrorsTest(SimpleTestCase):
     def test_end_before_start(self):
         self.assertIn("end_date", self._errors(end_date=date(2026, 10, 31), deadline=None))
 
-    def test_deadline_before_start(self):
-        self.assertIn("deadline", self._errors(deadline=date(2026, 10, 31)))
+    def test_deadline_before_start_allowed(self):
+        # BZ-1 (#29): окно приёма контента может целиком лежать до старта кампании
+        self.assertNotIn("deadline", self._errors(deadline=date(2026, 10, 31)))
 
     def test_deadline_after_end(self):
         self.assertIn("deadline", self._errors(deadline=date(2026, 12, 1)))

@@ -88,13 +88,11 @@ def campaign_param_errors(*, payment_type, fixed_price, budget,
     if start_date and end_date and end_date < start_date:
         errors["end_date"] = "Дата окончания не может быть раньше даты начала."
 
-    # Окно приёма контента: начало ≤ конец; конец не раньше старта кампании (правило до 06.10.2026 сохранено)
-    # и не позже чем за N рабочих дней до её окончания.
+    # Окно приёма контента: начало ≤ конец и конец не позже чем за N рабочих дней до окончания кампании.
+    # Окно может целиком лежать до старта — это время на подготовку материалов (решение бизнеса 07.10.2026).
     if content_start and deadline and content_start > deadline:
         errors["content_start"] = "Начало приёма контента не может быть позже его окончания."
-    if deadline and start_date and deadline < start_date:
-        errors["deadline"] = "Приём контента не может закончиться раньше начала кампании."
-    elif deadline and end_date:
+    if deadline and end_date:
         latest = latest_content_end(end_date)
         if deadline > latest:
             errors["deadline"] = (

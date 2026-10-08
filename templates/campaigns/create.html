@@ -161,7 +161,7 @@
                     {% for error in form.deadline.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="deadline">{{ error }}</p>{% endfor %}
                 </div>
             </div>
-            <p class="text-xs text-gray-500" data-content-window-hint>Приём контента заканчивается не раньше начала кампании и не позже чем за 5 рабочих дней (пн–пт) до её окончания — чтобы вы успели проверить материалы.</p>
+            <p class="text-xs text-gray-500" data-content-window-hint>Приём контента может пройти и до старта кампании, но должен закончиться не позже чем за 5 рабочих дней (пн–пт) до её окончания.</p>
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
@@ -247,8 +247,8 @@
     });
 
     // Даты — подсказка в календаре; правила проверяет сервер (apps/campaigns/validation.py):
-    // конец кампании не раньше начала; приём контента «с» ≤ «до»; «до» — не раньше начала кампании
-    // и не позже чем за 5 рабочих дней (пн–пт) до её окончания.
+    // конец кампании не раньше начала; приём контента «с» ≤ «до»; «до» — не позже чем за 5 рабочих дней (пн–пт)
+    // до окончания кампании (окно может целиком лежать до старта).
     var start = document.getElementById("id_start_date");
     var end = document.getElementById("id_end_date");
     var contentStart = document.getElementById("id_content_start");
@@ -265,7 +265,7 @@
     }
     function syncDates() {
         end.min = start.value || "";
-        deadline.min = contentStart.value || start.value || "";
+        deadline.min = contentStart.value || "";
         deadline.max = end.value ? workingDaysBefore(end.value, 5) : "";
         contentStart.max = deadline.value || "";
     }

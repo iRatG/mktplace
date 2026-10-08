@@ -1,6 +1,7 @@
 """
 Решение бизнеса 06.10.2026 (опросник по camp_test_2, вопрос 4 — Б): окно приёма контента «с … по …»;
 конец окна не позже чем за 5 рабочих дней (пн–пт) до окончания кампании.
+Решение бизнеса 07.10.2026 (BZ-1, #29): окно может целиком лежать до старта кампании.
 """
 from datetime import date, timedelta
 from decimal import Decimal
@@ -50,8 +51,9 @@ class ContentWindowRulesTest(SimpleTestCase):
     def test_start_after_end(self):
         self.assertIn("content_start", self._errors(content_start=date(2026, 10, 24), deadline=date(2026, 10, 23)))
 
-    def test_end_before_campaign_start_still_rejected(self):
-        self.assertIn("deadline", self._errors(content_start=None, deadline=date(2026, 9, 30)))
+    def test_window_entirely_before_campaign_start(self):
+        self.assertEqual(self._errors(content_start=date(2026, 9, 20), deadline=date(2026, 9, 30)), {})
+        self.assertEqual(self._errors(content_start=None, deadline=date(2026, 9, 30)), {})
 
     def test_window_may_start_before_campaign(self):
         self.assertEqual(self._errors(content_start=date(2026, 9, 25)), {})
@@ -92,6 +94,21 @@ class ContentWindowFormTest(TestCase):
         self.assertIn("deadline", r.context["form"].errors)
         self.assertFalse(Campaign.objects.exists())
 
+    def test_window_entirely_before_start_saved(self):
+        self.client.post(reverse("web:campaign_create"), self._data(
+            start_date=(self.today + timedelta(days=15)).isoformat(),
+            content_start=(self.today + timedelta(days=1)).isoformat(),
+            deadline=(self.today + timedelta(days=10)).isoformat(),
+        ))
+        campaign = Campaign.objects.get()
+        self.assertEqual(campaign.deadline, self.today + timedelta(days=10))
+        self.assertLess(campaign.deadline, campaign.start_date)
+
+    def test_form_hint_allows_window_before_start(self):
+        page = self.client.get(reverse("web:campaign_create"))
+        self.assertContains(page, "Приём контента может пройти и до старта кампании")
+        self.assertNotContains(page, "не раньше начала кампании")
+
     def test_content_start_in_past_rejected_on_create(self):
         r = self.client.post(reverse("web:campaign_create"),
                              self._data(content_start=(self.today - timedelta(days=1)).isoformat()))
@@ -124,3 +141,16 @@ class ContentWindowFormTest(TestCase):
         }, format="json")
         self.assertEqual(r.status_code, 400)
         self.assertIn("deadline", r.json())
+
+    def test_api_window_entirely_before_start_saved(self):
+        api = APIClient()
+        api.force_authenticate(self.adv)
+        r = api.post(reverse("campaigns:campaign-list"), {
+            "name": "API", "payment_type": "fixed", "fixed_price": "150000", "budget": "1500000",
+            "start_date": (self.today + timedelta(days=15)).isoformat(),
+            "end_date": (self.today + timedelta(days=40)).isoformat(),
+            "content_start": (self.today + timedelta(days=1)).isoformat(),
+            "deadline": (self.today + timedelta(days=10)).isoformat(),
+        }, format="json")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(Campaign.objects.get().deadline, self.today + timedelta(days=10))
