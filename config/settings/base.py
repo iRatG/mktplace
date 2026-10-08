@@ -183,6 +183,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.campaigns.tasks.auto_complete_expired_campaigns',
         'schedule': 3600,  # every hour
     },
+    'auto-expire-responses-and-offers': {
+        'task': 'apps.campaigns.tasks.auto_expire_responses_and_offers',
+        'schedule': 3600,  # every hour — срок ответа 7 дней, напоминание за сутки (BZ-3)
+    },
     'cleanup-old-notifications': {
         'task': 'apps.notifications.tasks.cleanup_old_notifications',
         'schedule': 86400,  # daily (24h)

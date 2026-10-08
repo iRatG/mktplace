@@ -25,6 +25,7 @@
                     {{ resp.platform.get_social_type_display }} · {{ resp.content_type }} ·
                     {% if resp.proposed_price %}{{ resp.proposed_price|money }} {{ currency.symbol }}{% else %}цена кампании{% endif %}
                     · {{ resp.created_at|date:"d.m.Y" }}
+                    {% if resp.status == 'pending' %}· ответ до {{ resp.expires_at|date:"d.m.Y H:i" }}{% endif %}
                 </div>
                 {% if resp.status == 'rejected' and resp.rejection_reason %}
                 <div class="text-xs text-red-600 mt-1">Комментарий рекламодателя: {{ resp.rejection_reason }}</div>
@@ -38,6 +39,7 @@
                 {% if resp.status == 'accepted' %}Принят — сделка в «Сделках»
                 {% elif resp.status == 'rejected' %}Отклонён
                 {% elif resp.status == 'pending' %}Ждёт решения
+                {% elif resp.status == 'expired' and resp.campaign.status == 'active' %}Срок ответа истёк — можно откликнуться снова
                 {% elif resp.status == 'expired' %}Кампания завершилась
                 {% else %}Отозван{% endif %}
             </span>

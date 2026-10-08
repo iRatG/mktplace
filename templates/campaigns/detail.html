@@ -143,6 +143,7 @@
                                 {% if resp.status == 'pending' %}
                                 {% if resp.proposed_price and campaign.fixed_price and resp.proposed_price > campaign.fixed_price %}<span class="text-orange-600">· выше цены кампании ({{ campaign.fixed_price|money }})</span>{% endif %}
                                 {% if resp.proposed_price|default:campaign.fixed_price > budget_remaining %}<span class="text-red-600 font-medium">· не хватает остатка бюджета</span>{% endif %}
+                                {% if resp.is_overdue %}<span class="text-red-600">· срок ответа истёк</span>{% else %}· ответить до {{ resp.expires_at|date:"d.m.Y H:i" }}{% endif %}
                                 {% endif %}
                             </div>
                             {% if resp.message %}
@@ -155,10 +156,12 @@
                     </div>
                     {% if resp.status == 'pending' %}
                     <div class="flex gap-2 ml-4">
+                        {% if not resp.is_overdue %}
                         <form method="post" action="{% url 'web:response_accept' resp.pk %}">
                             {% csrf_token %}
                             <button class="bg-green-100 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs hover:bg-green-200 transition-colors">Принять</button>
                         </form>
+                        {% endif %}
                         <details class="relative">
                             <summary class="list-none cursor-pointer bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg text-xs hover:bg-red-200 transition-colors">Отклонить</summary>
                             <form method="post" action="{% url 'web:response_reject' resp.pk %}"

@@ -122,6 +122,7 @@
                     <div class="text-xs text-gray-500 mt-0.5">
                         от {{ offer.advertiser.public_name }} · {{ offer.platform.get_social_type_display }} ·
                         {% if offer.proposed_price %}{{ offer.proposed_price|money }} {{ currency.symbol }}{% else %}цена по кампании{% endif %}
+                        · ответить до {{ offer.expires_at|date:"d.m.Y H:i" }}
                     </div>
                     {% if offer.message %}
                     <p class="text-xs text-gray-600 mt-1 italic">"{{ offer.message|truncatechars:100 }}"</p>

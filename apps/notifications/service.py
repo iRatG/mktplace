@@ -339,6 +339,89 @@ class NotificationService:
             url=reverse("web:blogger_dashboard"),
         )
 
+    # ── Срок ответа на отклик и предложение: 7 дней (BZ-3) ──────────────────────
+
+    @staticmethod
+    def _deadline(item):
+        from django.utils import timezone
+
+        return f"{timezone.localtime(item.expires_at):%d.%m.%Y %H:%M}"
+
+    @staticmethod
+    def notify_response_reminder(resp):
+        """До конца срока ответа на отклик меньше суток → рекламодателю."""
+        campaign = resp.campaign
+        NotificationService.notify(
+            user=campaign.advertiser,
+            notification_type=Notification.Type.CAMPAIGN_RESPONSE,
+            title="Ответьте на отклик",
+            body=(
+                f"Отклик блогера {resp.blogger.public_name} на кампанию «{campaign.name}» ждёт решения. "
+                f"Ответить нужно до {NotificationService._deadline(resp)}, иначе отклик истечёт."
+            ),
+            url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
+            campaign=campaign,
+        )
+
+    @staticmethod
+    def notify_direct_offer_reminder(offer):
+        """До конца срока ответа на предложение меньше суток → блогеру."""
+        NotificationService.notify(
+            user=offer.blogger,
+            notification_type=Notification.Type.DIRECT_OFFER_RECEIVED,
+            title="Ответьте на предложение",
+            body=(
+                f"Предложение по кампании «{offer.campaign.name}» ждёт вашего ответа. "
+                f"Ответить нужно до {NotificationService._deadline(offer)}, иначе предложение истечёт."
+            ),
+            url=reverse("web:blogger_dashboard"),
+        )
+
+    @staticmethod
+    def notify_response_timed_out(resp):
+        """Отклик истёк без ответа за 7 дней → блогеру и рекламодателю."""
+        campaign = resp.campaign
+        NotificationService.notify(
+            user=resp.blogger,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Срок ответа на отклик истёк",
+            body=(
+                f"Рекламодатель не ответил на ваш отклик на кампанию «{campaign.name}» за 7 дней — отклик истёк. "
+                f"Вы можете откликнуться снова."
+            ),
+            url=reverse("web:my_responses"),
+        )
+        NotificationService.notify(
+            user=campaign.advertiser,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Отклик истёк без ответа",
+            body=f"Отклик блогера {resp.blogger.public_name} на кампанию «{campaign.name}» истёк: прошло 7 дней без ответа.",
+            url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
+            campaign=campaign,
+        )
+
+    @staticmethod
+    def notify_direct_offer_timed_out(offer):
+        """Предложение истекло без ответа за 7 дней → блогеру и рекламодателю."""
+        campaign = offer.campaign
+        NotificationService.notify(
+            user=offer.blogger,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Предложение истекло",
+            body=f"Предложение по кампании «{campaign.name}» истекло: прошло 7 дней без ответа.",
+            url=reverse("web:blogger_dashboard"),
+        )
+        NotificationService.notify(
+            user=offer.advertiser,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Предложение истекло без ответа",
+            body=(
+                f"Блогер {offer.blogger.public_name} не ответил на предложение по кампании «{campaign.name}» за 7 дней. "
+                f"Вы можете отправить новое предложение."
+            ),
+            url=reverse("web:direct_offer_create", kwargs={"platform_pk": offer.platform_id}),
+        )
+
     @staticmethod
     def notify_campaign_rejected(advertiser, campaign):
         """Кампания отклонена модератором → рекламодателю."""

@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from apps.notifications.service import NotificationService
 
-from .models import Campaign, DirectOffer, Response
+from .models import RESPONSE_REMINDER_BEFORE, Campaign, DirectOffer, Response
 
 COMPLETABLE_STATUSES = (Campaign.Status.ACTIVE, Campaign.Status.PAUSED)
 
@@ -71,6 +71,52 @@ def complete_expired_campaigns(today=None):
     return sum(1 for pk in list(pks) if complete_campaign(pk, today))
 
 
+# ── Срок ответа на отклик и прямое предложение: 7 дней, напоминание за сутки (BZ-3) ──
+
+def expire_overdue_responses_and_offers(now=None):
+    """Ожидающие отклики и предложения с прошедшим сроком → EXPIRED, обе стороны уведомлены.
+
+    Срок идёт независимо от статуса кампании (Р6). Возвращает (откликов, предложений).
+    """
+    now = now or timezone.now()
+    with transaction.atomic():
+        responses = list(
+            Response.objects.select_for_update()
+            .filter(status=Response.Status.PENDING, expires_at__lte=now)
+            .select_related("blogger", "campaign__advertiser")
+        )
+        offers = list(
+            DirectOffer.objects.select_for_update()
+            .filter(status=DirectOffer.Status.PENDING, expires_at__lte=now)
+            .select_related("blogger", "advertiser", "campaign")
+        )
+        Response.objects.filter(pk__in=[r.pk for r in responses]).update(status=Response.Status.EXPIRED)
+        DirectOffer.objects.filter(pk__in=[o.pk for o in offers]).update(status=DirectOffer.Status.EXPIRED)
+
+    for resp in responses:
+        NotificationService.notify_response_timed_out(resp)
+    for offer in offers:
+        NotificationService.notify_direct_offer_timed_out(offer)
+    return len(responses), len(offers)
+
+
+def send_response_offer_reminders(now=None):
+    """За сутки до срока — одно напоминание тому, кто должен ответить. Возвращает число напоминаний."""
+    now = now or timezone.now()
+    window = dict(status="pending", reminder_sent_at__isnull=True, expires_at__gt=now,
+                  expires_at__lte=now + RESPONSE_REMINDER_BEFORE)
+    sent = 0
+    for model, notify in ((Response, NotificationService.notify_response_reminder),
+                          (DirectOffer, NotificationService.notify_direct_offer_reminder)):
+        with transaction.atomic():
+            items = list(model.objects.select_for_update().filter(**window).select_related("campaign"))
+            model.objects.filter(pk__in=[i.pk for i in items]).update(reminder_sent_at=now)
+        for item in items:
+            notify(item)
+        sent += len(items)
+    return sent
+
+
 # ── Принятие отклика и прямого предложения: одна логика для сайта и API ──────
 
 class AcceptError(Exception):
@@ -94,6 +140,8 @@ def accept_response(response_pk, actor):
         campaign = Campaign.objects.select_for_update().get(pk=resp.campaign_id)
         if resp.status != Response.Status.PENDING:
             raise AcceptError("Можно принять только ожидающий отклик.")
+        if resp.is_overdue:
+            raise AcceptError(f"Срок ответа на отклик истёк ({timezone.localtime(resp.expires_at):%d.%m.%Y %H:%M}).")
         if campaign.status != Campaign.Status.ACTIVE:
             raise AcceptError("Нельзя принимать отклики — кампания не активна.")
         amount = resp.proposed_price or campaign.fixed_price
@@ -129,6 +177,8 @@ def accept_direct_offer(offer_pk, actor):
         campaign = Campaign.objects.select_for_update().get(pk=offer.campaign_id)
         if offer.status != DirectOffer.Status.PENDING:
             raise AcceptError("Предложение уже обработано.")
+        if offer.is_overdue:
+            raise AcceptError(f"Срок ответа на предложение истёк ({timezone.localtime(offer.expires_at):%d.%m.%Y %H:%M}).")
         if campaign.status != Campaign.Status.ACTIVE:
             raise AcceptError("Кампания больше не активна.")
         amount = offer.proposed_price or campaign.fixed_price

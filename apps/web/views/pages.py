@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from apps.billing.formatting import format_money
 from apps.campaigns.models import Campaign, DirectOffer
@@ -200,7 +201,7 @@ def blogger_dashboard(request):
     profile, _ = BloggerProfile.objects.get_or_create(user=user)
 
     incoming_offers = (
-        DirectOffer.objects.filter(blogger=user, status=DirectOffer.Status.PENDING)
+        DirectOffer.objects.filter(blogger=user, status=DirectOffer.Status.PENDING, expires_at__gt=timezone.now())
         .select_related("advertiser", "advertiser__advertiser_profile", "campaign", "platform")
         .order_by("-created_at")
     )

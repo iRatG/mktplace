@@ -1,7 +1,24 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
+
+# Срок ответа на отклик и прямое предложение (решение бизнеса 07.10.2026, BZ-3): потом — EXPIRED.
+RESPONSE_TTL = timedelta(days=7)
+# За сколько до срока напомнить тому, кто должен ответить.
+RESPONSE_REMINDER_BEFORE = timedelta(hours=24)
+
+
+def response_deadline():
+    """Срок ответа для нового отклика или предложения — сейчас + 7 дней.
+
+    Миграция, добавившая поле, вызвала эту же функцию один раз для всех существующих строк:
+    ожидавшие на момент выпуска получили «момент выпуска + 7 дней» (Р6).
+    """
+    return timezone.now() + RESPONSE_TTL
 
 
 # Форматы контента и соцсети кампании — один список подписей для форм и шаблонов
@@ -136,7 +153,7 @@ class Response(models.Model):
         ACCEPTED = "accepted", "Принят"
         REJECTED = "rejected", "Отклонён"
         WITHDRAWN = "withdrawn", "Отозван"
-        EXPIRED = "expired", "Истёк"  # кампания завершилась, пока отклик ждал решения
+        EXPIRED = "expired", "Истёк"  # кампания завершилась или прошёл срок ответа (expires_at)
 
     blogger = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -166,6 +183,8 @@ class Response(models.Model):
     rejection_reason = models.TextField(
         blank=True, help_text="Комментарий рекламодателя при отклонении — его видит блогер",
     )
+    expires_at = models.DateTimeField(default=response_deadline, help_text="Срок ответа — потом EXPIRED")
+    reminder_sent_at = models.DateTimeField(null=True, blank=True, help_text="Когда напомнили о сроке ответа")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -191,6 +210,11 @@ class Response(models.Model):
     def __str__(self):
         return f"{self.blogger.email} -> {self.campaign.name} ({self.status})"
 
+    @property
+    def is_overdue(self):
+        """Срок ответа прошёл — принять уже нельзя, даже если часовая задача ещё не перевела в EXPIRED."""
+        return self.expires_at <= timezone.now()
+
 
 class DirectOffer(models.Model):
     """Advertiser initiates a deal directly to a blogger (reverse of Response)."""
@@ -199,7 +223,7 @@ class DirectOffer(models.Model):
         PENDING = "pending", "Ждёт ответа"
         ACCEPTED = "accepted", "Принято"
         REJECTED = "rejected", "Отклонено"
-        EXPIRED = "expired", "Истекло"  # кампания завершилась, пока предложение ждало ответа
+        EXPIRED = "expired", "Истекло"  # кампания завершилась или прошёл срок ответа (expires_at)
 
     advertiser = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -238,6 +262,8 @@ class DirectOffer(models.Model):
         null=True, blank=True,
         related_name="direct_offer",
     )
+    expires_at = models.DateTimeField(default=response_deadline, help_text="Срок ответа — потом EXPIRED")
+    reminder_sent_at = models.DateTimeField(null=True, blank=True, help_text="Когда напомнили о сроке ответа")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -255,6 +281,11 @@ class DirectOffer(models.Model):
 
     def __str__(self):
         return f"DirectOffer {self.advertiser.email} → {self.blogger.email} ({self.status})"
+
+    @property
+    def is_overdue(self):
+        """Срок ответа прошёл — принять уже нельзя, даже если часовая задача ещё не перевела в EXPIRED."""
+        return self.expires_at <= timezone.now()
 
 
 class CampaignEditProposal(models.Model):
