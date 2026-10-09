@@ -122,6 +122,23 @@ honeypot `hp_note` → капча Turnstile, если заданы `TURNSTILE_*`
 `BlockedIP` + `BlockedIPMiddleware`; автоблок включается `AUTOBLOCK_ENABLED=True`. Детали и
 состояние на сервере — `docs/DEPLOY.md`, раздел «Защита от ботов и перегрузки».
 
+### Сделка по условиям оферты: выплата, претензия, выход, комиссия (#35–#38, #42, #43)
+Условия оферты — снимок кампании в `DirectOffer.terms` (поля карточки #42: задание, критерии приёмки, мин. срок
+сохранения, доказательства, права); показывать через `apps.web.campaign_proposals.describe_terms`. В сделку из снимка:
+`approval_terms`, `placement_terms` и комиссия из оферты (`create_deal`). Признак «сделка по новым условиям» —
+`Deal.on_package_terms` (есть `min_retention_days`); старые сделки живут по прежним правилам (72 ч, отмена, 15% из суммы).
+- Выплата — `Deal.payout_due` (поздний из: 3 рабочих дня на претензию, если не «принята», и конец срока сохранения);
+  «Принять публикацию» — `confirm_publication` без оплаты; таймер `auto_complete_overdue`.
+- Претензия — `open_claim` / `add_claim_materials` / `resolve_claim` (5 решений, раздел — `BillingService.split_deal_payment`);
+  старых `open_dispute`/`resolve_dispute` нет. Бюджет кампании — по `paid_amount`, если он есть.
+- Одностороннего отказа по новым условиям нет — `propose/accept/decline_termination`, возврат за вычетом комиссии.
+- Комиссия — `apps/billing/tariffs.py` (16/13/8% по обороту прошлого месяца, `SpecialTariff`), фиксируется при оферте
+  (`DirectOffer.commission_percent`, `Deal.commission_amount`), резерв = цена + комиссия (`reserved_total`), исполнитель
+  получает цену целиком.
+- Закрытая кампания — `Campaign.visibility`; что видит исполнитель — только `campaigns_visible_to(blogger)` (веб и API).
+- На модерацию — `moderation_error` (даты, обязательные поля карточки, разрешительный документ — `permit_error`).
+- Тестам: `apps.campaigns.testing` — `CARD_FIELDS`, `CLAIM_FIELDS`, `publication_day`, `deal_from_response`.
+
 ## Структура приложений
 ```
 apps/users/         — Auth, роли, is_demo; security.py / throttling.py / blocklist.py /
@@ -133,6 +150,7 @@ apps/campaigns/     — Campaign, Response, DirectOffer
 apps/deals/         — Deal, DealStatusLog, Review, ChatMessage
 apps/billing/       — Wallet, Transaction, WithdrawalRequest, TestBalanceGrant
 apps/notifications/ — Notification, NotificationService
+apps/feedback/      — PlatformReview (отзывы о платформе, /reviews/, проверка сотрудником)
 apps/analytics/     — (views в apps/web)
 apps/business_queries/ — Ticket (внутр. тикеты ИТ), BusinessQuery/Question/Submission
                           (опросники A/B для бизнеса без аккаунта, /bq/<token>/)
