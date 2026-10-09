@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load money %}
+{% load money offer_terms %}
 
 {% block title %}Дашборд блогера — UBlogers!{% endblock %}
 
@@ -128,6 +128,12 @@
                     {% if offer.message %}
                     <p class="text-xs text-gray-600 mt-1 italic">"{{ offer.message|truncatechars:100 }}"</p>
                     {% endif %}
+                    {% with rows=offer.terms|terms_rows %}{% if rows %}
+                    <details class="mt-2" data-offer-terms>
+                        <summary class="text-xs text-orange-700 cursor-pointer">Условия оферты</summary>
+                        <div class="mt-2">{% include "campaigns/_terms.html" with rows=rows %}</div>
+                    </details>
+                    {% endif %}{% endwith %}
                 </div>
                 <div class="flex gap-2 flex-shrink-0">
                     <form method="post" action="{% url 'web:direct_offer_accept' pk=offer.pk %}">

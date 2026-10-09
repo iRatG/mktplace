@@ -9,6 +9,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.campaigns.testing import CARD_FIELDS
 from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.users.models import User
 from apps.web.campaign_proposals import changes_since_approval, form_data_from_campaign
@@ -27,7 +28,7 @@ def _campaign(advertiser, status=Campaign.Status.MODERATION):
         advertiser=advertiser, name="Кампания", payment_type=Campaign.PaymentType.FIXED,
         fixed_price=Decimal("150000"), budget=Decimal("1500000"), status=status,
         start_date=today + timedelta(days=1), end_date=today + timedelta(days=30),
-        deadline=today + timedelta(days=20), content_types=["post"], allowed_socials=["instagram"],
+        deadline=today + timedelta(days=20), **CARD_FIELDS,
     )
 
 
@@ -73,7 +74,7 @@ class RemoderationDiffTest(TestCase):
         self.assertContains(r, "что изменилось с последнего одобрения")
         rows = r.context["since_approval_rows"]
         self.assertIn(("Макс. блогеров", "0", "1"), rows)
-        self.assertIn(("Описание", "—", "Новое описание"), rows)
+        self.assertIn(("Описание", "Пост о креме", "Новое описание"), rows)
 
     def test_spaced_amount_same_value_is_not_a_change(self):
         self._approve()

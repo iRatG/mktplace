@@ -22,7 +22,7 @@
     <form method="post" class="space-y-5" novalidate
           data-error-groups="fixed_price budget max_bloggers|start_date end_date content_start deadline|payment_type cpa_type cpa_rate">
         {% csrf_token %}
-        <p class="text-xs text-gray-500">* — обязательное поле</p>
+        <p class="text-xs text-gray-500">* — обязательное поле; «нужно для модерации» — можно сохранить черновик без него, но не отправить на модерацию</p>
 
         {% if form.non_field_errors %}
         <div class="alert-error">
@@ -53,7 +53,7 @@
             </div>
 
             <div>
-                <label for="id_subject" class="block text-sm text-gray-700 mb-1">Что рекламируем</label>
+                <label for="id_subject" class="block text-sm text-gray-700 mb-1">Что рекламируем <span class="text-xs text-gray-500">(нужно для модерации)</span></label>
                 <input type="text" name="subject" id="id_subject" value="{{ form.subject.value|default:'' }}" maxlength="255"
                     {% if form.subject.errors %}aria-invalid="true" {% endif %}class="input-dark" placeholder="Например: крем для лица SPF 50, новый филиал салона" spellcheck="true" lang="ru">
                 <p class="text-xs text-gray-500 mt-1">Товар, услуга или бренд — помогает блогерам и модератору понять задачу.</p>
@@ -61,7 +61,7 @@
             </div>
 
             <div>
-                <label for="id_description" class="block text-sm text-gray-700 mb-1">Описание</label>
+                <label for="id_description" class="block text-sm text-gray-700 mb-1">Описание задания <span class="text-xs text-gray-500">(нужно для модерации)</span></label>
                 <textarea name="description" id="id_description" rows="4"
                     {% if form.description.errors %}aria-invalid="true" {% endif %}class="input-dark resize-none" spellcheck="true" lang="ru"
                     placeholder="Опишите задачу, требования к контенту, целевую аудиторию...">{{ form.description.value|default:'' }}</textarea>
@@ -225,6 +225,61 @@
                 </div>
                 {% for error in form.allowed_socials.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="allowed_socials">{{ error }}</p>{% endfor %}
             </div>
+        </div>
+
+        <!-- Задание и требования к контенту — условия оферты -->
+        <div class="card-dark rounded-xl p-5 space-y-4" data-card-content>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Задание и требования к контенту</h2>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    {% include "partials/number_input.html" with field=form.content_units label="Количество единиц контента" step=1 placeholder="1" %}
+                </div>
+            </div>
+            {% include "campaigns/_text_field.html" with field=form.key_message label="Основное сообщение" placeholder="Главная мысль, которую должен донести контент" %}
+            {% include "campaigns/_text_field.html" with field=form.mandatory_points label="Обязательные тезисы" %}
+            {% include "campaigns/_text_field.html" with field=form.disclosures label="Обязательные предупреждения и раскрытия" for_moderation=True hint="Пометка «Реклама», предупреждения для вашей категории товара. Если не требуются — напишите «нет»." %}
+            {% include "campaigns/_text_field.html" with field=form.content_restrictions label="Ограничения по тематике и содержанию" for_moderation=True hint="Если ограничений нет — напишите «нет»." %}
+            {% include "campaigns/_text_field.html" with field=form.forbidden_phrases label="Запрещённые формулировки" %}
+            {% include "campaigns/_text_field.html" with field=form.visual_requirements label="Требования к визуалу и монтажу" %}
+            {% include "campaigns/_text_field.html" with field=form.tags_requirements label="Хештеги, ссылки, отметки" placeholder="#бренд, @аккаунт, ссылка в описании" %}
+        </div>
+
+        <!-- Приёмка и права -->
+        <div class="card-dark rounded-xl p-5 space-y-4" data-card-acceptance>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Приёмка и права на контент</h2>
+            {% include "campaigns/_text_field.html" with field=form.acceptance_criteria label="Критерии приёмки" for_moderation=True hint="По чему вы примете результат: формат, содержание, соответствие согласованной версии, маркировка, дата, ссылка." %}
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    {% include "partials/number_input.html" with field=form.min_retention_days label="Мин. срок сохранения публикации, дней" step=1 placeholder="3" %}
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-700 mb-2">Доказательства исполнения <span class="text-xs text-gray-500">(кроме ссылки на публикацию)</span></label>
+                <div class="flex flex-wrap gap-2">
+                    {% for value, label in form.fields.evidence_required.choices %}
+                    <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 cursor-pointer hover:border-orange-300 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50 text-sm text-gray-700">
+                        <input type="checkbox" name="evidence_required" value="{{ value }}"
+                            {% if value in form.initial.evidence_required or value in form.data.getlist.evidence_required %}checked{% endif %}>
+                        {{ label }}
+                    </label>
+                    {% endfor %}
+                </div>
+                {% for error in form.evidence_required.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="evidence_required">{{ error }}</p>{% endfor %}
+            </div>
+            <div>
+                <label for="id_rights_owner" class="block text-sm text-gray-700 mb-1">Исключительные права на контент</label>
+                <select name="rights_owner" id="id_rights_owner" class="input-dark">
+                    {% for value, label in form.fields.rights_owner.choices %}
+                    <option value="{{ value }}" {% if form.rights_owner.value == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                {% for error in form.rights_owner.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="rights_owner">{{ error }}</p>{% endfor %}
+            </div>
+            <label class="flex items-start gap-2 text-sm text-gray-800 cursor-pointer">
+                <input type="checkbox" name="reuse_allowed" id="id_reuse_allowed" class="mt-0.5 accent-orange-500"
+                       {% if form.reuse_allowed.value %}checked{% endif %}>
+                <span>Право на репост, таргет, адаптацию контента</span>
+            </label>
         </div>
 
         {% if proposal_mode %}

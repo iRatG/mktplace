@@ -6,9 +6,10 @@ from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 
 from apps.business_queries.models import Ticket
-from apps.campaigns.models import CONTENT_TYPE_CHOICES, SOCIAL_CHOICES, Campaign, DirectOffer
+from apps.campaigns.models import CONTENT_TYPE_CHOICES, EVIDENCE_CHOICES, SOCIAL_CHOICES, Campaign, DirectOffer
 from apps.campaigns.validation import (
-    budget_committed, campaign_param_errors, deals_in_cap, past_date_errors, scheduled_publication_dates,
+    budget_committed, campaign_param_errors, card_required_errors, deals_in_cap, past_date_errors, permit_error,
+    scheduled_publication_dates,
 )
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
@@ -55,6 +56,12 @@ class CampaignForm(forms.ModelForm):
         required=False,
         label="Форматы контента",
     )
+    evidence_required = forms.MultipleChoiceField(
+        choices=EVIDENCE_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Доказательства исполнения",
+    )
     allowed_socials = forms.MultipleChoiceField(
         choices=SOCIAL_CHOICES,
         widget=forms.CheckboxSelectMultiple,
@@ -72,6 +79,9 @@ class CampaignForm(forms.ModelForm):
             "min_subscribers", "content_types", "allowed_socials",
             "max_bloggers",
             "approval_required", "content_lead_days", "review_days",
+            "content_units", "key_message", "mandatory_points", "disclosures", "forbidden_phrases",
+            "content_restrictions", "visual_requirements", "tags_requirements",
+            "acceptance_criteria", "min_retention_days", "evidence_required", "rights_owner", "reuse_allowed",
         ]
         field_classes = {
             "fixed_price": SpacedDecimalField,
@@ -96,16 +106,20 @@ class CampaignForm(forms.ModelForm):
         # Сроки согласования: пусто — значения по умолчанию (5 и 2 рабочих дня).
         self.fields["content_lead_days"].required = False
         self.fields["review_days"].required = False
+        self.fields["content_units"].required = False
+        self.fields["min_retention_days"].required = False
+        self.fields["rights_owner"].required = False
         # Restore saved multi-values from JSON list
         if self.instance.pk:
             self.initial["content_types"] = self.instance.content_types
             self.initial["allowed_socials"] = self.instance.allowed_socials
+            self.initial["evidence_required"] = self.instance.evidence_required
 
     def clean(self):
         cleaned = super().clean()
         payment_type = cleaned.get("payment_type")
-        for name in ("content_lead_days", "review_days"):
-            if name in cleaned and cleaned[name] is None:
+        for name in ("content_lead_days", "review_days", "content_units", "min_retention_days", "rights_owner"):
+            if name in cleaned and cleaned[name] in (None, ""):
                 cleaned[name] = Campaign._meta.get_field(name).default
 
         # Fixed: обязательна fixed_price > 0
@@ -138,6 +152,14 @@ class CampaignForm(forms.ModelForm):
             for name in ("start_date", "end_date"):
                 if not cleaned.get(name) and name not in self.errors:
                     self.add_error(name, "Укажите дату — без неё правку нельзя отправить на модерацию.")
+            for name, message in card_required_errors(cleaned).items():
+                if name not in self.errors:
+                    self.add_error(name, message)
+            from types import SimpleNamespace
+
+            error = permit_error(SimpleNamespace(category=cleaned.get("category"), advertiser=self.instance.advertiser))
+            if error and "category" not in self.errors:
+                self.add_error("category", error)
 
         errors = campaign_param_errors(
             payment_type=payment_type,

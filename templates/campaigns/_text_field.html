@@ -1,0 +1,9 @@
+{% comment %}Многострочное поле карточки кампании. Параметры: field — поле формы; label; hint; placeholder; for_moderation — поле нужно для отправки на модерацию.{% endcomment %}
+<div>
+    <label for="id_{{ field.html_name }}" class="block text-sm text-gray-700 mb-1">{{ label }}{% if for_moderation %} <span class="text-xs text-gray-500">(нужно для модерации)</span>{% endif %}</label>
+    <textarea name="{{ field.html_name }}" id="id_{{ field.html_name }}" rows="2"
+        {% if field.errors %}aria-invalid="true" {% endif %}class="input-dark resize-y" spellcheck="true" lang="ru"
+        placeholder="{{ placeholder|default:'' }}">{{ field.value|default:'' }}</textarea>
+    {% if hint %}<p class="text-xs text-gray-500 mt-1">{{ hint }}</p>{% endif %}
+    {% for error in field.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="{{ field.html_name }}">{{ error }}</p>{% endfor %}
+</div>

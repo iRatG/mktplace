@@ -136,6 +136,9 @@ def campaign_detail(request, pk):
             "last_rejected": last_rejected,
             "my_platforms": my_platforms,
         }
+    from apps.web.campaign_proposals import CARD_TERMS_FIELDS, campaign_snapshot, describe_terms
+
+    context["card_terms_rows"] = describe_terms(campaign_snapshot(campaign), CARD_TERMS_FIELDS)
     return render(request, "campaigns/detail.html", context)
 
 
@@ -151,6 +154,7 @@ def campaign_create(request):
         campaign.advertiser = request.user
         campaign.content_types = form.cleaned_data.get("content_types", [])
         campaign.allowed_socials = form.cleaned_data.get("allowed_socials", [])
+        campaign.evidence_required = form.cleaned_data.get("evidence_required", [])
         campaign.save()
         messages.success(request, f"Кампания «{campaign.name}» создана.")
         return redirect("web:campaign_detail", pk=campaign.pk)
@@ -171,6 +175,7 @@ def campaign_edit(request, pk):
         campaign = form.save(commit=False)
         campaign.content_types = form.cleaned_data.get("content_types", [])
         campaign.allowed_socials = form.cleaned_data.get("allowed_socials", [])
+        campaign.evidence_required = form.cleaned_data.get("evidence_required", [])
         if was_paused:
             # Решение бизнеса 04.10.2026: идущую кампанию меняют только через повторную модерацию.
             campaign.status = Campaign.Status.MODERATION
@@ -192,14 +197,12 @@ def campaign_edit(request, pk):
 def campaign_submit(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
     # Отклонённую кампанию после правок отправляют повторно; причину очищает одобрение.
-    from apps.campaigns.validation import moderation_dates_error
-
-    from apps.campaigns.validation import advertiser_verification_error
+    from apps.campaigns.validation import advertiser_verification_error, moderation_error
 
     if campaign.status not in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
         messages.error(request, "На модерацию можно отправить только черновик или отклонённую кампанию.")
-    elif moderation_dates_error(campaign):
-        messages.error(request, moderation_dates_error(campaign))
+    elif moderation_error(campaign):
+        messages.error(request, moderation_error(campaign))
     elif advertiser_verification_error(request.user):
         messages.error(request, advertiser_verification_error(request.user))
     else:

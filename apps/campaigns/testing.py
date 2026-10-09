@@ -6,6 +6,19 @@
 from django.urls import reverse
 from django.utils import timezone
 
+# Обязательные для модерации поля карточки (#42) — для тестов, которые отправляют кампанию на модерацию.
+CARD_FIELDS = {
+    "subject": "Крем для лица",
+    "description": "Пост о креме",
+    "content_types": ["post"],
+    "allowed_socials": ["instagram"],
+    "acceptance_criteria": "Пост по согласованному тексту, пометка «Реклама»",
+    "disclosures": "Пометка «Реклама»",
+    "content_restrictions": "нет",
+}
+# То же для POST веб-формы (списки — как их шлёт браузер).
+CARD_POST = {**CARD_FIELDS}
+
 
 def publication_day(campaign):
     """Ближайшая допустимая дата публикации: не раньше начала кампании, а при обязательном согласовании — с запасом

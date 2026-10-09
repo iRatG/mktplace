@@ -65,6 +65,16 @@
     </div>
 </div>
 
+{% if permit_error %}
+<div class="alert-error mb-4" data-permit-error>{{ permit_error }}</div>
+{% endif %}
+
+<div class="card-dark rounded-xl p-6 mb-4" data-card-terms>
+    <h2 class="text-gray-900 font-semibold mb-3">Задание, приёмка и права</h2>
+    {% include "campaigns/_terms.html" with rows=card_terms_rows %}
+    {% if not card_terms_rows %}<p class="text-sm text-gray-500">Не заполнено.</p>{% endif %}
+</div>
+
 <div class="card-dark rounded-xl p-6 mb-4">
     <h2 class="text-gray-900 font-semibold mb-3">Форматы и площадки</h2>
     <div class="text-xs text-gray-600 mb-1">Форматы контента</div>

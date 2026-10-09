@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.campaigns.testing import CARD_FIELDS
 from apps.billing.models import Wallet
 from apps.campaigns.models import Campaign
 from apps.campaigns.models import Response as CampaignResponse
@@ -31,7 +32,8 @@ def _user(email, role=User.Role.ADVERTISER, is_staff=False):
 def _campaign(advertiser, status=Campaign.Status.ACTIVE, name="Кампания"):
     today = timezone.localdate()
     return Campaign.objects.create(
-        advertiser=advertiser, name=name, description="desc",
+        **{**CARD_FIELDS, "description": "desc"},
+        advertiser=advertiser, name=name,
         payment_type=Campaign.PaymentType.FIXED, fixed_price=Decimal("50000"),
         budget=Decimal("500000"), status=status,
         start_date=today, end_date=today + timedelta(days=30),  # даты обязательны для модерации (Р4)

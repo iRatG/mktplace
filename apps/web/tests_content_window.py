@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.campaigns.testing import CARD_FIELDS
 from apps.campaigns.models import Campaign
 from apps.campaigns.validation import campaign_param_errors, latest_content_end, working_days_before
 from apps.users.models import User
@@ -116,6 +117,7 @@ class ContentWindowFormTest(TestCase):
 
     def test_paused_campaign_with_started_window_can_be_edited(self):
         campaign = Campaign.objects.create(
+            **CARD_FIELDS,
             advertiser=self.adv, name="Идёт", payment_type=Campaign.PaymentType.FIXED,
             fixed_price=Decimal("150000"), budget=Decimal("1500000"), status=Campaign.Status.PAUSED,
             start_date=self.today - timedelta(days=5), end_date=self.today + timedelta(days=40),

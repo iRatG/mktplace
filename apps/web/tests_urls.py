@@ -12,6 +12,7 @@ from decimal import Decimal
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from apps.campaigns.testing import CARD_FIELDS
 from apps.billing.models import Transaction, Wallet, WithdrawalRequest
 from apps.campaigns.models import Campaign, Response as CampaignResponse
 from apps.campaigns.testing import accept_web, blogger_accepts
@@ -327,6 +328,7 @@ class CampaignPagesTest(TestCase):
             advertiser=self.adv,
             name="UNIQUE_DRAFT_XZ99",
             budget=Decimal("100000"),
+            **CARD_FIELDS,
             status=Campaign.Status.DRAFT,
             # Даты обязательны для отправки на модерацию (Р4, #33).
             start_date=date.today(), end_date=date.today() + timedelta(days=30),

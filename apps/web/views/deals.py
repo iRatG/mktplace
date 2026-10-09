@@ -135,8 +135,16 @@ def deal_detail(request, pk):
         from apps.campaigns.validation import publication_calendar
         reschedule_calendar = publication_calendar(campaign)
 
+    # Условия оферты, на которых заключена сделка (снимок на момент направления).
+    from apps.campaigns.models import DirectOffer
+    from apps.web.campaign_proposals import describe_terms
+
+    offer = DirectOffer.objects.filter(deal=deal).only("terms").first()
+    offer_terms_rows = describe_terms(offer.terms) if offer else []
+
     return render(request, "deals/detail.html", {
         "deal": deal,
+        "offer_terms_rows": offer_terms_rows,
         "can_reschedule": can_reschedule,
         "date_change": date_change,
         "reschedule_calendar": reschedule_calendar,

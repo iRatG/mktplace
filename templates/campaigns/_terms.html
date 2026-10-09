@@ -1,0 +1,11 @@
+{% comment %}Условия кампании или оферты. Параметры: rows — [(подпись, значение)]; title.{% endcomment %}
+{% if rows %}
+<dl class="space-y-2 text-sm" data-terms>
+    {% for label, value in rows %}
+    <div class="flex justify-between gap-4">
+        <dt class="text-gray-500 shrink-0">{{ label }}</dt>
+        <dd class="font-medium text-gray-900 text-right whitespace-pre-line">{{ value }}</dd>
+    </div>
+    {% endfor %}
+</dl>
+{% endif %}

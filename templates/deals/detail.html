@@ -90,6 +90,14 @@
             </div>
         </div>
 
+        {% if offer_terms_rows %}
+        <details class="card-dark rounded-xl p-6" data-offer-terms>
+            <summary class="text-sm font-semibold text-gray-700 uppercase tracking-wide cursor-pointer">Условия оферты</summary>
+            <p class="text-xs text-gray-500 mt-2 mb-3">Зафиксированы при направлении оферты и имеют приоритет над объявлением кампании.</p>
+            {% include "campaigns/_terms.html" with rows=offer_terms_rows %}
+        </details>
+        {% endif %}
+
         <!-- Перенос даты публикации — только по согласию второй стороны -->
         {% if date_change %}
         <div class="card-dark rounded-xl p-6" data-date-change>

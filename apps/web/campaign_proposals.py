@@ -14,7 +14,7 @@ from apps.campaigns.models import Campaign
 
 from .forms import CampaignForm
 
-LIST_FIELDS = ("content_types", "allowed_socials")
+LIST_FIELDS = ("content_types", "allowed_socials", "evidence_required")
 
 LABELS = {
     "name": "Название",
@@ -35,7 +35,37 @@ LABELS = {
     "max_bloggers": "Макс. блогеров",
     "content_types": "Форматы контента",
     "allowed_socials": "Площадки",
+    "approval_required": "Согласовать материал перед публикацией",
+    "content_lead_days": "Сдать материал за, раб. дней до даты",
+    "review_days": "Срок рассмотрения, раб. дней",
+    "content_units": "Количество единиц контента",
+    "key_message": "Основное сообщение",
+    "mandatory_points": "Обязательные тезисы",
+    "disclosures": "Обязательные предупреждения и раскрытия",
+    "forbidden_phrases": "Запрещённые формулировки",
+    "content_restrictions": "Ограничения по тематике и содержанию",
+    "visual_requirements": "Требования к визуалу и монтажу",
+    "tags_requirements": "Хештеги, ссылки, отметки",
+    "acceptance_criteria": "Критерии приёмки",
+    "min_retention_days": "Мин. срок сохранения публикации, дней",
+    "evidence_required": "Доказательства исполнения",
+    "rights_owner": "Исключительные права на контент",
+    "reuse_allowed": "Право на репост, таргет, адаптацию",
 }
+
+# Условия оферты, которые показываются исполнителю (без служебных полей кампании: бюджет, лимиты, трекинг).
+TERMS_FIELDS = (
+    "subject", "description", "content_types", "allowed_socials", "content_units", "key_message",
+    "mandatory_points", "disclosures", "forbidden_phrases", "content_restrictions", "visual_requirements",
+    "tags_requirements", "approval_required", "content_lead_days", "review_days", "acceptance_criteria",
+    "min_retention_days", "evidence_required", "rights_owner", "reuse_allowed",
+)
+# Задание, приёмка и права — показываются отдельным блоком на странице кампании (остальное там уже есть).
+CARD_TERMS_FIELDS = (
+    "content_units", "key_message", "mandatory_points", "disclosures", "forbidden_phrases", "content_restrictions",
+    "visual_requirements", "tags_requirements", "acceptance_criteria", "min_retention_days", "evidence_required",
+    "rights_owner", "reuse_allowed",
+)
 
 
 def _raw(value):
@@ -139,11 +169,16 @@ def save_campaign_form(form):
     campaign = form.save(commit=False)
     campaign.content_types = form.cleaned_data.get("content_types", [])
     campaign.allowed_socials = form.cleaned_data.get("allowed_socials", [])
+    campaign.evidence_required = form.cleaned_data.get("evidence_required", [])
     campaign.save()
     return campaign
 
 
 def _display(field, raw):
+    from django import forms
+
+    if isinstance(field, forms.BooleanField):
+        return "да" if str(raw).strip().lower() in ("true", "on", "1") else "нет"
     if raw in ("", None, []):
         return "—"
     if isinstance(raw, list):
@@ -176,6 +211,23 @@ def describe(changes):
             change = changes[name]
             field = fields[name]
             rows.append((LABELS.get(name, name), _display(field, change["old"]), _display(field, change["new"])))
+    return rows
+
+
+def describe_terms(terms, fields_order=TERMS_FIELDS):
+    """[(подпись, значение)] условий оферты из снимка — только заданные поля, в порядке TERMS_FIELDS.
+    Поля, которых нет в снимке (оферта направлена до их появления), не показываются."""
+    if not terms:
+        return []
+    fields = CampaignForm().fields
+    rows = []
+    for name in fields_order:
+        if name not in terms:
+            continue
+        shown = _display(fields[name], terms[name])
+        if shown == "—":
+            continue
+        rows.append((LABELS.get(name, name), shown))
     return rows
 
 

@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.campaigns.testing import CARD_FIELDS
 from apps.campaigns.models import Campaign
 from apps.registration.models import LegalEntityApplication
 from apps.users.models import User
@@ -28,6 +29,7 @@ def _approve_legal_entity(advertiser):
 def _campaign(advertiser, status=Campaign.Status.DRAFT):
     today = timezone.localdate()
     return Campaign.objects.create(
+        **CARD_FIELDS,
         advertiser=advertiser, name="Кампания", payment_type=Campaign.PaymentType.FIXED,
         fixed_price=Decimal("150000"), budget=Decimal("1500000"), status=status,
         start_date=today, end_date=today + timedelta(days=30), deadline=today + timedelta(days=20),

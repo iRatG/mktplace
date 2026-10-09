@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.campaigns.testing import CARD_FIELDS
 from apps.campaigns.models import Campaign
 from apps.campaigns.validation import campaign_param_errors
 from apps.notifications.models import Notification
@@ -45,6 +46,7 @@ def _form_data(**overrides):
         "deadline": (today + timedelta(days=20)).isoformat(),
         "min_subscribers": "0",
         "max_bloggers": "0",
+        **CARD_FIELDS,
     }
     data.update(overrides)
     return data
@@ -58,6 +60,7 @@ def _campaign(advertiser, status=Campaign.Status.DRAFT, **extra):
         # Даты обязательны для модерации (Р4, #33).
         start_date=_today(), end_date=_today() + timedelta(days=40),
     )
+    fields.update(CARD_FIELDS)  # карточка заполнена — кампанию можно отправить на модерацию (#42)
     fields.update(extra)
     return Campaign.objects.create(**fields)
 
@@ -188,7 +191,7 @@ class CampaignCreatePageTest(TestCase):
         r = self.client.get(reverse("web:campaign_create"))
         self.assertContains(r, "js/number-input.js")
         self.assertContains(r, 'name="budget"')
-        self.assertContains(r, "data-number-input", count=7)
+        self.assertContains(r, "data-number-input", count=9)
         self.assertContains(r, 'name="cpa_type"')
         self.assertContains(r, 'name="cpa_tracking_url"')
 

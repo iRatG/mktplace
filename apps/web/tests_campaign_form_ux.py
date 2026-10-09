@@ -77,10 +77,11 @@ class NumberFieldsTest(TestCase):
 
     def test_every_number_field_has_step_buttons(self):
         html = self.client.get(reverse("web:campaign_create")).content.decode()
-        # цена, ставка CPA, бюджет, мин. подписчиков, макс. блогеров, сроки сдачи и рассмотрения материала
-        self.assertEqual(html.count("data-number-input"), 7)
-        self.assertEqual(html.count('data-step-button="-1"'), 7)
-        self.assertEqual(html.count('data-step-button="1"'), 7)
+        # цена, ставка CPA, бюджет, мин. подписчиков, макс. блогеров, сроки сдачи и рассмотрения материала,
+        # количество единиц контента, мин. срок сохранения публикации
+        self.assertEqual(html.count("data-number-input"), 9)
+        self.assertEqual(html.count('data-step-button="-1"'), 9)
+        self.assertEqual(html.count('data-step-button="1"'), 9)
         self.assertNotIn('type="number"', html)
 
     def test_max_bloggers_accepts_spaces(self):
@@ -104,7 +105,7 @@ class SubjectFieldTest(TestCase):
 
     def test_spellcheck_on_text_fields(self):
         html = self.client.get(reverse("web:campaign_create")).content.decode()
-        self.assertEqual(html.count('spellcheck="true"'), 3)
+        self.assertEqual(html.count('spellcheck="true"'), 11)  # название, предмет, описание + 8 текстов задания и приёмки
 
     def test_subject_saved_and_shown(self):
         self.client.post(reverse("web:campaign_create"), _form_data(subject="Крем для лица SPF 50"))

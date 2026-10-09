@@ -37,6 +37,13 @@ SOCIAL_CHOICES = [
     ("vk", "ВКонтакте"),
     ("tiktok", "TikTok"),
 ]
+# Доказательства исполнения, которые кампания требует вместе со ссылкой на публикацию.
+EVIDENCE_CHOICES = [
+    ("screenshot", "Скриншоты публикации"),
+    ("statistics", "Статистика просмотров"),
+    ("publication_time", "Подтверждение времени публикации"),
+    ("retention", "Подтверждение сохранности публикации"),
+]
 
 
 class Campaign(models.Model):
@@ -148,6 +155,38 @@ class Campaign(models.Model):
         default=2, validators=[MinValueValidator(1), MaxValueValidator(10)],
         verbose_name="Срок рассмотрения материала, рабочих дней",
     )
+    # Задание и требования к контенту — условия оферты, переходят в снимок оферты.
+    content_units = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1), MaxValueValidator(100)],
+        verbose_name="Количество единиц контента",
+    )
+    key_message = models.TextField(blank=True, verbose_name="Основное сообщение")
+    mandatory_points = models.TextField(blank=True, verbose_name="Обязательные тезисы")
+    disclosures = models.TextField(blank=True, verbose_name="Обязательные предупреждения и раскрытия")
+    forbidden_phrases = models.TextField(blank=True, verbose_name="Запрещённые формулировки")
+    content_restrictions = models.TextField(blank=True, verbose_name="Ограничения по тематике и содержанию")
+    visual_requirements = models.TextField(blank=True, verbose_name="Требования к визуалу и монтажу")
+    tags_requirements = models.TextField(blank=True, verbose_name="Хештеги, ссылки, отметки")
+    # Приёмка и права.
+    acceptance_criteria = models.TextField(blank=True, verbose_name="Критерии приёмки")
+    min_retention_days = models.PositiveSmallIntegerField(
+        default=3, validators=[MinValueValidator(1), MaxValueValidator(30)],
+        verbose_name="Минимальный срок сохранения публикации, дней",
+    )
+    evidence_required = models.JSONField(
+        default=list, blank=True, verbose_name="Доказательства исполнения",
+        help_text="Что исполнитель прикладывает к ссылке на публикацию: screenshot, statistics, publication_time, retention",
+    )
+
+    class RightsOwner(models.TextChoices):
+        BLOGGER = "blogger", "Исполнителю"
+        ADVERTISER = "advertiser", "Рекламодателю (после оплаты)"
+
+    rights_owner = models.CharField(
+        max_length=20, choices=RightsOwner.choices, default=RightsOwner.BLOGGER,
+        verbose_name="Исключительные права на контент",
+    )
+    reuse_allowed = models.BooleanField(default=False, verbose_name="Право на репост, таргет, адаптацию")
     completed_early_at = models.DateTimeField(
         null=True, blank=True, help_text="Когда рекламодатель завершил кампанию досрочно (не по сроку)",
     )

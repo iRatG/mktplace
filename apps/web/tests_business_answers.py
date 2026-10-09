@@ -15,6 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.campaigns.testing import CARD_FIELDS
 from apps.campaigns.models import Campaign
 from apps.campaigns.validation import campaign_param_errors, deals_in_cap
 from apps.deals.models import Deal
@@ -51,6 +52,7 @@ def _form_data(**overrides):
         "deadline": (today + timedelta(days=20)).isoformat(),
         "min_subscribers": "0",
         "max_bloggers": "0",
+        **CARD_FIELDS,
     }
     data.update(overrides)
     return data
@@ -64,6 +66,7 @@ def _campaign(advertiser, status, **extra):
         # Даты обязательны для модерации (Р4, #33).
         start_date=timezone.now().date(), end_date=timezone.now().date() + timedelta(days=40),
     )
+    fields.update(CARD_FIELDS)  # карточка заполнена — кампанию можно отправить на модерацию (#42)
     fields.update(extra)
     return Campaign.objects.create(**fields)
 

@@ -13,6 +13,7 @@ from apps.billing.models import WithdrawalRequest
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.campaigns.services import expired_error
+from apps.campaigns.validation import permit_error
 from apps.deals import services as transitions
 from apps.deals.models import Deal
 from apps.deals.services import TransitionError
@@ -20,7 +21,10 @@ from apps.notifications.service import NotificationService
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.users.models import User
 
-from ..campaign_proposals import changes_since_approval, compute_changes, describe, describe_changes, mark_approved
+from ..campaign_proposals import (
+    CARD_TERMS_FIELDS, campaign_snapshot, changes_since_approval, compute_changes, describe, describe_changes,
+    describe_terms, mark_approved,
+)
 from ..forms import CampaignForm, CategoryForm
 from .pages import _redirect_dashboard
 
@@ -102,6 +106,8 @@ def admin_campaign_detail(request, pk):
         "campaign": campaign,
         "proposal": proposal,
         "proposal_rows": describe_changes(proposal) if proposal else [],
+        "card_terms_rows": describe_terms(campaign_snapshot(campaign), CARD_TERMS_FIELDS),
+        "permit_error": permit_error(campaign),
         **_since_approval_context(campaign, proposal),
     })
 
@@ -163,6 +169,10 @@ def admin_campaign_approve(request, pk):
     expired = expired_error(campaign)
     if expired:
         messages.error(request, f"{expired} Отклоните кампанию с этой причиной или предложите новые даты.")
+        return redirect("web:admin_campaign_detail", pk=pk)
+    permit = permit_error(campaign)
+    if permit:
+        messages.error(request, f"{permit} Отклоните кампанию с этой причиной.")
         return redirect("web:admin_campaign_detail", pk=pk)
     campaign.status = Campaign.Status.ACTIVE
     campaign.rejection_reason = ""

@@ -148,6 +148,69 @@ def publication_calendar(campaign):
     return sorted(Counter(scheduled_publication_dates(campaign)).items())
 
 
+# Без этих полей карточка кампании неполная и на модерацию не уходит (значения — подписи для сообщения).
+CARD_REQUIRED_FOR_MODERATION = {
+    "subject": "что рекламируем",
+    "description": "описание задания",
+    "content_types": "форматы контента",
+    "allowed_socials": "площадки",
+    "acceptance_criteria": "критерии приёмки",
+    "disclosures": "обязательные предупреждения и раскрытия",
+    "content_restrictions": "ограничения по тематике и содержанию",
+}
+CARD_REQUIRED_MESSAGE = "Заполните поле — без него кампанию нельзя отправить на модерацию (если ограничений нет, напишите «нет»)."
+
+
+def card_required_errors(values):
+    """{поле: сообщение} для пустых обязательных полей карточки; values — dict итоговых значений."""
+    errors = {}
+    for name in CARD_REQUIRED_FOR_MODERATION:
+        value = values.get(name)
+        if isinstance(value, str):
+            value = value.strip()
+        if not value:
+            errors[name] = CARD_REQUIRED_MESSAGE
+    return errors
+
+
+def permit_error(campaign):
+    """Регулируемая категория требует действующего подтверждённого разрешительного документа рекламодателя."""
+    from django.utils import timezone
+
+    from apps.platforms.models import PermitDocument
+
+    category = campaign.category
+    if category is None or not category.is_regulated:
+        return None
+    today = timezone.localdate()
+    valid = PermitDocument.objects.filter(
+        user=campaign.advertiser, category=category, status=PermitDocument.Status.APPROVED,
+    ).filter(_not_expired_q(today))
+    if valid.exists():
+        return None
+    hint = f" ({category.regulated_doc_hint})" if category.regulated_doc_hint else ""
+    return (f"Категория «{category.name}» требует разрешительного документа{hint}. Загрузите его в разделе "
+            f"«Разрешительные документы» и дождитесь подтверждения — без него кампания не публикуется.")
+
+
+def _not_expired_q(today):
+    from django.db.models import Q
+
+    return Q(expires_at__isnull=True) | Q(expires_at__gte=today)
+
+
+def moderation_error(campaign):
+    """Почему кампанию нельзя отправить на модерацию — сообщение или None (даты, карточка, разрешительный документ)."""
+    error = moderation_dates_error(campaign)
+    if error:
+        return error
+    missing = card_required_errors({name: getattr(campaign, name) for name in CARD_REQUIRED_FOR_MODERATION})
+    if missing:
+        names = ", ".join(CARD_REQUIRED_FOR_MODERATION[name] for name in missing)
+        return f"Заполните в карточке кампании: {names} — без них кампанию нельзя отправить на модерацию."
+    return permit_error(campaign)
+
+
 def moderation_dates_error(campaign):
     """Даты кампании обязательны для отправки на модерацию (Р4) — сообщение или None."""
     if not campaign.start_date or not campaign.end_date:

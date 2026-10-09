@@ -45,6 +45,19 @@ class CampaignSerializer(serializers.ModelSerializer):
             "approval_required",
             "content_lead_days",
             "review_days",
+            "content_units",
+            "key_message",
+            "mandatory_points",
+            "disclosures",
+            "forbidden_phrases",
+            "content_restrictions",
+            "visual_requirements",
+            "tags_requirements",
+            "acceptance_criteria",
+            "min_retention_days",
+            "evidence_required",
+            "rights_owner",
+            "reuse_allowed",
             "responses_count",
             "created_at",
             "updated_at",
@@ -93,8 +106,29 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             "approval_required",
             "content_lead_days",
             "review_days",
+            "content_units",
+            "key_message",
+            "mandatory_points",
+            "disclosures",
+            "forbidden_phrases",
+            "content_restrictions",
+            "visual_requirements",
+            "tags_requirements",
+            "acceptance_criteria",
+            "min_retention_days",
+            "evidence_required",
+            "rights_owner",
+            "reuse_allowed",
         )
         read_only_fields = ("id",)
+
+    def validate_evidence_required(self, value):
+        from .models import EVIDENCE_CHOICES
+
+        allowed = {key for key, _ in EVIDENCE_CHOICES}
+        if not isinstance(value, list) or any(v not in allowed for v in value):
+            raise serializers.ValidationError(f"Список из значений: {', '.join(sorted(allowed))}.")
+        return value
 
     def validate(self, attrs):
         payment_type = attrs.get("payment_type")
@@ -132,9 +166,19 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             publication_dates=scheduled_publication_dates(self.instance),
         )
         if self.instance is not None and self.instance.status == Campaign.Status.PAUSED:
+            from types import SimpleNamespace
+
+            from .validation import CARD_REQUIRED_FOR_MODERATION, card_required_errors, permit_error
+
             for name in ("start_date", "end_date"):
                 if not value(name):
                     errors.setdefault(name, "Укажите дату — без неё правку нельзя отправить на модерацию.")
+            card = {name: value(name) for name in CARD_REQUIRED_FOR_MODERATION}
+            for name, message in card_required_errors(card).items():
+                errors.setdefault(name, message)
+            error = permit_error(SimpleNamespace(category=value("category"), advertiser=self.instance.advertiser))
+            if error:
+                errors.setdefault("category", error)
         dates = {name: value(name) for name in ("start_date", "end_date", "content_start", "deadline")}
         for name, message in past_date_errors(dates, self.instance).items():
             errors.setdefault(name, message)
