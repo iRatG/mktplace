@@ -67,6 +67,7 @@ urlpatterns = [
     path("deals/<int:pk>/confirm/", views.deal_confirm, name="deal_confirm"),
     path("deals/<int:pk>/cancel/", views.deal_cancel, name="deal_cancel"),
     path("deals/<int:pk>/dispute/", views.deal_dispute, name="deal_dispute"),
+    path("deals/<int:pk>/claim/materials/", views.deal_claim_materials, name="deal_claim_materials"),
     path("deals/<int:pk>/publication-date/propose/", views.deal_propose_publication_date,
          name="deal_propose_publication_date"),
     path("deals/<int:pk>/publication-date/accept/", views.deal_accept_publication_date,

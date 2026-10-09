@@ -221,40 +221,93 @@ class NotificationService:
         )
 
     @staticmethod
-    def notify_dispute_opened(deal, opened_by):
-        """Открыт спор → другой стороне и всем активным сотрудникам."""
+    def _staff():
         from apps.users.models import User
 
-        other = deal.blogger if opened_by == deal.advertiser else deal.advertiser
-        who = "Рекламодатель" if opened_by == deal.advertiser else "Блогер"
+        return User.objects.filter(is_staff=True, is_active=True)
+
+    @staticmethod
+    def notify_claim_opened(claim):
+        """Подана претензия → второй стороне (дать объяснения) и всем активным сотрудникам."""
+        deal = claim.deal
+        who = "Рекламодатель" if claim.author_id == deal.advertiser_id else "Блогер"
         NotificationService.notify(
-            user=other,
+            user=claim.respondent,
             notification_type=Notification.Type.DEAL_DISPUTED,
-            title="Открыт спор по сделке",
-            body=(f"{who} открыл спор по сделке #{deal.pk} «{deal.campaign.name}». Причина: {deal.dispute_reason}. "
-                  f"Деньги заморожены до решения сотрудника."),
+            title="Претензия по сделке",
+            body=(f"{who} подал претензию по сделке #{deal.pk} «{deal.campaign.name}»: {claim.get_subject_display()}. "
+                  f"Дайте объяснения и приложите материалы до "
+                  f"{timezone.localtime(claim.answer_until):%d.%m.%Y %H:%M}. Деньги депонированы до решения."),
             deal=deal,
         )
-        for staff in User.objects.filter(is_staff=True, is_active=True):
+        for staff in NotificationService._staff():
             NotificationService.notify(
                 user=staff,
                 notification_type=Notification.Type.DEAL_DISPUTED,
-                title="Новый спор",
-                body=f"Спор по сделке #{deal.pk} «{deal.campaign.name}»: {deal.dispute_reason}",
+                title="Новая претензия",
+                body=(f"Претензия по сделке #{deal.pk} «{deal.campaign.name}»: {claim.get_subject_display()}. "
+                      f"Решение — до {timezone.localtime(claim.decide_until):%d.%m.%Y}."),
+                url=reverse("web:admin_disputes"),
+            )
+
+    @staticmethod
+    def notify_claim_materials(claim, actor):
+        """Сторона добавила объяснения или материалы → сотрудникам."""
+        deal = claim.deal
+        for staff in NotificationService._staff():
+            NotificationService.notify(
+                user=staff,
+                notification_type=Notification.Type.DEAL_DISPUTED,
+                title="Новые материалы по претензии",
+                body=f"По претензии к сделке #{deal.pk} «{deal.campaign.name}» добавлены материалы ({actor.public_name}).",
+                url=reverse("web:admin_disputes"),
+            )
+
+    @staticmethod
+    def notify_claim_extra_docs(claim):
+        """Сотрудник запросил дополнительные документы → обеим сторонам."""
+        deal = claim.deal
+        for user in (deal.blogger, deal.advertiser):
+            NotificationService.notify(
+                user=user,
+                notification_type=Notification.Type.DEAL_DISPUTED,
+                title="Нужны дополнительные документы по претензии",
+                body=(f"По сделке #{deal.pk} «{deal.campaign.name}» сотрудник просит дополнительные материалы до "
+                      f"{timezone.localtime(claim.extra_docs_until):%d.%m.%Y}: {claim.decision_comment}"),
+                deal=deal,
+            )
+
+    @staticmethod
+    def notify_claim_decision_due(claim):
+        """Подходит срок решения по претензии → сотрудникам."""
+        deal = claim.deal
+        for staff in NotificationService._staff():
+            NotificationService.notify(
+                user=staff,
+                notification_type=Notification.Type.DEAL_DISPUTED,
+                title="Срок решения по претензии",
+                body=(f"Претензия по сделке #{deal.pk} «{deal.campaign.name}» ждёт решения до "
+                      f"{timezone.localtime(claim.decide_until):%d.%m.%Y %H:%M}."),
                 url=reverse("web:admin_disputes"),
             )
 
     @staticmethod
     def notify_dispute_resolved(deal):
-        """Спор разрешён сотрудником → обеим сторонам."""
-        paid = deal.status == "completed"
-        result = "оплата переведена блогеру" if paid else "средства возвращены рекламодателю"
+        """Решение по претензии → обеим сторонам."""
+        if deal.status == "cancelled":
+            result = "средства возвращены рекламодателю"
+        elif deal.paid_amount is not None and deal.paid_amount < deal.amount:
+            result = (f"исполнителю перечислено {format_money(deal.paid_amount)}, "
+                      f"остаток {format_money(deal.amount - deal.paid_amount)} возвращён рекламодателю")
+        else:
+            result = "оплата переведена исполнителю"
         for user in (deal.blogger, deal.advertiser):
             NotificationService.notify(
                 user=user,
                 notification_type=Notification.Type.DEAL_UPDATED,
-                title="Спор разрешён",
-                body=f"По сделке #{deal.pk} «{deal.campaign.name}» принято решение: {result}.",
+                title="Решение по претензии",
+                body=(f"По сделке #{deal.pk} «{deal.campaign.name}» принято решение: {result}. "
+                      f"{deal.dispute_resolution}".strip()),
                 deal=deal,
             )
 

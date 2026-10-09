@@ -74,9 +74,26 @@ class DealViewSet(
                                 ok="Publication confirmed. Payment follows the terms of the deal.")
 
     @action(detail=True, methods=["post"])
-    def dispute(self, request, pk=None):
+    def claim(self, request, pk=None):
+        """Претензия: subject, violated_term, description, demand, demand_details, links, files claim_files."""
+        data = request.data
+        deal = self.get_object()
+        try:
+            transitions.open_claim(
+                deal.pk, request.user, subject=data.get("subject", ""), violated_term=data.get("violated_term", ""),
+                description=data.get("description", ""), demand=data.get("demand", ""),
+                demand_details=data.get("demand_details", ""), links=data.get("links", ""),
+                files=request.FILES.getlist("claim_files"),
+            )
+        except TransitionError as e:
+            return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return DRFResponse({"detail": "Claim opened."})
+
+    @action(detail=True, methods=["post"], url_path="claim-materials")
+    def claim_materials(self, request, pk=None):
         return self._transition(
-            transitions.open_dispute, request.user, request.data.get("reason", ""), ok="Dispute opened.",
+            transitions.add_claim_materials, request.user, request.data.get("text", ""),
+            request.FILES.getlist("claim_files"), ok="Claim materials added.",
         )
 
     @action(detail=True, methods=["post"])

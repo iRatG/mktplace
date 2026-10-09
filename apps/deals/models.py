@@ -97,6 +97,10 @@ class Deal(models.Model):
     dispute_opened_at = models.DateTimeField(null=True, blank=True)
     dispute_resolved_at = models.DateTimeField(null=True, blank=True)
     dispute_resolution = models.TextField(blank=True)
+    paid_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="Сколько фактически перечислено исполнителю (раздел суммы, компенсация); пусто — вся сумма или ничего",
+    )
 
     # Data retention fields (REQ-5 — Закон «О рекламе» ст.15, 3 года хранения)
     last_distributed_at = models.DateTimeField(
@@ -192,12 +196,117 @@ class Deal(models.Model):
         return max(self.claim_until, self.retention_until)
 
     @property
+    def open_claim(self):
+        """Претензия, которая рассматривается сейчас, — или None."""
+        return self.claims.filter(status__in=["open", "extra_docs"]).select_related("author").first()
+
+    @property
     def pending_date_change(self):
         """Ожидающее ответа предложение перенести дату публикации — или None."""
         return self.date_changes.filter(status=PublicationDateChange.Status.PENDING).select_related("proposed_by").first()
 
 
 CLAIM_WORKING_DAYS = 3
+# Сроки претензии на платформе (рабочие дни): объяснения второй стороны, решение сотрудника, доп. документирование.
+CLAIM_ANSWER_WORKING_DAYS = 2
+CLAIM_DECISION_WORKING_DAYS = 5
+CLAIM_EXTRA_DOCS_WORKING_DAYS = 7
+COMPENSATION_PERCENT = 30
+
+
+class Claim(models.Model):
+    """Претензия по сделке: мотивированное возражение стороны с доказательствами; решение принимает сотрудник."""
+
+    class Subject(models.TextChoices):
+        PLACEMENT = "placement", "Размещение не соответствует условиям оферты"
+        RETENTION = "retention", "Публикация удалена или скрыта раньше срока сохранения"
+        DEADLINE = "deadline", "Нарушен срок"
+        UNAPPROVED = "unapproved", "Размещён несогласованный материал"
+        NO_REVIEW = "no_review", "Рекламодатель не рассматривает материал после правок"
+        NOT_ACCEPTED = "not_accepted", "Исполнение не принимается без оснований"
+        OTHER = "other", "Другое"
+
+    class Demand(models.TextChoices):
+        REFUND = "refund", "Вернуть деньги рекламодателю"
+        PARTIAL_REFUND = "partial_refund", "Частичный возврат"
+        REFUSE_PAYOUT = "refuse_payout", "Отказать в выплате"
+        REVISION = "revision", "Дополнительная доработка"
+        PAYOUT = "payout", "Перечислить оплату исполнителю"
+        COMPENSATION = "compensation", "Компенсация за выполненную работу"
+        OTHER = "other", "Иное"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Рассматривается"
+        EXTRA_DOCS = "extra_docs", "Дополнительное документирование"
+        RESOLVED = "resolved", "Решение принято"
+
+    class Decision(models.TextChoices):
+        TO_BLOGGER = "to_blogger", "Перечислить исполнителю в полном объёме"
+        TO_ADVERTISER = "to_advertiser", "Вернуть рекламодателю в полном объёме"
+        SPLIT = "split", "Распределить между сторонами"
+        COMPENSATION = "compensation", "Компенсация исполнителю за выполненную работу"
+
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="claims")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="claims")
+    subject = models.CharField(max_length=30, choices=Subject.choices)
+    violated_term = models.CharField(max_length=255, help_text="Какое условие оферты или правило нарушено")
+    description = models.TextField()
+    demand = models.CharField(max_length=30, choices=Demand.choices)
+    demand_details = models.TextField(blank=True)
+    links = models.TextField(blank=True, help_text="Ссылки на доказательства, по одной в строке")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
+    created_at = models.DateTimeField(auto_now_add=True)
+    answer_until = models.DateTimeField()
+    decide_until = models.DateTimeField()
+    explanation = models.TextField(blank=True)
+    explained_at = models.DateTimeField(null=True, blank=True)
+    extra_docs_until = models.DateTimeField(null=True, blank=True)
+    decision = models.CharField(max_length=20, choices=Decision.choices, blank=True)
+    blogger_part = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    decision_comment = models.TextField(blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="decided_claims",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["deal"], condition=models.Q(status__in=["open", "extra_docs"]), name="one_open_claim_per_deal",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Claim#{self.pk} deal={self.deal_id} ({self.status})"
+
+    @property
+    def respondent(self):
+        return self.deal.advertiser if self.author_id == self.deal.blogger_id else self.deal.blogger
+
+    @property
+    def link_list(self):
+        return [line.strip() for line in self.links.splitlines() if line.strip()]
+
+    @property
+    def compensation_grounds(self):
+        """Есть ли признаки ПЭТ-компенсации: исполнитель отправлял материал повторно, а срок рассмотрения истёк."""
+        deal = self.deal
+        return deal.creative_submissions >= 2 and deal.review_overdue
+
+
+class ClaimFile(models.Model):
+    """Доказательство к претензии или объяснениям: скриншоты, статистика, переписка, видео- и аудиоматериалы."""
+
+    claim = models.ForeignKey(Claim, on_delete=models.CASCADE, related_name="files")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    file = models.FileField(upload_to="claim_files/%Y/%m/")
+    note = models.CharField(max_length=255, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["uploaded_at"]
 
 
 class DealEvidence(models.Model):

@@ -167,14 +167,14 @@ class CardFieldsTest(TestCase):
         self.assertIn("data-card-terms", page)
 
         # правка кампании после оферты не меняет условия сделки
-        Campaign.objects.filter(pk=self.campaign.pk).update(key_message="Другое")
+        Campaign.objects.filter(pk=self.campaign.pk).update(key_message="Новое сообщение XYZ")
         from apps.campaigns.services import accept_direct_offer
 
         deal = accept_direct_offer(offer.pk, blogger)
         page = self.client.get(reverse("web:deal_detail", kwargs={"pk": deal.pk})).content.decode()
         self.assertIn("data-offer-terms", page)
         self.assertIn("Защита от солнца", page)
-        self.assertNotIn("Другое", page)
+        self.assertNotIn("Новое сообщение XYZ", page)
 
     def test_old_offer_terms_without_new_fields_shown_partially(self):
         rows = describe_terms({"subject": "Крем", "approval_required": "True"})

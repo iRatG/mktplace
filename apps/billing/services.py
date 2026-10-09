@@ -171,6 +171,51 @@ class BillingService:
 
     @classmethod
     @db_transaction.atomic
+    def split_deal_payment(cls, deal, blogger_part):
+        """Решение по претензии с разделом суммы (или компенсацией): исполнителю — blogger_part за вычетом комиссии,
+        остаток возвращается рекламодателю. Комиссия — только с перечисленной исполнителю части."""
+        advertiser_wallet = cls._get_or_create_wallet(deal.advertiser)
+        blogger_wallet = cls._get_or_create_wallet(deal.blogger)
+        amount = deal.amount
+        blogger_part = Decimal(blogger_part).quantize(Decimal("0.01"))
+        if not (Decimal("0") < blogger_part < amount):
+            raise ValueError(f"Split part {blogger_part} must be between 0 and deal amount {amount}.")
+        commission_percent = Decimal(getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15))
+        commission = (blogger_part * commission_percent / Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        earning = blogger_part - commission
+        refund = amount - blogger_part
+
+        cls._require_reserved(advertiser_wallet, amount, deal)
+        advertiser_wallet.reserved_balance -= amount
+        advertiser_wallet.available_balance += refund
+        advertiser_wallet.save(update_fields=["available_balance", "reserved_balance", "updated_at"])
+        Transaction.objects.create(
+            wallet=advertiser_wallet, type=Transaction.Type.PAYMENT, amount=-blogger_part,
+            balance_after=advertiser_wallet.available_balance - refund, deal=deal,
+            description=f"Payment (claim decision) for deal #{deal.pk}: part {blogger_part} (commission {commission_percent}%)",
+        )
+        Transaction.objects.create(
+            wallet=advertiser_wallet, type=Transaction.Type.RELEASE, amount=refund,
+            balance_after=advertiser_wallet.available_balance, deal=deal,
+            description=f"Refund (claim decision) for deal #{deal.pk}",
+        )
+        blogger_wallet.available_balance += earning
+        blogger_wallet.save(update_fields=["available_balance", "updated_at"])
+        Transaction.objects.create(
+            wallet=blogger_wallet, type=Transaction.Type.EARNING, amount=earning,
+            balance_after=blogger_wallet.available_balance, deal=deal,
+            description=f"Earning (claim decision) for deal #{deal.pk} (after {commission_percent}% commission)",
+        )
+        profile = getattr(deal.blogger, "blogger_profile", None)
+        if profile is not None:
+            profile.deals_count += 1
+            profile.save(update_fields=["deals_count"])
+        return advertiser_wallet, blogger_wallet
+
+    @classmethod
+    @db_transaction.atomic
     def process_withdrawal(cls, withdrawal: WithdrawalRequest):
         """
         Move funds from blogger's available_balance to on_withdrawal

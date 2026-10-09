@@ -250,30 +250,35 @@ def admin_platform_reject(request, pk):
 
 @_staff_required
 def admin_disputes(request):
-    deals = (
+    from apps.deals.models import Claim
+
+    deals = list(
         Deal.objects.filter(status=Deal.Status.DISPUTED)
         .select_related("campaign", "blogger", "advertiser", "platform")
+        .prefetch_related("claims__files", "evidence")
         .order_by("dispute_opened_at")
     )
-    return render(request, "admin_panel/disputes.html", {"deals": deals})
+    for deal in deals:
+        deal.current_claim = next((c for c in deal.claims.all() if c.status != Claim.Status.RESOLVED), None)
+    return render(request, "admin_panel/disputes.html", {
+        "deals": deals, "decisions": Claim.Decision.choices, "now": timezone.now(),
+    })
 
 
 @_staff_required
 @require_POST
 def admin_dispute_resolve(request, pk):
-    """Admin resolves dispute: complete (pay blogger) or cancel (return to advertiser)."""
+    """Решение сотрудника по претензии: всё исполнителю / всё рекламодателю / раздел / компенсация / доп. документы."""
     deal = get_object_or_404(Deal, pk=pk, status=Deal.Status.DISPUTED)
-    resolution = request.POST.get("resolution")  # "complete" or "cancel"
-    comment = request.POST.get("comment", "").strip()
-
+    decision = request.POST.get("decision", "")
     try:
-        transitions.resolve_dispute(deal.pk, request.user, resolution, comment)
+        transitions.resolve_claim(deal.pk, request.user, decision, request.POST.get("comment", ""),
+                                  request.POST.get("blogger_part"))
     except TransitionError as e:
         messages.error(request, str(e))
         return redirect("web:admin_disputes")
-    msg = ("Досудебное урегулирование завершено — оплата переведена блогеру." if resolution == "complete"
-           else "Досудебное урегулирование завершено — средства возвращены рекламодателю.")
-    messages.success(request, msg)
+    messages.success(request, "Запрошены дополнительные документы." if decision == "extra_docs"
+                     else "Решение по претензии принято.")
     return redirect("web:admin_disputes")
 
 

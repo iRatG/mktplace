@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.deals import services as transitions
-from apps.deals.models import ChatMessage, Deal, Review
+from apps.deals.models import ChatMessage, Claim, Deal, Review
 from apps.deals.services import TransitionError
 from apps.profiles.models import BloggerProfile
 from apps.users.models import User
@@ -152,6 +152,11 @@ def deal_detail(request, pk):
         "offer_terms_rows": offer_terms_rows,
         "evidence_fields": evidence_fields,
         "evidence_items": deal.evidence.all(),
+        "claim": deal.open_claim or deal.claims.filter(status=Claim.Status.RESOLVED).first(),
+        "can_claim": (not user.is_staff and user in (deal.blogger, deal.advertiser)
+                      and deal.status in transitions.CLAIMABLE),
+        "claim_subjects": Claim.Subject.choices,
+        "claim_demands": Claim.Demand.choices,
         "can_reschedule": can_reschedule,
         "date_change": date_change,
         "reschedule_calendar": reschedule_calendar,
@@ -279,13 +284,34 @@ def deal_submit_creative(request, pk):
 @login_required
 @require_POST
 def deal_dispute(request, pk):
-    """Участник сделки открывает спор на проверке публикации → «Оспорена», деньги заморожены."""
+    """Сторона сделки подаёт претензию — основание, нарушенное условие, требование, доказательства."""
+    post = request.POST
     try:
-        transitions.open_dispute(_own_deal(request, pk).pk, request.user, request.POST.get("reason", ""))
+        transitions.open_claim(
+            _own_deal(request, pk).pk, request.user,
+            subject=post.get("subject", ""), violated_term=post.get("violated_term", ""),
+            description=post.get("description", ""), demand=post.get("demand", ""),
+            demand_details=post.get("demand_details", ""), links=post.get("links", ""),
+            files=request.FILES.getlist("claim_files"),
+        )
     except TransitionError as e:
         messages.error(request, str(e))
         return redirect("web:deal_detail", pk=pk)
-    messages.success(request, "Спор открыт. Сотрудник рассмотрит его, деньги заморожены до решения.")
+    messages.success(request, "Претензия подана. Деньги депонированы до решения сотрудника.")
+    return redirect("web:deal_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def deal_claim_materials(request, pk):
+    """Объяснения второй стороны или дополнительные материалы к претензии."""
+    try:
+        transitions.add_claim_materials(_own_deal(request, pk).pk, request.user, request.POST.get("text", ""),
+                                        request.FILES.getlist("claim_files"))
+    except TransitionError as e:
+        messages.error(request, str(e))
+        return redirect("web:deal_detail", pk=pk)
+    messages.success(request, "Материалы добавлены к претензии.")
     return redirect("web:deal_detail", pk=pk)
 
 

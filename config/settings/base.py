@@ -179,6 +179,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.deals.tasks.auto_cancel_overdue_deals',
         'schedule': 3600,  # every hour
     },
+    'claim-reminders': {
+        'task': 'apps.deals.tasks.claim_reminders',
+        'schedule': 3600,  # every hour — срок решения по претензии, доп. документы (#36)
+    },
     'publication-date-reminders': {
         'task': 'apps.deals.tasks.publication_date_reminders',
         'schedule': 3600,  # every hour — напоминание накануне даты публикации, просрочка (#33)

@@ -14,7 +14,7 @@ from rest_framework.test import APIClient
 from apps.billing.models import Wallet
 from apps.campaigns.models import Campaign
 from apps.campaigns.models import Response as CampaignResponse
-from apps.campaigns.testing import CARD_FIELDS, deal_from_response
+from apps.campaigns.testing import CARD_FIELDS, CLAIM_FIELDS, deal_from_response
 from apps.campaigns.validation import working_days_after
 from apps.deals import services as t
 from apps.deals.models import Deal, DealEvidence
@@ -136,7 +136,7 @@ class RetentionPayoutTest(TestCase):
         deal = self._publish(self._deal())
         t.confirm_publication(deal.pk, self.adv)
         self._age(deal, days=6)  # принято, претензионный прошёл, но срок сохранения идёт
-        t.open_dispute(deal.pk, self.adv, "Публикацию удалили")
+        t.open_claim(deal.pk, self.adv, **{**CLAIM_FIELDS, "subject": "retention", "description": "Публикацию удалили"})
         deal.refresh_from_db()
         self.assertEqual(deal.status, S.DISPUTED)
         self._age(deal, days=30)

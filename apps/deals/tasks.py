@@ -36,3 +36,11 @@ def publication_date_reminders():
     overdue = notify_overdue_publications()
     reviews = notify_overdue_reviews()
     return f"Publication reminders: {reminded}; overdue notices: {overdue}; overdue reviews: {reviews}."
+
+
+@shared_task
+def claim_reminders():
+    """Претензии: напоминание сотрудникам за рабочий день до срока решения; конец доп. документирования (раз в час)."""
+    from .services import remind_claim_decisions
+
+    return f"Claim reminders: {remind_claim_decisions()}."

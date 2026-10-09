@@ -17,7 +17,10 @@ from django.utils import timezone
 from apps.billing.services import BillingService
 from apps.notifications.service import NotificationService
 
-from .models import ChatMessage, Deal, DealEvidence, DealStatusLog, PublicationDateChange
+from .models import (
+    CLAIM_ANSWER_WORKING_DAYS, CLAIM_DECISION_WORKING_DAYS, CLAIM_EXTRA_DOCS_WORKING_DAYS, COMPENSATION_PERCENT,
+    ChatMessage, Claim, ClaimFile, Deal, DealEvidence, DealStatusLog, PublicationDateChange,
+)
 
 S = Deal.Status
 
@@ -27,7 +30,6 @@ WAITING_PAYMENT_AUTO_CANCEL_AFTER = timedelta(hours=24)
 
 BLOGGER_CANCELLABLE = (S.WAITING_PAYMENT,)
 ADVERTISER_CANCELLABLE = (S.WAITING_PAYMENT, S.IN_PROGRESS, S.WAITING_PUBLICATION)
-DISPUTABLE = (S.CHECKING, S.PUBLISHED)
 
 
 class TransitionError(Exception):
@@ -282,49 +284,198 @@ def checking_overdue(deal, now=None):
     return due <= (now or timezone.now())
 
 
-# ── Спор ─────────────────────────────────────────────────────────────────────
+# ── Претензия ────────────────────────────────────────────────────────────────
 
-def open_dispute(pk, actor, reason):
-    reason = (reason or "").strip()
-    if not reason:
-        raise TransitionError("Опишите причину спора.")
+CLAIMABLE = (S.IN_PROGRESS, S.ON_APPROVAL, S.WAITING_PUBLICATION, S.CHECKING)
+
+
+def _claim_window_error(deal, actor, subject):
+    """Срок претензии рекламодателя к размещению — 3 рабочих дня с загрузки подтверждения (или до принятия
+    публикации); претензия об удалении публикации — весь срок сохранения, пока деньги не перечислены."""
+    if actor != deal.advertiser or deal.status != S.CHECKING or deal.min_retention_days is None:
+        return None
+    if subject == Claim.Subject.RETENTION:
+        return None
+    if deal.publication_accepted_at:
+        return ("Публикация уже принята — претензию можно подать только об удалении или скрытии публикации "
+                f"(до {timezone.localtime(deal.retention_until):%d.%m.%Y %H:%M}).")
+    if deal.claim_until and timezone.now() > deal.claim_until:
+        return (f"Срок претензии по размещению истёк {timezone.localtime(deal.claim_until):%d.%m.%Y %H:%M}. "
+                f"Претензию об удалении публикации можно подать до "
+                f"{timezone.localtime(deal.retention_until):%d.%m.%Y %H:%M}.")
+    return None
+
+
+def open_claim(pk, actor, *, subject, violated_term, description, demand, demand_details="", links="", files=()):
+    """Сторона сделки подаёт претензию: основание, нарушенное условие, требование и доказательства обязательны.
+    Деньги остаются депонированными до решения сотрудника."""
+    violated_term = (violated_term or "").strip()
+    description = (description or "").strip()
+    links = (links or "").strip()
+    if subject not in Claim.Subject.values:
+        raise TransitionError("Выберите, на что претензия.")
+    if demand not in Claim.Demand.values:
+        raise TransitionError("Выберите требование.")
+    if not violated_term:
+        raise TransitionError("Укажите, какое условие оферты или правило нарушено.")
+    if not description:
+        raise TransitionError("Опишите нарушение.")
+    if not files and not links:
+        raise TransitionError("Приложите доказательства: файлы (скриншоты, статистика, переписка) или ссылки.")
+    from apps.campaigns.validation import working_days_after
+
     with transaction.atomic():
         deal = _lock(pk)
         if actor not in (deal.blogger, deal.advertiser):
-            raise TransitionError("Открыть спор может только участник сделки.")
-        _require(deal, DISPUTABLE, "Спор можно открыть только для сделки «На проверке».")
-        _move(deal, S.DISPUTED, actor, f"Открыт спор: {reason}",
-              dispute_reason=reason, dispute_opened_at=timezone.now(), is_frozen=True)
-        _chat(deal, f"Открыт спор. Причина: {reason}. Деньги заморожены до решения сотрудника.")
-    _after_commit(NotificationService.notify_dispute_opened, deal, actor)
-    return deal
+            raise TransitionError("Подать претензию может только сторона сделки.")
+        _require(deal, CLAIMABLE, "Претензию можно подать, пока сделка не завершена и деньги не перечислены.")
+        error = _claim_window_error(deal, actor, subject)
+        if error:
+            raise TransitionError(error)
+        now = timezone.now()
+        claim = Claim.objects.create(
+            deal=deal, author=actor, subject=subject, violated_term=violated_term, description=description,
+            demand=demand, demand_details=(demand_details or "").strip(), links=links,
+            answer_until=working_days_after(now, CLAIM_ANSWER_WORKING_DAYS),
+            decide_until=working_days_after(now, CLAIM_DECISION_WORKING_DAYS),
+        )
+        for f in files:
+            ClaimFile.objects.create(claim=claim, author=actor, file=f)
+        side = "Рекламодатель" if actor == deal.advertiser else "Блогер"
+        _move(deal, S.DISPUTED, actor, f"{side} подал претензию: {claim.get_subject_display()}. {description}",
+              dispute_reason=description, dispute_opened_at=now, is_frozen=True)
+        _chat(deal, f"{side} подал претензию: {claim.get_subject_display()}. Деньги остаются депонированными до "
+                    f"решения сотрудника (до {timezone.localtime(claim.decide_until):%d.%m.%Y}).")
+    _after_commit(NotificationService.notify_claim_opened, claim)
+    return claim
 
 
-def resolve_dispute(pk, staff, resolution, comment=""):
-    """Решение сотрудника: «complete» — оплата блогеру, «cancel» — возврат рекламодателю."""
-    if staff is None or not staff.is_staff:
-        raise TransitionError("Разрешить спор может только сотрудник.")
-    if resolution not in ("complete", "cancel"):
-        raise TransitionError("Укажите решение: оплатить блогеру или вернуть рекламодателю.")
-    comment = (comment or "").strip()
+def add_claim_materials(pk, actor, text="", files=()):
+    """Объяснения второй стороны и дополнительные материалы любой стороны, пока претензия рассматривается."""
+    text = (text or "").strip()
+    if not text and not files:
+        raise TransitionError("Добавьте объяснение или файлы.")
     with transaction.atomic():
         deal = _lock(pk)
-        _require(deal, (S.DISPUTED,), "Сделка уже не в статусе спора.")
-        fields = {"dispute_resolved_at": timezone.now(), "dispute_resolution": comment}
-        if resolution == "complete":
+        if actor not in (deal.blogger, deal.advertiser):
+            raise TransitionError("Материалы к претензии добавляет только сторона сделки.")
+        claim = Claim.objects.select_for_update().filter(
+            deal=deal, status__in=[Claim.Status.OPEN, Claim.Status.EXTRA_DOCS]).first()
+        if claim is None:
+            raise TransitionError("Нет претензии, которая рассматривается.")
+        if text:
+            if actor == claim.respondent:
+                claim.explanation = f"{claim.explanation}\n\n{text}".strip() if claim.explanation else text
+                claim.explained_at = claim.explained_at or timezone.now()
+            else:
+                claim.demand_details = f"{claim.demand_details}\n\n{text}".strip() if claim.demand_details else text
+            claim.save(update_fields=["explanation", "explained_at", "demand_details"])
+        for f in files:
+            ClaimFile.objects.create(claim=claim, author=actor, file=f)
+        side = "Рекламодатель" if actor == deal.advertiser else "Блогер"
+        _chat(deal, f"{side} добавил материалы к претензии.")
+    _after_commit(NotificationService.notify_claim_materials, claim, actor)
+    return claim
+
+
+def resolve_claim(pk, staff, decision, comment, blogger_part=None):
+    """Решение сотрудника по претензии: всё исполнителю, всё рекламодателю, раздел суммы, компенсация 30% или
+    дополнительное документирование (до 7 рабочих дней, деньги остаются депонированными)."""
+    from decimal import Decimal, InvalidOperation
+
+    from apps.campaigns.validation import working_days_after
+
+    if staff is None or not staff.is_staff:
+        raise TransitionError("Решение по претензии принимает только сотрудник.")
+    comment = (comment or "").strip()
+    if not comment:
+        raise TransitionError("Обоснуйте решение.")
+    decisions = set(Claim.Decision.values) | {"extra_docs"}
+    if decision not in decisions:
+        raise TransitionError("Выберите решение.")
+    with transaction.atomic():
+        deal = _lock(pk)
+        _require(deal, (S.DISPUTED,), "Сделка уже не в статусе претензии.")
+        claim = Claim.objects.select_for_update().filter(
+            deal=deal, status__in=[Claim.Status.OPEN, Claim.Status.EXTRA_DOCS]).first()
+        now = timezone.now()
+        if decision == "extra_docs":
+            if claim is None:
+                raise TransitionError("Дополнительное документирование — только по претензии.")
+            if claim.status == Claim.Status.EXTRA_DOCS:
+                raise TransitionError("Дополнительное документирование уже назначено.")
+            claim.status = Claim.Status.EXTRA_DOCS
+            claim.extra_docs_until = working_days_after(now, CLAIM_EXTRA_DOCS_WORKING_DAYS)
+            claim.decision_comment = comment
+            claim.save(update_fields=["status", "extra_docs_until", "decision_comment"])
+            text = (f"Сотрудник запросил дополнительные документы до "
+                    f"{timezone.localtime(claim.extra_docs_until):%d.%m.%Y}: {comment}")
+            DealStatusLog.log(deal, deal.status, changed_by=staff, comment=text)
+            _chat(deal, text)
+            _after_commit(NotificationService.notify_claim_extra_docs, claim)
+            return claim
+
+        amount = deal.amount
+        part = None
+        if decision == Claim.Decision.SPLIT:
+            try:
+                part = Decimal(str(blogger_part).replace(" ", "").replace("\u00a0", ""))
+            except (InvalidOperation, TypeError):
+                raise TransitionError("Укажите сумму исполнителю.")
+            if not (Decimal("0") < part < amount):
+                raise TransitionError("Сумма исполнителю — больше нуля и меньше суммы сделки.")
+        elif decision == Claim.Decision.COMPENSATION:
+            part = (amount * COMPENSATION_PERCENT / Decimal("100")).quantize(Decimal("0.01"))
+
+        fields = {"dispute_resolved_at": now, "dispute_resolution": comment}
+        label = Claim.Decision(decision).label
+        if decision == Claim.Decision.TO_BLOGGER:
             BillingService.complete_deal_payment(deal)
-            _move(deal, S.COMPLETED, staff,
-                  f"Досудебное урегулирование: оплата переведена блогеру по итогам рассмотрения. {comment}".strip(),
-                  last_distributed_at=timezone.now(), **fields)
-        else:
+            _move(deal, S.COMPLETED, staff, f"Решение по претензии: {label}. {comment}",
+                  last_distributed_at=now, paid_amount=amount, **fields)
+        elif decision == Claim.Decision.TO_ADVERTISER:
             BillingService.release_funds(deal)
-            _move(deal, S.CANCELLED, staff,
-                  f"Досудебное урегулирование: средства возвращены рекламодателю по итогам рассмотрения. {comment}".strip(),
-                  **fields)
-        _chat(deal, "Спор разрешён сотрудником: " + ("оплата переведена блогеру." if resolution == "complete"
-                                                     else "средства возвращены рекламодателю."))
+            _move(deal, S.CANCELLED, staff, f"Решение по претензии: {label}. {comment}", paid_amount=Decimal("0"), **fields)
+        else:
+            BillingService.split_deal_payment(deal, part)
+            _move(deal, S.COMPLETED, staff, f"Решение по претензии: {label} — исполнителю {part}. {comment}",
+                  last_distributed_at=now, paid_amount=part, **fields)
+        if claim is not None:
+            claim.status = Claim.Status.RESOLVED
+            claim.decision = decision
+            claim.blogger_part = part
+            claim.decision_comment = comment
+            claim.decided_by = staff
+            claim.decided_at = now
+            claim.save(update_fields=["status", "decision", "blogger_part", "decision_comment", "decided_by",
+                                      "decided_at"])
+        _chat(deal, f"Решение по претензии: {label}.")
     _after_commit(NotificationService.notify_dispute_resolved, deal)
     return deal
+
+
+def remind_claim_decisions(now=None):
+    """За рабочий день до срока решения — одно напоминание сотрудникам; истёк срок доп. документов — снова к решению."""
+    from apps.campaigns.validation import working_days_after
+
+    now = now or timezone.now()
+    reminded = 0
+    with transaction.atomic():
+        claims = list(Claim.objects.select_for_update().filter(
+            status=Claim.Status.OPEN, decision_reminder_sent_at__isnull=True).select_related("deal"))
+        due = [c for c in claims if working_days_after(now, 1) >= c.decide_until]
+        Claim.objects.filter(pk__in=[c.pk for c in due]).update(decision_reminder_sent_at=now)
+        back = list(Claim.objects.select_for_update().filter(
+            status=Claim.Status.EXTRA_DOCS, extra_docs_until__lte=now).select_related("deal"))
+        Claim.objects.filter(pk__in=[c.pk for c in back]).update(status=Claim.Status.OPEN, decide_until=now,
+                                                                decision_reminder_sent_at=None)
+    for claim in due:
+        NotificationService.notify_claim_decision_due(claim)
+        reminded += 1
+    for claim in back:
+        claim.refresh_from_db()
+        NotificationService.notify_claim_decision_due(claim)
+    return reminded + len(back)
 
 
 # ── Перенос даты публикации по согласию сторон ───────────────────────────────

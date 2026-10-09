@@ -16,6 +16,14 @@ CARD_FIELDS = {
     "disclosures": "Пометка «Реклама»",
     "content_restrictions": "нет",
 }
+# Поля претензии (#36) — основание, нарушенное условие, требование и доказательство-ссылка.
+CLAIM_FIELDS = {
+    "subject": "placement",
+    "violated_term": "Критерии приёмки оферты",
+    "description": "Пост не соответствует согласованной версии",
+    "demand": "refund",
+    "links": "https://example.com/screenshot.png",
+}
 # То же для POST веб-формы (списки — как их шлёт браузер).
 CARD_POST = {**CARD_FIELDS}
 

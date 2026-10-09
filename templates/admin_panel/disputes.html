@@ -1,38 +1,34 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}Споры — UBlogers!{% endblock %}
+{% block title %}Претензии — UBlogers!{% endblock %}
 
 {% block content %}
 <div class="mb-6 flex items-center gap-3">
     <a href="{% url 'web:admin_dashboard' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Панель</a>
-    <h1 class="text-2xl font-bold text-gray-900">Споры</h1>
+    <h1 class="text-2xl font-bold text-gray-900">Претензии</h1>
     <span class="text-sm text-gray-500">({{ deals|length }})</span>
 </div>
 
-<!-- Двухступенчатая модель разрешения споров (REQ-1, п.27⁶ ПКМ РУз № 249 от 02.08.2016) -->
 <div class="card-dark rounded-xl p-4 mb-6 border border-blue-200 bg-blue-50">
-    <div class="text-xs font-semibold text-blue-600 mb-2">Регламент разрешения споров</div>
+    <div class="text-xs font-semibold text-blue-600 mb-2">Порядок рассмотрения</div>
     <p class="text-xs text-gray-600 leading-relaxed">
-        <strong class="text-gray-700">Ступень 1 — Досудебное урегулирование через Платформу:</strong>
-        Платформа вправе провести досудебное рассмотрение спора и сопровождать процедуру претензий между Рекламодателем и Исполнителем.
-        Платформа не является судебным или арбитражным органом и не выносит юридически обязывающих решений.
-    </p>
-    <p class="text-xs text-gray-600 leading-relaxed mt-2">
-        <strong class="text-gray-700">Ступень 2 — Внешнее разбирательство:</strong>
-        В случае, если спор не удаётся урегулировать с участием Платформы, дальнейшее разбирательство осуществляется в порядке, установленном законодательством РУз
-        согласно п.27⁶ Положения об операторах электронной коммерции (ПКМ РУз от 02.08.2016 № 249).
+        Спорная сумма остаётся депонированной до решения. Вторая сторона даёт объяснения и материалы
+        (не меньше 1 рабочего дня, у нас — 2). Решение — в пределах документов платформы и представленных доказательств,
+        у нас не позже 5 рабочих дней. Можно запросить дополнительные документы — до 7 рабочих дней. Решение платформы не
+        лишает стороны права обратиться в суд.
     </p>
 </div>
 
 {% if deals %}
 <div class="space-y-4">
     {% for deal in deals %}
-    <div class="card-dark rounded-xl p-6">
+    {% with claim=deal.current_claim %}
+    <div class="card-dark rounded-xl p-6" data-claim-card="{{ deal.pk }}">
         <div class="flex items-start justify-between gap-4 mb-4">
             <div>
                 <div class="flex items-center gap-2 mb-1">
-                    <span class="text-gray-900 font-semibold">Сделка #{{ deal.pk }}</span>
-                    <span class="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">Спор</span>
+                    <a href="{% url 'web:deal_detail' deal.pk %}" class="text-gray-900 font-semibold hover:text-orange-700">Сделка #{{ deal.pk }}</a>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">{% if claim %}{{ claim.get_status_display }}{% else %}Спор{% endif %}</span>
                 </div>
                 <p class="text-sm text-gray-700 mt-1">{{ deal.campaign.name }}</p>
             </div>
@@ -45,15 +41,29 @@
         <div class="grid grid-cols-2 gap-4 mb-4">
             <div class="bg-gray-50 rounded-lg p-3">
                 <div class="text-xs text-gray-500 mb-1">Рекламодатель</div>
-                <div class="text-sm text-gray-900">{{ deal.advertiser.email }}</div>
+                <div class="text-sm text-gray-900">{{ deal.advertiser.public_name }} <span class="text-gray-400">({{ deal.advertiser.email }})</span></div>
             </div>
             <div class="bg-gray-50 rounded-lg p-3">
                 <div class="text-xs text-gray-500 mb-1">Блогер</div>
-                <div class="text-sm text-gray-900">{{ deal.blogger.email }}</div>
+                <div class="text-sm text-gray-900">{{ deal.blogger.public_name }} <span class="text-gray-400">({{ deal.blogger.email }})</span></div>
             </div>
         </div>
 
-        {% if deal.dispute_reason %}
+        {% if claim %}
+        <dl class="space-y-2 text-sm mb-4" data-claim-details>
+            <div><dt class="text-xs text-gray-500">Подал</dt><dd class="text-gray-900">{% if claim.author_id == deal.advertiser_id %}Рекламодатель{% else %}Блогер{% endif %} · {{ claim.created_at|date:"d.m.Y H:i" }}</dd></div>
+            <div><dt class="text-xs text-gray-500">Основание</dt><dd class="text-gray-900">{{ claim.get_subject_display }}</dd></div>
+            <div><dt class="text-xs text-gray-500">Нарушенное условие</dt><dd class="text-gray-900">{{ claim.violated_term }}</dd></div>
+            <div><dt class="text-xs text-gray-500">Описание</dt><dd class="text-gray-900 whitespace-pre-line">{{ claim.description }}</dd></div>
+            <div><dt class="text-xs text-gray-500">Требование</dt><dd class="text-gray-900">{{ claim.get_demand_display }}{% if claim.demand_details %}<span class="block text-gray-700 whitespace-pre-line">{{ claim.demand_details }}</span>{% endif %}</dd></div>
+            {% if claim.link_list %}<div><dt class="text-xs text-gray-500">Ссылки</dt><dd>{% for link in claim.link_list %}<a href="{{ link }}" target="_blank" rel="noopener noreferrer" class="block text-orange-600 break-all">{{ link }}</a>{% endfor %}</dd></div>{% endif %}
+            {% if claim.files.all %}<div><dt class="text-xs text-gray-500">Файлы</dt><dd>{% for f in claim.files.all %}<a href="{{ f.file.url }}" target="_blank" rel="noopener" class="block text-orange-600">{{ f.file.name|cut:"claim_files/" }}</a>{% endfor %}</dd></div>{% endif %}
+            <div><dt class="text-xs text-gray-500">Объяснения второй стороны (до {{ claim.answer_until|date:"d.m.Y H:i" }})</dt><dd class="text-gray-900 whitespace-pre-line">{{ claim.explanation|default:"— пока нет" }}</dd></div>
+            <div><dt class="text-xs text-gray-500">Срок решения</dt><dd class="{% if claim.decide_until < now %}text-red-600 font-medium{% else %}text-gray-900{% endif %}" data-decide-until>{{ claim.decide_until|date:"d.m.Y H:i" }}{% if claim.decide_until < now %} — просрочен{% endif %}</dd></div>
+            {% if claim.extra_docs_until %}<div><dt class="text-xs text-gray-500">Доп. документы до</dt><dd class="text-gray-900">{{ claim.extra_docs_until|date:"d.m.Y" }}</dd></div>{% endif %}
+            {% if claim.compensation_grounds %}<div class="text-xs text-green-700" data-compensation-grounds>Есть признаки для компенсации: исполнитель повторно отправил материал после замечаний, срок рассмотрения истёк.</div>{% endif %}
+        </dl>
+        {% elif deal.dispute_reason %}
         <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
             <div class="text-xs text-gray-500 mb-1">Причина спора</div>
             <p class="text-sm text-red-700">{{ deal.dispute_reason }}</p>
@@ -64,50 +74,36 @@
         <div class="mb-4">
             <div class="text-xs text-gray-500 mb-1">Публикация блогера</div>
             <a href="{{ deal.publication_url }}" target="_blank" rel="noopener noreferrer"
-               class="text-sm text-orange-600 hover:text-orange-700 transition-colors break-all">
-                🔗 {{ deal.publication_url }}
-            </a>
+               class="text-sm text-orange-600 hover:text-orange-700 transition-colors break-all">🔗 {{ deal.publication_url }}</a>
+            {% for item in deal.evidence.all %}<a href="{{ item.file.url }}" target="_blank" rel="noopener" class="block text-xs text-orange-600">{{ item.kind_label }}</a>{% endfor %}
         </div>
         {% endif %}
 
-        <!-- Resolution -->
-        <div class="pt-4 border-t border-gray-200">
-            <p class="text-xs text-gray-600 mb-3">Досудебное урегулирование — выбор исхода:</p>
-            <div class="flex flex-col sm:flex-row gap-4">
-                <!-- Pay blogger -->
-                <form method="post" action="{% url 'web:admin_dispute_resolve' deal.pk %}" class="flex-1">
-                    {% csrf_token %}
-                    <input type="hidden" name="resolution" value="complete">
-                    <textarea name="comment" rows="2" placeholder="Комментарий к решению"
-                              class="input-dark mb-2 resize-none text-xs"></textarea>
-                    <button type="submit"
-                            onclick="return confirm('Завершить в пользу блогера? Деньги переведутся.')"
-                            class="w-full btn-orange px-4 py-2 text-sm rounded-xl">
-                        ✅ Завершить — оплатить блогеру
-                    </button>
-                </form>
-                <!-- Return to advertiser -->
-                <form method="post" action="{% url 'web:admin_dispute_resolve' deal.pk %}" class="flex-1">
-                    {% csrf_token %}
-                    <input type="hidden" name="resolution" value="cancel">
-                    <textarea name="comment" rows="2" placeholder="Комментарий к решению"
-                              class="input-dark mb-2 resize-none text-xs"></textarea>
-                    <button type="submit"
-                            onclick="return confirm('Отменить сделку? Деньги вернутся рекламодателю.')"
-                            class="w-full px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
-                        ↩️ Отменить — вернуть рекламодателю
-                    </button>
-                </form>
+        <form method="post" action="{% url 'web:admin_dispute_resolve' deal.pk %}" class="pt-4 border-t border-gray-200 space-y-3" data-claim-decision>
+            {% csrf_token %}
+            <p class="text-xs text-gray-600">Решение:</p>
+            <div class="space-y-1">
+                {% for value, label in decisions %}
+                <label class="flex items-center gap-2 text-sm text-gray-800"><input type="radio" name="decision" value="{{ value }}" required> {{ label }}{% if value == "compensation" %} (30% суммы){% endif %}</label>
+                {% endfor %}
+                {% if claim and claim.status == "open" %}
+                <label class="flex items-center gap-2 text-sm text-gray-800"><input type="radio" name="decision" value="extra_docs"> Запросить дополнительные документы (до 7 рабочих дней)</label>
+                {% endif %}
             </div>
-        </div>
+            <input type="text" name="blogger_part" inputmode="numeric" class="input-dark text-sm" placeholder="Сумма исполнителю — для раздела">
+            <textarea name="comment" rows="2" required placeholder="Обоснование решения (обязательно)" class="input-dark resize-none text-sm"></textarea>
+            <button type="submit" onclick="return confirm('Принять решение? Деньги будут распределены по нему.')"
+                    class="btn-orange px-4 py-2 text-sm rounded-xl">Принять решение</button>
+        </form>
     </div>
+    {% endwith %}
     {% endfor %}
 </div>
 
 {% else %}
 <div class="card-dark rounded-xl px-6 py-16 text-center">
     <div class="text-4xl mb-4">✅</div>
-    <p class="text-gray-600 text-sm">Открытых споров нет.</p>
+    <p class="text-gray-600 text-sm">Претензий на рассмотрении нет.</p>
 </div>
 {% endif %}
 {% endblock %}

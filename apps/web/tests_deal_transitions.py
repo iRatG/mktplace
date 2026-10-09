@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.campaigns.testing import CLAIM_FIELDS
 from apps.billing.models import Wallet
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
@@ -111,34 +112,34 @@ class TransitionsTest(TestCase):
     def test_web_dispute_opens_and_notifies(self):
         deal = self._deal(S.CHECKING, publication_at=timezone.now())
         self.client.force_login(self.adv)
-        self.client.post(reverse("web:deal_dispute", kwargs={"pk": deal.pk}), {"reason": "Пост удалён"})
+        self.client.post(reverse("web:deal_dispute", kwargs={"pk": deal.pk}), {**CLAIM_FIELDS, "description": "Пост удалён"})
         deal.refresh_from_db()
         self.assertEqual((deal.status, deal.is_frozen, deal.dispute_reason), (S.DISPUTED, True, "Пост удалён"))
         self.assertTrue(Notification.objects.filter(user=self.blogger, type=Notification.Type.DEAL_DISPUTED).exists())
         self.assertTrue(Notification.objects.filter(user=self.staff, type=Notification.Type.DEAL_DISPUTED).exists())
 
-    def test_web_dispute_requires_reason_and_checking(self):
+    def test_web_claim_requires_fields_and_open_deal(self):
         deal = self._deal(S.CHECKING, publication_at=timezone.now())
         self.client.force_login(self.adv)
-        self.client.post(reverse("web:deal_dispute", kwargs={"pk": deal.pk}), {"reason": ""})
+        self.client.post(reverse("web:deal_dispute", kwargs={"pk": deal.pk}), {**CLAIM_FIELDS, "links": ""})
         deal.refresh_from_db()
-        self.assertEqual(deal.status, S.CHECKING)
-        in_progress = self._deal(S.IN_PROGRESS)
-        self.client.post(reverse("web:deal_dispute", kwargs={"pk": in_progress.pk}), {"reason": "x"})
-        in_progress.refresh_from_db()
-        self.assertEqual(in_progress.status, S.IN_PROGRESS)
+        self.assertEqual(deal.status, S.CHECKING)  # без доказательств претензия не подаётся
+        done = self._deal(S.COMPLETED)
+        self.client.post(reverse("web:deal_dispute", kwargs={"pk": done.pk}), CLAIM_FIELDS)
+        done.refresh_from_db()
+        self.assertEqual(done.status, S.COMPLETED)
 
     def test_dispute_resolution_pays_and_notifies_both(self):
         deal = self._deal(S.CHECKING, publication_at=timezone.now())
-        transitions.open_dispute(deal.pk, self.blogger, "Не подтверждают")
+        transitions.open_claim(deal.pk, self.blogger, **{**CLAIM_FIELDS, "subject": "not_accepted", "demand": "payout"})
         self.client.force_login(self.staff)
         self.client.post(reverse("web:admin_dispute_resolve", kwargs={"pk": deal.pk}),
-                         {"resolution": "complete", "comment": "Пост на месте"})
+                         {"decision": "to_blogger", "comment": "Пост на месте"})
         deal.refresh_from_db()
         self.assertEqual(deal.status, S.COMPLETED)
         self.assertIsNotNone(deal.last_distributed_at)
         for user in (self.adv, self.blogger):
-            self.assertTrue(Notification.objects.filter(user=user, title="Спор разрешён").exists())
+            self.assertTrue(Notification.objects.filter(user=user, title="Решение по претензии").exists())
 
     # ── принятие отклика ─────────────────────────────────────────────────────
     def test_double_accept_is_an_error_not_500(self):

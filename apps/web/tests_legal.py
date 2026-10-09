@@ -18,6 +18,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.campaigns.testing import CLAIM_FIELDS
 from apps.billing.models import Wallet
 from apps.campaigns.models import Campaign
 from apps.deals.models import Deal, DealStatusLog
@@ -145,17 +146,17 @@ class REQ1DisputeResolutionWordingTest(TestCase):
 
     def test_resolve_complete_logs_pretrial_comment(self):
         url = reverse("web:admin_dispute_resolve", kwargs={"pk": self.deal.pk})
-        self.client.post(url, {"resolution": "complete", "comment": "Обязательства выполнены"})
+        self.client.post(url, {"decision": "to_blogger", "comment": "Обязательства выполнены"})
         log = DealStatusLog.objects.filter(deal=self.deal, new_status=Deal.Status.COMPLETED).first()
         self.assertIsNotNone(log)
-        self.assertIn("Досудебное", log.comment)
+        self.assertIn("Решение по претензии", log.comment)
 
     def test_resolve_cancel_logs_pretrial_comment(self):
         url = reverse("web:admin_dispute_resolve", kwargs={"pk": self.deal.pk})
-        self.client.post(url, {"resolution": "cancel", "comment": "Блогер не выполнил"})
+        self.client.post(url, {"decision": "to_advertiser", "comment": "Блогер не выполнил"})
         log = DealStatusLog.objects.filter(deal=self.deal, new_status=Deal.Status.CANCELLED).first()
         self.assertIsNotNone(log)
-        self.assertIn("Досудебное", log.comment)
+        self.assertIn("Решение по претензии", log.comment)
 
     def test_disputes_page_accessible_by_staff(self):
         url = reverse("web:admin_disputes")
@@ -708,8 +709,8 @@ class REQ5DataRetentionFieldsTest(TestCase):
 
         api = APIClient()
         api.force_authenticate(self.adv)
-        url = f"/api/v1/deals/{deal.pk}/dispute/"
-        api.post(url, {"reason": "Блогер не выполнил условия"}, format="json")
+        url = f"/api/v1/deals/{deal.pk}/claim/"
+        api.post(url, {**CLAIM_FIELDS, "description": "Блогер не выполнил условия"}, format="json")
 
         deal.refresh_from_db()
         self.assertTrue(deal.is_frozen)
@@ -720,8 +721,8 @@ class REQ5DataRetentionFieldsTest(TestCase):
 
         api = APIClient()
         api.force_authenticate(self.adv)
-        url = f"/api/v1/deals/{deal.pk}/dispute/"
-        api.post(url, {"reason": "Спор"}, format="json")
+        url = f"/api/v1/deals/{deal.pk}/claim/"
+        api.post(url, CLAIM_FIELDS, format="json")
 
         deal.refresh_from_db()
         self.assertIsNotNone(deal.dispute_opened_at)
@@ -742,7 +743,7 @@ class REQ5DataRetentionFieldsTest(TestCase):
         c = Client()
         c.force_login(staff)
         url = reverse("web:admin_dispute_resolve", kwargs={"pk": deal.pk})
-        c.post(url, {"resolution": "cancel", "comment": "Возврат"})
+        c.post(url, {"decision": "to_advertiser", "comment": "Возврат"})
 
         deal.refresh_from_db()
         self.assertTrue(deal.is_frozen)

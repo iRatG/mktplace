@@ -311,10 +311,13 @@ def budget_committed(campaign):
 
     if campaign is None or campaign.pk is None:
         return Decimal("0")
+    from django.db.models.functions import Coalesce
+
+    # Сделка, оплаченная частично по решению претензии, занимает бюджет только оплаченной частью.
     deals = (
         Deal.objects.filter(campaign=campaign)
         .exclude(status=Deal.Status.CANCELLED)
-        .aggregate(total=Sum("amount"))["total"]
+        .aggregate(total=Sum(Coalesce("paid_amount", "amount")))["total"]
     ) or Decimal("0")
     cpa = (
         Conversion.objects.filter(tracking_link__deal__campaign=campaign, credited=True)
