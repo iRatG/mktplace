@@ -55,6 +55,8 @@ def _campaign(advertiser, status=Campaign.Status.DRAFT, **extra):
         advertiser=advertiser, name="Кампания на модерации", payment_type=FIXED,
         fixed_price=Decimal("150000"), budget=Decimal("1500000"), status=status,
         deadline=_today() + timedelta(days=20),
+        # Даты обязательны для модерации (Р4, #33).
+        start_date=_today(), end_date=_today() + timedelta(days=40),
     )
     fields.update(extra)
     return Campaign.objects.create(**fields)

@@ -36,7 +36,8 @@
                 {% elif resp.status == 'rejected' %}bg-red-50 text-red-600
                 {% elif resp.status == 'pending' %}bg-yellow-50 text-yellow-700
                 {% else %}bg-gray-100 text-gray-600{% endif %}">
-                {% if resp.status == 'accepted' %}Принят — сделка в «Сделках»
+                {% if resp.status == 'accepted' and resp.offer.status == 'pending' %}Вам направлена оферта — примите на дашборде до {{ resp.offer.expires_at|date:"d.m.Y H:i" }}
+                {% elif resp.status == 'accepted' %}Принят — сделка в «Сделках»
                 {% elif resp.status == 'rejected' %}Отклонён
                 {% elif resp.status == 'pending' %}Ждёт решения
                 {% elif resp.status == 'expired' and resp.campaign.status == 'active' %}Срок ответа истёк — можно откликнуться снова

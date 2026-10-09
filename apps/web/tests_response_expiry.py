@@ -17,6 +17,7 @@ from apps.campaigns.models import RESPONSE_TTL, Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.services import expire_overdue_responses_and_offers, send_response_offer_reminders
 from apps.campaigns.tasks import auto_expire_responses_and_offers
+from apps.campaigns.testing import accept_web, blogger_accepts
 from apps.deals.models import Deal
 from apps.notifications.models import Notification
 from apps.platforms.models import Platform
@@ -154,8 +155,8 @@ class ResponseExpiryTest(TestCase):
 
     def test_accept_in_time_still_works(self):
         resp = self._response()
-        self.client.force_login(self.adv)
-        self.client.post(reverse("web:response_accept", kwargs={"pk": resp.pk}))
+        accept_web(self.client, self.adv, resp)
+        blogger_accepts(resp)
         self.assertEqual(Deal.objects.count(), 1)
 
     # ── Напоминание ──────────────────────────────────────────────────────────

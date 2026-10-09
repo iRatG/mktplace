@@ -6,6 +6,7 @@ Run:
     docker compose run --rm web python manage.py test apps.web.tests_urls -v 2
 """
 import uuid
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.test import Client, TestCase
@@ -13,6 +14,7 @@ from django.urls import reverse
 
 from apps.billing.models import Transaction, Wallet, WithdrawalRequest
 from apps.campaigns.models import Campaign, Response as CampaignResponse
+from apps.campaigns.testing import accept_web, blogger_accepts
 from apps.deals.models import Deal, DealStatusLog
 from apps.platforms.models import Category, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
@@ -326,6 +328,8 @@ class CampaignPagesTest(TestCase):
             name="UNIQUE_DRAFT_XZ99",
             budget=Decimal("100000"),
             status=Campaign.Status.DRAFT,
+            # Даты обязательны для отправки на модерацию (Р4, #33).
+            start_date=date.today(), end_date=date.today() + timedelta(days=30),
         )
         self.campaign_active = make_campaign(self.adv, status=Campaign.Status.ACTIVE)
 
@@ -503,7 +507,7 @@ class CampaignResponseTest(TestCase):
         self.assertFalse(CampaignResponse.objects.filter(campaign=self.campaign).exists())
 
     def test_response_accept_creates_deal(self):
-        """Рекламодатель принимает отклик → создаётся сделка."""
+        """Рекламодатель принимает отклик → оферта; блогер принимает оферту → сделка (#33)."""
         resp = CampaignResponse.objects.create(
             blogger=self.blogger,
             campaign=self.campaign,
@@ -513,11 +517,12 @@ class CampaignResponseTest(TestCase):
             status=CampaignResponse.Status.PENDING,
         )
         c = Client()
-        c.force_login(self.adv)
-        r = c.post(reverse("web:response_accept", kwargs={"pk": resp.pk}))
+        r = accept_web(c, self.adv, resp)
         self.assertEqual(r.status_code, 302)
         resp.refresh_from_db()
         self.assertEqual(resp.status, CampaignResponse.Status.ACCEPTED)
+        self.assertFalse(Deal.objects.filter(campaign=self.campaign, blogger=self.blogger).exists())
+        blogger_accepts(resp)
         self.assertTrue(Deal.objects.filter(
             campaign=self.campaign, blogger=self.blogger
         ).exists())

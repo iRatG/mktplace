@@ -56,6 +56,42 @@ class BillingService:
 
     @classmethod
     @db_transaction.atomic
+    def reserve_for_offer(cls, offer):
+        """Резерв под индивидуальную оферту при её направлении (ПР 5.2): available → reserved."""
+        wallet = cls._get_or_create_wallet(offer.advertiser)
+        amount = offer.reserved_amount
+        if wallet.available_balance < amount:
+            raise ValueError("Insufficient funds to reserve.")
+        wallet.available_balance -= amount
+        wallet.reserved_balance += amount
+        wallet.save(update_fields=["available_balance", "reserved_balance", "updated_at"])
+        Transaction.objects.create(
+            wallet=wallet, type=Transaction.Type.RESERVE, amount=-amount,
+            balance_after=wallet.available_balance, offer=offer,
+            description=f"Резерв под оферту #{offer.pk}",
+        )
+        return wallet
+
+    @classmethod
+    @db_transaction.atomic
+    def release_offer(cls, offer):
+        """Оферта не стала сделкой (отклонена, истекла, кампания завершена) — резерв обратно в доступный."""
+        wallet = cls._get_or_create_wallet(offer.advertiser)
+        amount = offer.reserved_amount
+        if wallet.reserved_balance < amount:
+            raise ValueError(f"Reserved balance is less than offer #{offer.pk} amount.")
+        wallet.reserved_balance -= amount
+        wallet.available_balance += amount
+        wallet.save(update_fields=["available_balance", "reserved_balance", "updated_at"])
+        Transaction.objects.create(
+            wallet=wallet, type=Transaction.Type.RELEASE, amount=amount,
+            balance_after=wallet.available_balance, offer=offer,
+            description=f"Возврат резерва: оферта #{offer.pk} не принята",
+        )
+        return wallet
+
+    @classmethod
+    @db_transaction.atomic
     def release_funds(cls, deal):
         """
         Release reserved funds back to advertiser's available balance.

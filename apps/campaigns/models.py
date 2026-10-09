@@ -227,7 +227,12 @@ class Response(models.Model):
 
 
 class DirectOffer(models.Model):
-    """Advertiser initiates a deal directly to a blogger (reverse of Response)."""
+    """Индивидуальная оферта рекламодателя исполнителю (пакет документов: ПС 3.3, ПЭТ 6–7, ТО).
+
+    Два пути: прямое предложение из каталога и оферта по принятому отклику (``response``). Сумма резервируется при
+    направлении (``reserved_at``), сделка заключается только акцептом исполнителя. Оферты, направленные до этого
+    правила, резерва не имеют — резервируют при акцепте.
+    """
 
     class Status(models.TextChoices):
         PENDING = "pending", "Ждёт ответа"
@@ -274,6 +279,14 @@ class DirectOffer(models.Model):
     )
     expires_at = models.DateTimeField(default=response_deadline, help_text="Срок ответа — потом EXPIRED")
     reminder_sent_at = models.DateTimeField(null=True, blank=True, help_text="Когда напомнили о сроке ответа")
+    response = models.OneToOneField(
+        Response, on_delete=models.SET_NULL, null=True, blank=True, related_name="offer",
+        help_text="Отклик, по которому направлена оферта (пусто — прямое предложение)",
+    )
+    publication_date = models.DateField(null=True, blank=True, help_text="Дата публикации (ТО 4.3)")
+    reserved_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    reserved_at = models.DateTimeField(null=True, blank=True, help_text="Когда сумма зарезервирована (ПР 5.2)")
+    terms = models.JSONField(default=dict, blank=True, help_text="Условия кампании на момент направления (ТО 4.10)")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

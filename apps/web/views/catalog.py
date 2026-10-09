@@ -4,7 +4,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.campaigns.models import Campaign, DirectOffer
-from apps.campaigns.services import AcceptError, accept_direct_offer
+from apps.campaigns.services import AcceptError, accept_direct_offer, reject_offer, send_offer
+from apps.campaigns.validation import publication_calendar
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
 from apps.users.models import User
@@ -134,28 +135,37 @@ def direct_offer_create(request, platform_pk):
         # Guard: no duplicate offer for same advertiser+campaign+platform
         if DirectOffer.objects.filter(
             advertiser=request.user, campaign=campaign, platform=platform
-        ).exclude(status=DirectOffer.Status.REJECTED).exists():
+        ).exclude(status__in=[DirectOffer.Status.REJECTED, DirectOffer.Status.EXPIRED]).exists():
             messages.error(request, "Предложение для этой площадки в рамках данной кампании уже отправлено.")
             return redirect("web:blogger_public_profile", pk=blogger.pk)
 
-        DirectOffer.objects.create(
-            advertiser=request.user,
-            blogger=blogger,
-            campaign=campaign,
-            platform=platform,
-            content_type=form.cleaned_data["content_type"],
-            proposed_price=form.cleaned_data.get("proposed_price"),
-            message=form.cleaned_data.get("message", ""),
-        )
-        NotificationService.notify_direct_offer_received(blogger, campaign, request.user)
-        messages.success(request, f"Предложение отправлено блогеру {blogger.public_name}!")
-        return redirect("web:blogger_catalog")
+        # Индивидуальная оферта: резерв суммы, дата публикации, срок акцепта (apps/campaigns/services.send_offer).
+        try:
+            offer = send_offer(
+                campaign_pk=campaign.pk, advertiser=request.user, blogger=blogger, platform=platform,
+                publication_date=form.cleaned_data["publication_date"],
+                content_type=form.cleaned_data["content_type"],
+                price=form.cleaned_data.get("proposed_price"),
+                message=form.cleaned_data.get("message", ""),
+            )
+        except AcceptError as e:
+            form.add_error(None, str(e))
+        else:
+            messages.success(
+                request,
+                f"Оферта направлена блогеру {blogger.public_name}: публикация {offer.publication_date:%d.%m.%Y}, "
+                f"сумма в резерве. Сделка будет заключена, когда блогер примет оферту.",
+            )
+            return redirect("web:blogger_catalog")
 
     return render(request, "catalog/direct_offer.html", {
         "platform": platform,
         "blogger": blogger,
         "form": form,
         "existing_offer": existing,
+        "calendars": [
+            (c, publication_calendar(c)) for c in form.fields["campaign"].queryset
+        ],
     })
 
 
@@ -182,8 +192,7 @@ def direct_offer_reject(request, pk):
     Доступ: только владелец оффера (blogger=request.user), статус PENDING.
     Рекламодатель и чужие блогеры получают 404.
 
-    Устанавливает DirectOffer.status = REJECTED.
-    Финансовых операций не производит (деньги не резервировались).
+    Логика — apps/campaigns/services.reject_offer: REJECTED, резерв возвращается рекламодателю.
 
     При успехе: redirect → blogger_dashboard с flash-сообщением.
 
@@ -193,8 +202,10 @@ def direct_offer_reject(request, pk):
     offer = get_object_or_404(
         DirectOffer, pk=pk, blogger=request.user, status=DirectOffer.Status.PENDING
     )
-    offer.status = DirectOffer.Status.REJECTED
-    offer.save(update_fields=["status", "updated_at"])
-    NotificationService.notify_direct_offer_rejected(offer.advertiser, offer.campaign, request.user)
-    messages.success(request, "Предложение отклонено.")
+    try:
+        reject_offer(offer.pk, request.user)
+    except AcceptError as e:
+        messages.error(request, str(e))
+        return redirect("web:blogger_dashboard")
+    messages.success(request, "Оферта отклонена.")
     return redirect("web:blogger_dashboard")

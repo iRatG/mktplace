@@ -1,7 +1,9 @@
 from rest_framework import serializers
 
 from .models import Campaign, Response
-from .validation import active_response, budget_committed, campaign_param_errors, deals_in_cap, past_date_errors
+from .validation import (
+    active_response, budget_committed, campaign_param_errors, deals_in_cap, past_date_errors, scheduled_publication_dates,
+)
 
 
 class CampaignSerializer(serializers.ModelSerializer):
@@ -121,7 +123,12 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             max_bloggers=value("max_bloggers"),
             taken_slots=deals_in_cap(self.instance),
             committed_budget=budget_committed(self.instance),
+            publication_dates=scheduled_publication_dates(self.instance),
         )
+        if self.instance is not None and self.instance.status == Campaign.Status.PAUSED:
+            for name in ("start_date", "end_date"):
+                if not value(name):
+                    errors.setdefault(name, "Укажите дату — без неё правку нельзя отправить на модерацию.")
         dates = {name: value(name) for name in ("start_date", "end_date", "content_start", "deadline")}
         for name, message in past_date_errors(dates, self.instance).items():
             errors.setdefault(name, message)

@@ -8,7 +8,7 @@ from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.campaigns.services import AcceptError, accept_response, expired_error, increase_budget
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.validation import (
-    EDITABLE_STATUSES, active_response, budget_committed, budget_remaining,
+    EDITABLE_STATUSES, active_response, budget_committed, budget_remaining, publication_calendar,
 )
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
@@ -23,7 +23,7 @@ def _responses_with_blogger_data(campaign):
     """Отклики с данными блогера и площадки — без N+1 (ник, рейтинг, метрики, категории)."""
     return (
         campaign.responses
-        .select_related("blogger__blogger_profile", "platform")
+        .select_related("blogger__blogger_profile", "platform", "offer")
         .prefetch_related("platform__categories")
         .order_by("-created_at")
     )
@@ -40,6 +40,16 @@ def _budget_context(campaign):
 def _pending_proposal_context(campaign):
     proposal = campaign.edit_proposals.filter(status=CampaignEditProposal.Status.PENDING).first()
     return {"proposal": proposal, "proposal_rows": describe_changes(proposal) if proposal else []}
+
+
+def _parse_date(raw):
+    """Дата из поля <input type=date> (ГГГГ-ММ-ДД) или None."""
+    from datetime import date
+
+    try:
+        return date.fromisoformat((raw or "").strip())
+    except ValueError:
+        return None
 
 
 def _parse_price(raw):
@@ -92,6 +102,7 @@ def campaign_detail(request, pk):
             "responses": responses,
             **_pending_proposal_context(campaign),
             **_budget_context(campaign),
+            "publication_calendar": publication_calendar(campaign),
         }
     elif user.role == User.Role.ADVERTISER:
         campaign = get_object_or_404(Campaign, pk=pk, advertiser=user)
@@ -102,6 +113,7 @@ def campaign_detail(request, pk):
             "responses": responses,
             **_pending_proposal_context(campaign),
             **_budget_context(campaign),
+            "publication_calendar": publication_calendar(campaign),
         }
     else:
         campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)
@@ -176,8 +188,12 @@ def campaign_edit(request, pk):
 def campaign_submit(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
     # Отклонённую кампанию после правок отправляют повторно; причину очищает одобрение.
+    from apps.campaigns.validation import moderation_dates_error
+
     if campaign.status not in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
         messages.error(request, "На модерацию можно отправить только черновик или отклонённую кампанию.")
+    elif moderation_dates_error(campaign):
+        messages.error(request, moderation_dates_error(campaign))
     else:
         source = (
             NotificationService.MODERATION_AFTER_REJECTION
@@ -298,11 +314,15 @@ def response_accept(request, pk):
     """Рекламодатель принимает отклик — логика в apps/campaigns/services.accept_response (общая с API)."""
     resp = get_object_or_404(CampaignResponse, pk=pk, campaign__advertiser=request.user)
     try:
-        deal = accept_response(resp.pk, request.user)
+        offer = accept_response(resp.pk, request.user, _parse_date(request.POST.get("publication_date")))
     except AcceptError as e:
         messages.error(request, str(e))
         return redirect("web:campaign_detail", pk=resp.campaign_id)
-    messages.success(request, f"Отклик принят. Сделка #{deal.pk} создана.")
+    messages.success(
+        request,
+        f"Отклик принят: блогеру направлена оферта с публикацией {offer.publication_date:%d.%m.%Y}. "
+        f"Сделка будет заключена, когда блогер примет оферту.",
+    )
     return redirect("web:campaign_detail", pk=resp.campaign_id)
 
 
@@ -328,7 +348,7 @@ def my_responses(request):
         return _redirect_dashboard(request.user)
     qs = (
         CampaignResponse.objects.filter(blogger=request.user)
-        .select_related("campaign", "platform")
+        .select_related("campaign", "platform", "offer")
         .order_by("-created_at")
     )
     page_obj = Paginator(qs, 20).get_page(request.GET.get("page", 1))

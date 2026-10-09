@@ -71,6 +71,10 @@ class CampaignViewSet(viewsets.ModelViewSet):
                 {"detail": "Only draft or rejected campaigns can be submitted for moderation."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        from .validation import moderation_dates_error
+
+        if moderation_dates_error(campaign):
+            return DRFResponse({"detail": moderation_dates_error(campaign)}, status=status.HTTP_400_BAD_REQUEST)
         source = (
             NotificationService.MODERATION_AFTER_REJECTION
             if campaign.status == Campaign.Status.REJECTED
@@ -189,12 +193,22 @@ class ResponseViewSet(
         response_obj = self.get_object()
         if response_obj.campaign.advertiser != request.user:
             raise PermissionDenied("Only the campaign advertiser can accept responses.")
+        from datetime import date
+
         try:
-            deal = accept_response(response_obj.pk, request.user)
+            publication_date = date.fromisoformat(str(request.data.get("publication_date", "")).strip())
+        except ValueError:
+            return DRFResponse(
+                {"publication_date": "Укажите дату публикации в формате ГГГГ-ММ-ДД."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            offer = accept_response(response_obj.pk, request.user, publication_date)
         except AcceptError as e:
             return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return DRFResponse(
-            {"detail": "Response accepted. Deal created.", "deal_id": deal.pk},
+            {"detail": "Response accepted. Offer sent to the blogger.", "offer_id": offer.pk,
+             "publication_date": str(offer.publication_date), "accept_until": offer.expires_at.isoformat()},
             status=status.HTTP_201_CREATED,
         )
 

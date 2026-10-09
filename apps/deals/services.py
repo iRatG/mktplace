@@ -72,17 +72,24 @@ def _after_commit(func, *args, **kwargs):
 
 # ── Создание ─────────────────────────────────────────────────────────────────
 
-def create_deal(*, campaign, blogger, platform, advertiser, amount, actor, comment, response=None):
-    """Сделка из принятого отклика или прямого предложения: резерв денег и сразу «В работе».
+def create_deal(*, campaign, blogger, platform, advertiser, amount, actor, comment, response=None,
+                offer=None, publication_date=None):
+    """Сделка по акцепту индивидуальной оферты — сразу «В работе» (ПС 3.3, ТО 2).
 
-    Вызывать внутри atomic после блокировки кампании и проверки `deal_acceptance_error`.
-    Нехватка денег — ValueError из BillingService (транзакция откатывается целиком).
+    Деньги зарезервированы при направлении оферты (``offer.reserved_at``) — повторного резерва нет, записи
+    резерва привязываются к сделке. Оферта без резерва (направлена до этого правила) — резерв здесь.
+    Вызывать внутри atomic после блокировки кампании. Нехватка денег — ValueError из BillingService.
     """
+    from apps.billing.models import Transaction
+
     deal = Deal.objects.create(
         campaign=campaign, blogger=blogger, platform=platform, advertiser=advertiser,
-        response=response, amount=amount, status=S.WAITING_PAYMENT,
+        response=response, amount=amount, status=S.WAITING_PAYMENT, publication_date=publication_date,
     )
-    BillingService.reserve_funds(deal)
+    if offer is not None and offer.reserved_at:
+        Transaction.objects.filter(offer=offer, type=Transaction.Type.RESERVE).update(deal=deal)
+    else:
+        BillingService.reserve_funds(deal)
     _move(deal, S.IN_PROGRESS, actor, comment)
     return deal
 
@@ -147,6 +154,8 @@ def submit_publication(pk, actor, url):
         _require_actor(actor, deal.blogger, "Добавить публикацию может только блогер сделки.")
         _require(deal, (S.IN_PROGRESS, S.WAITING_PUBLICATION),
                  "Добавить публикацию можно только для сделки «В работе» или «Ждёт публикации».")
+        if deal.publication_date and timezone.localdate() < deal.publication_date:
+            raise TransitionError(f"Публикация — не раньше {deal.publication_date:%d.%m.%Y}.")
         _move(deal, S.CHECKING, actor, f"Публикация размещена: {url}",
               publication_url=url, publication_at=timezone.now())
         _chat(deal, f"Блогер добавил публикацию: {url}")

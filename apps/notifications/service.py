@@ -132,6 +132,25 @@ class NotificationService:
         )
 
     @staticmethod
+    def notify_offer_sent(offer):
+        """Рекламодатель направил индивидуальную оферту (по отклику или прямую) → исполнителю."""
+        from django.utils import timezone
+
+        campaign = offer.campaign
+        source = "по вашему отклику " if offer.response_id else ""
+        NotificationService.notify(
+            user=offer.blogger,
+            notification_type=Notification.Type.DIRECT_OFFER_RECEIVED,
+            title="Вам направлена оферта",
+            body=(
+                f"Рекламодатель {offer.advertiser.public_name} направил оферту {source}по кампании «{campaign.name}»: "
+                f"{format_money(offer.reserved_amount)}, публикация {offer.publication_date:%d.%m.%Y}. "
+                f"Примите до {timezone.localtime(offer.expires_at):%d.%m.%Y %H:%M} — иначе оферта истечёт."
+            ),
+            url=reverse("web:blogger_dashboard"),
+        )
+
+    @staticmethod
     def notify_direct_offer_accepted(advertiser, campaign, blogger, deal):
         """Блогер принял прямое предложение → рекламодателю."""
         NotificationService.notify(
@@ -447,16 +466,20 @@ class NotificationService:
             user=offer.blogger,
             notification_type=Notification.Type.CAMPAIGN_STATUS,
             title="Предложение истекло",
-            body=f"Предложение по кампании «{campaign.name}» истекло: прошло 7 дней без ответа.",
+            body=f"Предложение по кампании «{campaign.name}» истекло: срок ответа прошёл.",
             url=reverse("web:blogger_dashboard"),
+        )
+        returned = (
+            f" Зарезервированные {format_money(offer.reserved_amount)} возвращены на баланс."
+            if offer.reserved_at else ""
         )
         NotificationService.notify(
             user=offer.advertiser,
             notification_type=Notification.Type.CAMPAIGN_STATUS,
             title="Предложение истекло без ответа",
             body=(
-                f"Блогер {offer.blogger.public_name} не ответил на предложение по кампании «{campaign.name}» за 7 дней. "
-                f"Вы можете отправить новое предложение."
+                f"Блогер {offer.blogger.public_name} не ответил на предложение по кампании «{campaign.name}» в срок."
+                f"{returned} Вы можете отправить новое предложение."
             ),
             url=reverse("web:direct_offer_create", kwargs={"platform_pk": offer.platform_id}),
         )

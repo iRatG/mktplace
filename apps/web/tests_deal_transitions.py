@@ -12,8 +12,9 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.billing.models import Wallet
-from apps.campaigns.models import Campaign
+from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
+from apps.campaigns.testing import accept_web
 from apps.deals import services as transitions
 from apps.deals.models import ChatMessage, Deal, DealStatusLog
 from apps.deals.tasks import auto_approve_creative, auto_complete_deals
@@ -143,11 +144,12 @@ class TransitionsTest(TestCase):
     def test_double_accept_is_an_error_not_500(self):
         Wallet.objects.filter(user=self.adv).update(available_balance=Decimal("1000000"))
         resp = CampaignResponse.objects.create(campaign=self.campaign, blogger=self.blogger, platform=self.platform)
-        self.client.force_login(self.adv)
-        first = self.client.post(reverse("web:response_accept", kwargs={"pk": resp.pk}))
-        second = self.client.post(reverse("web:response_accept", kwargs={"pk": resp.pk}))
+        first = accept_web(self.client, self.adv, resp)
+        second = accept_web(self.client, self.adv, resp)
         self.assertEqual((first.status_code, second.status_code), (302, 302))
-        self.assertEqual(Deal.objects.count(), 1)
+        # Одна оферта, сделка — только после акцепта блогера (#33).
+        self.assertEqual(DirectOffer.objects.filter(response=resp).count(), 1)
+        self.assertEqual(Deal.objects.count(), 0)
 
     def test_api_response_requires_blogger_and_approved_platform(self):
         pending = Platform.objects.create(blogger=self.blogger, social_type=Platform.SocialType.TELEGRAM,

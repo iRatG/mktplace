@@ -14,6 +14,7 @@ from apps.billing.models import Wallet
 from apps.campaigns.models import Campaign, CampaignEditProposal, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.services import complete_expired_campaigns
+from apps.campaigns.testing import deal_from_response
 from apps.deals.models import Deal
 from apps.notifications.models import Notification
 from apps.platforms.models import Platform
@@ -53,9 +54,7 @@ class FinishCampaignTest(TestCase):
         resp = CampaignResponse.objects.create(
             campaign=self.campaign, blogger=self.b_deal, platform=_platform(self.b_deal), content_type="post",
         )
-        self.client.force_login(self.adv)
-        self.client.post(reverse("web:response_accept", kwargs={"pk": resp.pk}))
-        return Deal.objects.get()
+        return deal_from_response(resp, self.adv)
 
     def _pending(self):
         resp = CampaignResponse.objects.create(

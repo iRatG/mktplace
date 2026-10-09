@@ -10,6 +10,7 @@ from django.urls import reverse
 
 from apps.billing.models import Wallet
 from apps.campaigns.models import Campaign, DirectOffer
+from apps.campaigns.testing import publication_day
 from apps.deals.models import Deal
 from apps.platforms.models import Category, Platform
 from apps.profiles.models import BloggerProfile
@@ -245,12 +246,16 @@ class DirectOfferCreateTest(TestCase):
             "content_type": "post",
             "proposed_price": "50000",
             "message": "Привет, блогер!",
+            "publication_date": publication_day(self.campaign).isoformat(),
         })
         self.assertRedirects(r, reverse("web:blogger_catalog"))
         offer = DirectOffer.objects.get(advertiser=self.advertiser, platform=self.platform)
         self.assertEqual(offer.blogger, self.blogger)
         self.assertEqual(offer.status, DirectOffer.Status.PENDING)
         self.assertEqual(offer.proposed_price, Decimal("50000"))
+        # Оферта: сумма в резерве при направлении (ПР 5.2, #33).
+        self.assertEqual(offer.reserved_amount, Decimal("50000"))
+        self.assertEqual(Wallet.objects.get(user=self.advertiser).reserved_balance, Decimal("50000"))
 
     def test_404_for_pending_platform(self):
         pending_p = _make_platform(self.blogger, Platform.Status.PENDING)
@@ -270,6 +275,7 @@ class DirectOfferCreateTest(TestCase):
         r = self.client.post(self.url, {
             "campaign": self.campaign.pk,
             "content_type": "post",
+            "publication_date": publication_day(self.campaign).isoformat(),
         })
         # stays on profile page with error
         self.assertEqual(r.status_code, 302)

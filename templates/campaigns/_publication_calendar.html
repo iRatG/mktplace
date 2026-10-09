@@ -1,0 +1,16 @@
+{# Календарь кампании для выбора даты публикации: сколько публикаций уже назначено на день (сделки и ожидающие оферты). #}
+{# Параметры: campaign, calendar — [(дата, число)]. #}
+{% load labels %}
+<div class="text-xs text-gray-600" data-publication-calendar="{{ campaign.pk }}">
+    <div class="mb-1">
+        {% if campaign.start_date and campaign.end_date %}Сроки кампании: {{ campaign.start_date|long_date }} — {{ campaign.end_date|long_date }}.{% endif %}
+        {% if calendar %}Уже назначено:{% else %}Дат публикаций ещё не назначено.{% endif %}
+    </div>
+    {% if calendar %}
+    <div class="flex flex-wrap gap-1">
+        {% for day, count in calendar %}
+        <span class="px-2 py-0.5 rounded-full bg-orange-50 text-orange-700">{{ day|date:"d.m" }} — {{ count }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

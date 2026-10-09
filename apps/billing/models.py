@@ -64,6 +64,14 @@ class Transaction(models.Model):
         blank=True,
         related_name="transactions",
     )
+    offer = models.ForeignKey(
+        "campaigns.DirectOffer",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+        help_text="Оферта, под которую зарезервировано или с которой возвращено",
+    )
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

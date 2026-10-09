@@ -7,7 +7,9 @@ from django.template.loader import render_to_string
 
 from apps.business_queries.models import Ticket
 from apps.campaigns.models import CONTENT_TYPE_CHOICES, SOCIAL_CHOICES, Campaign, DirectOffer
-from apps.campaigns.validation import budget_committed, campaign_param_errors, deals_in_cap, past_date_errors
+from apps.campaigns.validation import (
+    budget_committed, campaign_param_errors, deals_in_cap, past_date_errors, scheduled_publication_dates,
+)
 from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.registration.models import IPApplication, LegalEntityApplication
@@ -124,6 +126,12 @@ class CampaignForm(forms.ModelForm):
         for name, message in past_date_errors(cleaned, self.instance).items():
             self.add_error(name, message)
 
+        # Правка на паузе уходит на модерацию — даты кампании обязательны (Р4).
+        if self.instance.pk and self.instance.status == Campaign.Status.PAUSED:
+            for name in ("start_date", "end_date"):
+                if not cleaned.get(name) and name not in self.errors:
+                    self.add_error(name, "Укажите дату — без неё правку нельзя отправить на модерацию.")
+
         errors = campaign_param_errors(
             payment_type=payment_type,
             fixed_price=cleaned.get("fixed_price"),
@@ -135,6 +143,7 @@ class CampaignForm(forms.ModelForm):
             max_bloggers=cleaned.get("max_bloggers"),
             taken_slots=deals_in_cap(self.instance),
             committed_budget=budget_committed(self.instance),
+            publication_dates=scheduled_publication_dates(self.instance),
         )
         for field, message in errors.items():
             if field not in self.errors:
@@ -337,6 +346,10 @@ class DirectOfferForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 4, "placeholder": "Расскажите блогеру о вашем предложении"}),
         required=False,
         label="Сообщение",
+    )
+    publication_date = forms.DateField(
+        label="Дата публикации", widget=forms.DateInput(attrs={"type": "date"}),
+        error_messages={"required": "Укажите дату публикации."},
     )
 
     def __init__(self, advertiser, *args, **kwargs):

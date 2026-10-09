@@ -14,6 +14,15 @@ from .models import RESPONSE_REMINDER_BEFORE, Campaign, DirectOffer, Response
 
 COMPLETABLE_STATUSES = (Campaign.Status.ACTIVE, Campaign.Status.PAUSED)
 
+# Срок акцепта индивидуальной оферты исполнителем — рабочие дни (ТО 4.3, ПЭТ 6.4).
+OFFER_ACCEPT_WORKING_DAYS = 3
+
+
+def _money(amount):
+    from apps.billing.formatting import format_money
+
+    return format_money(amount)
+
 
 def is_expired(campaign, today=None):
     """Срок кампании истёк: дата окончания задана и уже прошла."""
@@ -74,6 +83,7 @@ def complete_campaign(campaign_pk, today=None, actor=None):
         )
         Response.objects.filter(pk__in=[r.pk for r in responses]).update(status=Response.Status.EXPIRED)
         DirectOffer.objects.filter(pk__in=[o.pk for o in offers]).update(status=DirectOffer.Status.EXPIRED)
+        _close_offers(offers, Response.Status.EXPIRED)
 
         proposal = (
             CampaignEditProposal.objects.select_for_update()
@@ -96,6 +106,22 @@ def complete_campaign(campaign_pk, today=None, actor=None):
         NotificationService.notify_edit_proposal_closed(proposal.author, campaign)
     _notify_bloggers_with_running_deals(campaign)
     return True
+
+
+def _close_offers(offers, response_status):
+    """Оферты не стали сделками: вернуть резерв (если был) и закрыть отклик, по которому направлены.
+
+    Вызывать внутри atomic, после смены статуса оферт под блокировкой — так возврат идёт ровно один раз.
+    """
+    from apps.billing.services import BillingService
+
+    for offer in offers:
+        if offer.reserved_at:
+            BillingService.release_offer(offer)
+        if offer.response_id:
+            Response.objects.filter(pk=offer.response_id, status=Response.Status.ACCEPTED).update(
+                status=response_status,
+            )
 
 
 def _notify_bloggers_with_running_deals(campaign):
@@ -137,6 +163,7 @@ def expire_overdue_responses_and_offers(now=None):
         )
         Response.objects.filter(pk__in=[r.pk for r in responses]).update(status=Response.Status.EXPIRED)
         DirectOffer.objects.filter(pk__in=[o.pk for o in offers]).update(status=DirectOffer.Status.EXPIRED)
+        _close_offers(offers, Response.Status.EXPIRED)
 
     for resp in responses:
         NotificationService.notify_response_timed_out(resp)
@@ -168,45 +195,92 @@ class AcceptError(Exception):
     """Отклик или предложение принять нельзя — текст понятен пользователю."""
 
 
-def accept_response(response_pk, actor):
-    """Рекламодатель принимает отклик: сделка в работе, деньги в резерве.
+def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, content_type="post",
+               price=None, message="", response=None):
+    """Направить исполнителю индивидуальную оферту: резерв суммы, срок акцепта 3 рабочих дня (ПР 5.2, ТО 4.3).
 
-    Под блокировкой кампании и отклика: статус отклика, активность кампании, лимит блогеров, бюджет, срок.
-    Нехватка денег на балансе — AcceptError с текстом; транзакция откатывается целиком.
+    Под блокировкой кампании: кампания активна и не истекла, дата публикации (Р9), лимит блогеров и бюджет
+    вместе с другими ожидающими офертами, баланс рекламодателя. Любая причина отказа — AcceptError.
     """
-    from apps.deals.services import create_deal
+    from django.db import IntegrityError
 
-    from .validation import deal_acceptance_error
+    from apps.billing.services import BillingService
+    from apps.web.campaign_proposals import campaign_snapshot
 
+    from .validation import deal_acceptance_error, publication_date_error, working_days_after
+
+    with transaction.atomic():
+        campaign = Campaign.objects.select_for_update().filter(pk=campaign_pk).first()
+        if campaign is None or campaign.advertiser_id != getattr(advertiser, "pk", None):
+            raise AcceptError("Кампания не найдена.")
+        if campaign.status != Campaign.Status.ACTIVE:
+            raise AcceptError("Направить оферту можно только по активной кампании.")
+        error = publication_date_error(campaign, publication_date)
+        if error:
+            raise AcceptError(error)
+        amount = price or campaign.fixed_price
+        if not amount:
+            raise AcceptError("Не удалось определить сумму: нет ни цены блогера, ни цены кампании.")
+        error = deal_acceptance_error(campaign, amount)
+        if error:
+            raise AcceptError(error)
+        now = timezone.now()
+        try:
+            with transaction.atomic():
+                offer = DirectOffer.objects.create(
+                    advertiser=advertiser, blogger=blogger, campaign=campaign, platform=platform,
+                    content_type=content_type, proposed_price=price, message=message, response=response,
+                    publication_date=publication_date, reserved_amount=amount, reserved_at=now,
+                    expires_at=working_days_after(now, OFFER_ACCEPT_WORKING_DAYS),
+                    terms=campaign_snapshot(campaign),
+                )
+        except IntegrityError as e:
+            raise AcceptError("По этой площадке в кампании уже есть оферта или сделка.") from e
+        try:
+            BillingService.reserve_for_offer(offer)
+        except ValueError as e:
+            transaction.set_rollback(True)
+            raise AcceptError(f"Недостаточно средств на балансе для резерва {_money(amount)}.") from e
+    NotificationService.notify_offer_sent(offer)
+    return offer
+
+
+def accept_response(response_pk, actor, publication_date):
+    """Рекламодатель принимает отклик: исполнителю направляется оферта с датой публикации (ПЭТ 6.2).
+
+    Сделка — только после акцепта исполнителя (accept_direct_offer). Отклик → ACCEPTED.
+    """
     with transaction.atomic():
         resp = Response.objects.select_for_update().select_related("campaign").filter(pk=response_pk).first()
         if resp is None or resp.campaign.advertiser_id != getattr(actor, "pk", None):
             raise AcceptError("Отклик не найден.")
-        campaign = Campaign.objects.select_for_update().get(pk=resp.campaign_id)
         if resp.status != Response.Status.PENDING:
             raise AcceptError("Можно принять только ожидающий отклик.")
         if resp.is_overdue:
             raise AcceptError(f"Срок ответа на отклик истёк ({timezone.localtime(resp.expires_at):%d.%m.%Y %H:%M}).")
-        if campaign.status != Campaign.Status.ACTIVE:
-            raise AcceptError("Нельзя принимать отклики — кампания не активна.")
-        amount = resp.proposed_price or campaign.fixed_price
-        if not amount:
-            raise AcceptError("Не удалось определить сумму сделки: нет ни цены блогера, ни цены кампании.")
-        error = deal_acceptance_error(campaign, amount)
-        if error:
-            raise AcceptError(error)
+        offer = send_offer(
+            campaign_pk=resp.campaign_id, advertiser=actor, blogger=resp.blogger, platform=resp.platform,
+            publication_date=publication_date, content_type=resp.content_type, price=resp.proposed_price,
+            message="", response=resp,
+        )
         resp.status = Response.Status.ACCEPTED
         resp.save(update_fields=["status", "updated_at"])
-        try:
-            deal = create_deal(
-                campaign=campaign, blogger=resp.blogger, platform=resp.platform, advertiser=actor,
-                amount=amount, actor=actor, response=resp, comment="Отклик принят, деньги зарезервированы.",
-            )
-        except ValueError as e:
-            transaction.set_rollback(True)
-            raise AcceptError(f"Недостаточно средств на балансе: {e}") from e
-    NotificationService.notify_response_accepted(resp.blogger, campaign, deal)
-    return deal
+    return offer
+
+
+def reject_offer(offer_pk, actor):
+    """Исполнитель отклоняет оферту: резерв возвращается, отклик (если был) — «Отозван»."""
+    with transaction.atomic():
+        offer = DirectOffer.objects.select_for_update().filter(pk=offer_pk).first()
+        if offer is None or offer.blogger_id != getattr(actor, "pk", None):
+            raise AcceptError("Оферта не найдена.")
+        if offer.status != DirectOffer.Status.PENDING:
+            raise AcceptError("Оферта уже обработана.")
+        offer.status = DirectOffer.Status.REJECTED
+        offer.save(update_fields=["status", "updated_at"])
+        _close_offers([offer], Response.Status.WITHDRAWN)
+    NotificationService.notify_direct_offer_rejected(offer.advertiser, offer.campaign, actor)
+    return offer
 
 
 # ── Увеличение бюджета без паузы и модерации (решение бизнеса 07.10.2026) ────
@@ -237,7 +311,11 @@ def increase_budget(campaign_pk, new_budget, actor):
 
 
 def accept_direct_offer(offer_pk, actor):
-    """Блогер принимает прямое предложение: сделка в работе, деньги рекламодателя в резерве."""
+    """Исполнитель принимает оферту («Принять оферту», ТО 4.8): заключается сделка «В работе».
+
+    Деньги и место зарезервированы при направлении — проверяем только оферту и кампанию. Оферта без резерва
+    (направлена до этого правила) проходит прежние проверки лимита и бюджета и резервирует сейчас.
+    """
     from apps.deals.services import create_deal
 
     from .validation import deal_acceptance_error
@@ -253,16 +331,22 @@ def accept_direct_offer(offer_pk, actor):
             raise AcceptError(f"Срок ответа на предложение истёк ({timezone.localtime(offer.expires_at):%d.%m.%Y %H:%M}).")
         if campaign.status != Campaign.Status.ACTIVE:
             raise AcceptError("Кампания больше не активна.")
-        amount = offer.proposed_price or campaign.fixed_price
-        if not amount:
-            raise AcceptError("Не удалось определить сумму сделки.")
-        error = deal_acceptance_error(campaign, amount)
+        if offer.reserved_at:
+            amount = offer.reserved_amount
+            error = expired_error(campaign)
+        else:
+            amount = offer.proposed_price or campaign.fixed_price
+            if not amount:
+                raise AcceptError("Не удалось определить сумму сделки.")
+            error = deal_acceptance_error(campaign, amount)
         if error:
             raise AcceptError(error)
         try:
             deal = create_deal(
                 campaign=campaign, blogger=actor, platform=offer.platform, advertiser=offer.advertiser,
-                amount=amount, actor=actor, comment="Блогер принял прямое предложение, деньги зарезервированы.",
+                amount=amount, actor=actor, response=offer.response, offer=offer,
+                publication_date=offer.publication_date,
+                comment="Исполнитель принял оферту — сделка заключена, деньги в резерве.",
             )
         except ValueError as e:
             transaction.set_rollback(True)

@@ -11,6 +11,7 @@ from django.urls import reverse
 
 from apps.billing.models import Wallet
 from apps.campaigns.models import Campaign, DirectOffer
+from apps.campaigns.testing import accept_web, publication_day
 from apps.notifications.models import Notification
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
@@ -324,11 +325,11 @@ class NotificationTriggerTest(TestCase):
             platform=self.platform, content_type="post",
             proposed_price=Decimal("50000"),
         )
-        self.client.force_login(self.advertiser)
-        self.client.post(reverse("web:response_accept", kwargs={"pk": resp.pk}))
-        self.assertEqual(
-            Notification.objects.filter(user=self.blogger, type=Notification.Type.RESPONSE_ACCEPTED).count(), 1
-        )
+        # Принятие отклика направляет оферту — блогеру «Вам направлена оферта» (#33).
+        accept_web(self.client, self.advertiser, resp)
+        note = Notification.objects.get(user=self.blogger, type=Notification.Type.DIRECT_OFFER_RECEIVED)
+        self.assertEqual(note.title, "Вам направлена оферта")
+        self.assertIn("по вашему отклику", note.body)
 
     def test_response_reject_notifies_blogger(self):
         from apps.campaigns.models import Response as CampaignResponse
@@ -346,7 +347,8 @@ class NotificationTriggerTest(TestCase):
         self.client.force_login(self.advertiser)
         self.client.post(
             reverse("web:direct_offer_create", kwargs={"platform_pk": self.platform.pk}),
-            {"campaign": self.campaign.pk, "content_type": "post"},
+            {"campaign": self.campaign.pk, "content_type": "post",
+             "publication_date": publication_day(self.campaign).isoformat()},
         )
         self.assertEqual(
             Notification.objects.filter(user=self.blogger, type=Notification.Type.DIRECT_OFFER_RECEIVED).count(), 1

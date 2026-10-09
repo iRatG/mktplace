@@ -187,10 +187,19 @@
                     {% if resp.status == 'pending' %}
                     <div class="flex gap-2 ml-4">
                         {% if not resp.is_overdue %}
-                        <form method="post" action="{% url 'web:response_accept' resp.pk %}">
-                            {% csrf_token %}
-                            <button class="bg-green-100 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs hover:bg-green-200 transition-colors">Принять</button>
-                        </form>
+                        <details class="relative">
+                            <summary class="list-none cursor-pointer bg-green-100 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs hover:bg-green-200 transition-colors">Принять</summary>
+                            <form method="post" action="{% url 'web:response_accept' resp.pk %}"
+                                  class="absolute right-0 z-10 mt-1 w-80 card-dark rounded-xl p-3 space-y-2">
+                                {% csrf_token %}
+                                <label for="pub_{{ resp.pk }}" class="block text-xs text-gray-700 font-medium">Дата публикации</label>
+                                <input type="date" name="publication_date" id="pub_{{ resp.pk }}" required class="input-dark text-xs"
+                                       min="{% now 'Y-m-d' %}"{% if campaign.end_date %} max="{{ campaign.end_date.isoformat }}"{% endif %}>
+                                {% include "campaigns/_publication_calendar.html" with calendar=publication_calendar %}
+                                <p class="text-xs text-gray-500">Блогеру уйдёт оферта, сумма встанет в резерв. Сделка заключится, когда блогер примет оферту (3 рабочих дня).</p>
+                                <button class="bg-green-100 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs hover:bg-green-200 transition-colors">Направить оферту</button>
+                            </form>
+                        </details>
                         {% endif %}
                         <details class="relative">
                             <summary class="list-none cursor-pointer bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg text-xs hover:bg-red-200 transition-colors">Отклонить</summary>
@@ -210,7 +219,9 @@
                         {% if resp.status == 'accepted' %}bg-green-50 text-green-600
                         {% elif resp.status == 'rejected' %}bg-red-50 text-red-600
                         {% else %}bg-gray-100 text-gray-500{% endif %}">
-                        {{ resp.get_status_display }}
+                        {% if resp.status == 'accepted' and resp.offer.status == 'pending' %}Оферта направлена — ждём ответа до {{ resp.offer.expires_at|date:"d.m.Y H:i" }}
+                        {% elif resp.status == 'accepted' and resp.offer.status == 'accepted' %}Оферта принята — сделка заключена
+                        {% else %}{{ resp.get_status_display }}{% endif %}
                     </span>
                     {% endif %}
                 </div>

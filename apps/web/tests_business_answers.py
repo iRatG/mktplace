@@ -61,6 +61,8 @@ def _campaign(advertiser, status, **extra):
         advertiser=advertiser, name="Кампания", payment_type=FIXED,
         fixed_price=Decimal("150000"), budget=Decimal("1500000"), status=status,
         deadline=timezone.now().date() + timedelta(days=20),
+        # Даты обязательны для модерации (Р4, #33).
+        start_date=timezone.now().date(), end_date=timezone.now().date() + timedelta(days=40),
     )
     fields.update(extra)
     return Campaign.objects.create(**fields)

@@ -18,13 +18,23 @@ CAP_DEAL_STATUSES = (
 )
 
 
+def pending_offers(campaign):
+    """Оферты кампании, ждущие акцепта, с резервом: занимают место и бюджет (пакет документов, ПР 5.2)."""
+    from .models import DirectOffer
+
+    return DirectOffer.objects.filter(
+        campaign=campaign, status=DirectOffer.Status.PENDING, reserved_at__isnull=False,
+    )
+
+
 def deals_in_cap(campaign):
-    """Число сделок кампании, занимающих место в лимите блогеров."""
+    """Число мест в лимите блогеров: сделки в работе и после неё + ожидающие оферты с резервом."""
     from apps.deals.models import Deal
 
     if not campaign or not campaign.pk:
         return 0
-    return Deal.objects.filter(campaign=campaign, status__in=CAP_DEAL_STATUSES).count()
+    deals = Deal.objects.filter(campaign=campaign, status__in=CAP_DEAL_STATUSES).count()
+    return deals + pending_offers(campaign).count()
 
 
 # Окно приёма контента заканчивается не позже чем за столько рабочих дней до окончания кампании —
@@ -70,6 +80,66 @@ def working_days_before(day, count):
     return current
 
 
+def working_days_after(moment, count):
+    """Момент через count рабочих дней (пн–пт) после moment, время суток сохраняется; праздники не учитываются."""
+    from datetime import timedelta
+
+    current = moment
+    left = count
+    while left > 0:
+        current += timedelta(days=1)
+        if current.weekday() < 5:
+            left -= 1
+    return current
+
+
+def publication_date_error(campaign, day):
+    """Почему дату публикации нельзя назначить — или None. Не раньше сегодня, в пределах дат кампании (Р9)."""
+    from django.utils import timezone
+
+    if not day:
+        return "Укажите дату публикации."
+    if day < timezone.localdate():
+        return "Дата публикации не может быть в прошлом."
+    if campaign.start_date and day < campaign.start_date:
+        return f"Дата публикации — не раньше начала кампании ({campaign.start_date:%d.%m.%Y})."
+    if campaign.end_date and day > campaign.end_date:
+        return f"Дата публикации — не позже окончания кампании ({campaign.end_date:%d.%m.%Y})."
+    return None
+
+
+def scheduled_publication_dates(campaign):
+    """Назначенные даты публикаций кампании: неотменённые сделки и ожидающие оферты."""
+    from apps.deals.models import Deal
+
+    from .models import DirectOffer
+
+    if campaign is None or campaign.pk is None:
+        return []
+    deals = (
+        Deal.objects.filter(campaign=campaign, publication_date__isnull=False)
+        .exclude(status=Deal.Status.CANCELLED).values_list("publication_date", flat=True)
+    )
+    offers = DirectOffer.objects.filter(
+        campaign=campaign, status=DirectOffer.Status.PENDING, publication_date__isnull=False,
+    ).values_list("publication_date", flat=True)
+    return list(deals) + list(offers)
+
+
+def publication_calendar(campaign):
+    """[(дата, сколько публикаций назначено)] по возрастанию даты — для выбора даты в оферте."""
+    from collections import Counter
+
+    return sorted(Counter(scheduled_publication_dates(campaign)).items())
+
+
+def moderation_dates_error(campaign):
+    """Даты кампании обязательны для отправки на модерацию (Р4) — сообщение или None."""
+    if not campaign.start_date or not campaign.end_date:
+        return "Укажите даты начала и окончания кампании — без них кампанию нельзя отправить на модерацию."
+    return None
+
+
 def latest_content_end(end_date):
     """Последний допустимый день окна приёма контента для кампании, заканчивающейся end_date."""
     return working_days_before(end_date, CONTENT_END_WORKING_DAYS_BEFORE_END)
@@ -77,7 +147,7 @@ def latest_content_end(end_date):
 
 def campaign_param_errors(*, payment_type, fixed_price, budget,
                           start_date, end_date, deadline, max_bloggers, taken_slots=0,
-                          content_start=None, committed_budget=Decimal("0")):
+                          content_start=None, committed_budget=Decimal("0"), publication_dates=()):
     """Вернуть {поле: сообщение} для несогласованных параметров кампании.
 
     Принимает итоговые значения полей (после разбора формы/сериализатора).
@@ -118,6 +188,14 @@ def campaign_param_errors(*, payment_type, fixed_price, budget,
             f"Сделками по кампании уже занято {_spaced(committed_budget)} — бюджет не может быть меньше."
         )
 
+    # Даты кампании покрывают назначенные даты публикаций (Р10).
+    if publication_dates:
+        first, last = min(publication_dates), max(publication_dates)
+        if start_date and start_date > first and "start_date" not in errors:
+            errors["start_date"] = f"Уже назначена публикация на {first:%d.%m.%Y} — начало кампании не может быть позже."
+        if end_date and end_date < last and "end_date" not in errors:
+            errors["end_date"] = f"Уже назначена публикация на {last:%d.%m.%Y} — окончание кампании не может быть раньше."
+
     if max_bloggers and taken_slots and max_bloggers < taken_slots and "max_bloggers" not in errors:
         errors["max_bloggers"] = (
             f"По кампании уже занято мест: {taken_slots}. "
@@ -153,7 +231,8 @@ def budget_committed(campaign):
         Conversion.objects.filter(tracking_link__deal__campaign=campaign, credited=True)
         .aggregate(total=Sum("amount"))["total"]
     ) or Decimal("0")
-    return deals + cpa
+    offers = pending_offers(campaign).aggregate(total=Sum("reserved_amount"))["total"] or Decimal("0")
+    return deals + cpa + offers
 
 
 def budget_remaining(campaign):

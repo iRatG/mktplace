@@ -2,15 +2,18 @@
 Решение бизнеса 06.10.2026 (опросник по camp_test_2, вопрос 1 — Б): бюджет кампании не замораживается, но сделок по
 кампании нельзя заключить больше, чем на её бюджет. Одно правило для отклика (сайт и API) и прямого предложения.
 """
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.billing.models import Wallet
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
+from apps.campaigns.testing import accept_web, blogger_accepts
 from apps.campaigns.validation import budget_committed, budget_remaining
 from apps.deals.models import Deal
 from apps.platforms.models import Platform
@@ -37,9 +40,11 @@ class CampaignBudgetTest(TestCase):
     def setUp(self):
         self.adv = _user("adv@test.com", User.Role.ADVERTISER)
         Wallet.objects.filter(user=self.adv).update(available_balance=Decimal("10000000"))
+        today = timezone.localdate()
         self.campaign = Campaign.objects.create(
             advertiser=self.adv, name="К", payment_type=Campaign.PaymentType.FIXED,
             fixed_price=Decimal("150000"), budget=Decimal("300000"), status=Campaign.Status.ACTIVE,
+            start_date=today, end_date=today + timedelta(days=30),
         )
         self.b1 = _user("b1@test.com", User.Role.BLOGGER)
         self.b2 = _user("b2@test.com", User.Role.BLOGGER)
@@ -50,8 +55,11 @@ class CampaignBudgetTest(TestCase):
         )
 
     def _accept_web(self, resp):
-        self.client.force_login(self.adv)
-        return self.client.post(reverse("web:response_accept", kwargs={"pk": resp.pk}))
+        """Принять отклик (оферта) и, если оферта ушла, — акцепт блогера: сделка (#33)."""
+        r = accept_web(self.client, self.adv, resp)
+        if DirectOffer.objects.filter(response=resp, status=DirectOffer.Status.PENDING).exists():
+            blogger_accepts(resp)
+        return r
 
     def test_committed_and_remaining(self):
         self._accept_web(self._response(self.b1, "200000"))
@@ -83,7 +91,8 @@ class CampaignBudgetTest(TestCase):
         resp = self._response(self.b1, "400000")
         api = APIClient()
         api.force_authenticate(self.adv)
-        r = api.post(reverse("campaigns:response-accept", kwargs={"pk": resp.pk}))
+        r = api.post(reverse("campaigns:response-accept", kwargs={"pk": resp.pk}),
+                     {"publication_date": timezone.localdate().isoformat()}, format="json")
         self.assertEqual(r.status_code, 400)
         self.assertIn("бюджета", r.json()["detail"])
         self.assertFalse(Deal.objects.exists())

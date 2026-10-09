@@ -110,7 +110,7 @@
 {% if incoming_offers %}
 <div class="card-dark rounded-xl overflow-hidden mb-6">
     <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-        <h2 class="font-semibold text-gray-900">Предложения от рекламодателей</h2>
+        <h2 class="font-semibold text-gray-900">Оферты рекламодателей</h2>
         <span class="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-600">{{ incoming_offers|length }} новых</span>
     </div>
     <div class="divide-y divide-gray-100">
@@ -118,10 +118,11 @@
         <div class="px-6 py-4">
             <div class="flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
-                    <div class="text-sm font-medium text-gray-900">{{ offer.campaign.name }}</div>
+                    <div class="text-sm font-medium text-gray-900">{{ offer.campaign.name }}{% if offer.response_id %} <span class="text-xs font-normal text-green-700">· по вашему отклику</span>{% endif %}</div>
                     <div class="text-xs text-gray-500 mt-0.5">
                         от {{ offer.advertiser.public_name }} · {{ offer.platform.get_social_type_display }} ·
-                        {% if offer.proposed_price %}{{ offer.proposed_price|money }} {{ currency.symbol }}{% else %}цена по кампании{% endif %}
+                        {% if offer.reserved_amount %}{{ offer.reserved_amount|money }} {{ currency.symbol }} (в резерве){% elif offer.proposed_price %}{{ offer.proposed_price|money }} {{ currency.symbol }}{% else %}цена по кампании{% endif %}
+                        {% if offer.publication_date %}· публикация {{ offer.publication_date|date:"d.m.Y" }}{% endif %}
                         · ответить до {{ offer.expires_at|date:"d.m.Y H:i" }}
                     </div>
                     {% if offer.message %}
@@ -131,7 +132,7 @@
                 <div class="flex gap-2 flex-shrink-0">
                     <form method="post" action="{% url 'web:direct_offer_accept' pk=offer.pk %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn-orange text-xs px-3 py-1.5 rounded-lg">Принять</button>
+                        <button type="submit" class="btn-orange text-xs px-3 py-1.5 rounded-lg">Принять оферту</button>
                     </form>
                     <form method="post" action="{% url 'web:direct_offer_reject' pk=offer.pk %}">
                         {% csrf_token %}

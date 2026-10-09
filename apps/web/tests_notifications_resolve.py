@@ -2,10 +2,12 @@
 QA camp_test_2 (06.10.2026): уведомление гаснет, когда адресат открыл страницу, на которую оно ведёт;
 события «публикация добавлена» и «кампания на модерации»; переходы через API уведомляют так же, как сайт.
 """
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.billing.models import Wallet
@@ -27,10 +29,12 @@ def _user(email, role=User.Role.ADVERTISER, is_staff=False):
 
 
 def _campaign(advertiser, status=Campaign.Status.ACTIVE, name="Кампания"):
+    today = timezone.localdate()
     return Campaign.objects.create(
         advertiser=advertiser, name=name, description="desc",
         payment_type=Campaign.PaymentType.FIXED, fixed_price=Decimal("50000"),
         budget=Decimal("500000"), status=status,
+        start_date=today, end_date=today + timedelta(days=30),  # даты обязательны для модерации (Р4)
     )
 
 
@@ -197,9 +201,11 @@ class ApiParityTest(TestCase):
             campaign=self.campaign, blogger=self.blogger, platform=self.platform,
         )
         self.api.force_authenticate(self.adv)
-        r = self.api.post(reverse("campaigns:response-accept", kwargs={"pk": resp_obj.pk}))
+        r = self.api.post(reverse("campaigns:response-accept", kwargs={"pk": resp_obj.pk}),
+                          {"publication_date": timezone.localdate().isoformat()}, format="json")
         self.assertEqual(r.status_code, 201)
-        self.assertTrue(_unread(self.blogger, type=T.RESPONSE_ACCEPTED).exists())
+        # Принятие отклика направляет оферту — то же уведомление, что на сайте (#33).
+        self.assertTrue(_unread(self.blogger, type=T.DIRECT_OFFER_RECEIVED, title="Вам направлена оферта").exists())
 
     def test_reject_response_notifies_blogger(self):
         resp_obj = CampaignResponse.objects.create(
