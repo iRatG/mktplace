@@ -83,6 +83,11 @@ class TerminationTest(TestCase):
         self.assertEqual(Wallet.objects.get(user=self.adv).reserved_balance, Decimal("0"))
         self.assertEqual(metrics.platform_revenue(), Decimal("16000"))
         self.assertTrue(Notification.objects.filter(user=self.blogger, title="Сделка прекращена по соглашению").exists())
+        from apps.deals.models import DealStatusLog
+
+        # в истории — фактический возврат (вся цена), а не цена минус комиссия
+        log = DealStatusLog.objects.filter(deal=deal, new_status=S.CANCELLED).get().comment
+        self.assertIn("возвращено 100 000, комиссия платформы 16 000", log)
 
     def test_decline_keeps_deal(self):
         deal = self._deal()

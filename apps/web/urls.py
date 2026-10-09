@@ -62,6 +62,7 @@ urlpatterns = [
 
     # Deals
     path("campaigns/<int:pk>/invite/", views.campaign_invite, name="campaign_invite"),
+    path("campaigns/invite/", views.campaign_invite_from_catalog, name="campaign_invite_from_catalog"),
     path("deals/", views.deal_list, name="deal_list"),
     path("deals/<int:pk>/", views.deal_detail, name="deal_detail"),
     path("deals/<int:pk>/submit-publication/", views.deal_submit_publication, name="deal_submit_publication"),

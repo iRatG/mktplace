@@ -18,6 +18,7 @@ from .pages import (
 )
 from .campaigns import (
     campaign_invite,
+    campaign_invite_from_catalog,
     campaign_list,
     campaign_detail,
     campaign_create,

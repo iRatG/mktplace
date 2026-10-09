@@ -527,8 +527,11 @@ def accept_termination(pk, actor):
         request.status = TerminationRequest.Status.ACCEPTED
         request.answered_at = timezone.now()
         request.save(update_fields=["status", "answered_at"])
+        from apps.billing.formatting import format_money
+
+        # Возвращается весь резерв за вычетом комиссии: у новых сделок это цена, у старых — сумма минус комиссия.
         comment = (f"Сделка прекращена по соглашению сторон. Причина: {request.reason}. Рекламодателю возвращено "
-                   f"{deal.amount - commission}, комиссия платформы {commission}.")
+                   f"{format_money(deal.reserved_total - commission)}, комиссия платформы {format_money(commission)}.")
         _move(deal, S.CANCELLED, actor, comment, paid_amount=0)
         _chat(deal, "Сделка прекращена по соглашению сторон. Резерв возвращён рекламодателю за вычетом комиссии платформы.")
     _after_commit(NotificationService.notify_termination_answered, request)

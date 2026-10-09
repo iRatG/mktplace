@@ -465,3 +465,14 @@ def campaign_invite(request, pk):
         return redirect(back)
     messages.success(request, f"Приглашено исполнителей: {count}." if count else "Новых исполнителей для приглашения нет.")
     return redirect(back)
+
+
+@login_required
+@require_POST
+def campaign_invite_from_catalog(request):
+    """Пригласить одного исполнителя из каталога: кампания выбирается в списке рядом с кнопкой."""
+    campaign_pk = request.POST.get("campaign", "")
+    if not campaign_pk.isdigit():
+        messages.error(request, "Выберите закрытую кампанию, в которую пригласить исполнителя.")
+        return redirect(request.POST.get("next") or "web:blogger_catalog")
+    return campaign_invite(request, int(campaign_pk))

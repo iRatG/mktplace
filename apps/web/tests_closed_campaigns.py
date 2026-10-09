@@ -95,7 +95,12 @@ class ClosedCampaignTest(TestCase):
         self.client.force_login(self.adv)
         catalog = self.client.get(reverse("web:blogger_catalog")).content.decode()
         self.assertIn("data-invite-one", catalog)
-        self.client.post(reverse("web:campaign_invite", kwargs={"pk": self.campaign.pk}), {"blogger": self.stranger.pk})
+        r = self.client.post(reverse("web:campaign_invite_from_catalog"), {"blogger": self.stranger.pk, "campaign": ""},
+                             follow=True)
+        self.assertContains(r, "Выберите закрытую кампанию")
+        self.assertFalse(CampaignInvitation.objects.filter(blogger=self.stranger).exists())
+        self.client.post(reverse("web:campaign_invite_from_catalog"),
+                         {"blogger": self.stranger.pk, "campaign": self.campaign.pk})
         self.assertTrue(CampaignInvitation.objects.filter(blogger=self.stranger).exists())
         page = self.client.get(reverse("web:campaign_detail", kwargs={"pk": self.campaign.pk})).content.decode()
         self.assertIn("data-invitations", page)
