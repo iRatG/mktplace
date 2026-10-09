@@ -113,7 +113,11 @@ def create_deal(*, campaign, blogger, platform, advertiser, amount, actor, comme
     """
     from apps.billing.models import Transaction
 
+    commission = {}
+    if offer is not None and offer.reserved_at and offer.commission_percent is not None:
+        commission = {"commission_percent": offer.commission_percent, "commission_amount": offer.reserved_commission}
     deal = Deal.objects.create(
+        **commission,
         campaign=campaign, blogger=blogger, platform=platform, advertiser=advertiser,
         response=response, amount=amount, status=S.WAITING_PAYMENT, publication_date=publication_date,
         **approval_terms(offer.terms if offer is not None else None),

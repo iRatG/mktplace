@@ -338,6 +338,16 @@ class DirectOffer(models.Model):
     publication_date = models.DateField(null=True, blank=True, help_text="Дата публикации")
     reserved_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     reserved_at = models.DateTimeField(null=True, blank=True, help_text="Когда сумма зарезервирована")
+    commission_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Ставка комиссии платформы, зафиксированная при направлении; пусто — оферта до тарифных уровней",
+    )
+    reserved_commission = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
+    @property
+    def reserved_total(self):
+        """Резерв под оферту: вознаграждение + комиссия (у оферт до тарифных уровней — только вознаграждение)."""
+        return (self.reserved_amount or 0) + (self.reserved_commission or 0)
     terms = models.JSONField(default=dict, blank=True, help_text="Условия кампании на момент направления")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

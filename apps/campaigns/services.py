@@ -224,6 +224,10 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
         error = deal_acceptance_error(campaign, amount)
         if error:
             raise AcceptError(error)
+        from apps.billing.tariffs import commission_amount, commission_percent_for
+
+        percent = commission_percent_for(advertiser)
+        commission = commission_amount(amount, percent)
         now = timezone.now()
         try:
             with transaction.atomic():
@@ -231,6 +235,7 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
                     advertiser=advertiser, blogger=blogger, campaign=campaign, platform=platform,
                     content_type=content_type, proposed_price=price, message=message, response=response,
                     publication_date=publication_date, reserved_amount=amount, reserved_at=now,
+                    commission_percent=percent, reserved_commission=commission,
                     expires_at=working_days_after(now, OFFER_ACCEPT_WORKING_DAYS),
                     terms=campaign_snapshot(campaign),
                 )
@@ -240,7 +245,10 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
             BillingService.reserve_for_offer(offer)
         except ValueError as e:
             transaction.set_rollback(True)
-            raise AcceptError(f"Недостаточно средств на балансе для резерва {_money(amount)}.") from e
+            raise AcceptError(
+                f"Недостаточно средств на балансе для резерва {_money(amount + commission)} "
+                f"(вознаграждение {_money(amount)} + комиссия платформы {percent.normalize()}% {_money(commission)})."
+            ) from e
     NotificationService.notify_offer_sent(offer)
     return offer
 

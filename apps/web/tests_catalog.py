@@ -255,7 +255,8 @@ class DirectOfferCreateTest(TestCase):
         self.assertEqual(offer.proposed_price, Decimal("50000"))
         # Оферта: сумма в резерве при направлении (#33).
         self.assertEqual(offer.reserved_amount, Decimal("50000"))
-        self.assertEqual(Wallet.objects.get(user=self.advertiser).reserved_balance, Decimal("50000"))
+        # резерв = вознаграждение 50 000 + комиссия платформы 16% (новый рекламодатель)
+        self.assertEqual(Wallet.objects.get(user=self.advertiser).reserved_balance, Decimal("58000"))
 
     def test_404_for_pending_platform(self):
         pending_p = _make_platform(self.blogger, Platform.Status.PENDING)

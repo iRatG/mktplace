@@ -158,7 +158,10 @@ def direct_offer_create(request, platform_pk):
             )
             return redirect("web:blogger_catalog")
 
+    from apps.billing.tariffs import tier_description
+
     return render(request, "catalog/direct_offer.html", {
+        "commission_label": tier_description(request.user),
         "platform": platform,
         "blogger": blogger,
         "form": form,

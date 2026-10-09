@@ -59,7 +59,7 @@ class BillingService:
     def reserve_for_offer(cls, offer):
         """Резерв под индивидуальную оферту при её направлении: available → reserved."""
         wallet = cls._get_or_create_wallet(offer.advertiser)
-        amount = offer.reserved_amount
+        amount = offer.reserved_total
         if wallet.available_balance < amount:
             raise ValueError("Insufficient funds to reserve.")
         wallet.available_balance -= amount
@@ -77,7 +77,7 @@ class BillingService:
     def release_offer(cls, offer):
         """Оферта не стала сделкой (отклонена, истекла, кампания завершена) — резерв обратно в доступный."""
         wallet = cls._get_or_create_wallet(offer.advertiser)
-        amount = offer.reserved_amount
+        amount = offer.reserved_total
         if wallet.reserved_balance < amount:
             raise ValueError(f"Reserved balance is less than offer #{offer.pk} amount.")
         wallet.reserved_balance -= amount
@@ -98,7 +98,7 @@ class BillingService:
         Used when a deal is cancelled.
         """
         wallet = cls._get_or_create_wallet(deal.advertiser)
-        amount = deal.amount
+        amount = deal.reserved_total
         cls._require_reserved(wallet, amount, deal)
 
         wallet.reserved_balance -= amount
@@ -124,15 +124,20 @@ class BillingService:
         """
         advertiser_wallet = cls._get_or_create_wallet(deal.advertiser)
         blogger_wallet = cls._get_or_create_wallet(deal.blogger)
-        amount = deal.amount
-
-        commission_percent = Decimal(
-            getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15)
-        )
-        commission = (amount * commission_percent / Decimal("100")).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        blogger_earning = amount - commission
+        if deal.commission_on_top:
+            # Тарифные уровни: исполнитель получает вознаграждение целиком, комиссия — сверх него из резерва.
+            commission_percent = deal.commission_percent
+            amount = deal.reserved_total
+            blogger_earning = deal.amount
+        else:
+            amount = deal.amount
+            commission_percent = Decimal(
+                getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15)
+            )
+            commission = (amount * commission_percent / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            blogger_earning = amount - commission
 
         # Deduct from advertiser's reserved balance
         cls._require_reserved(advertiser_wallet, amount, deal)
@@ -175,9 +180,14 @@ class BillingService:
         """Прекращение заключённой сделки по соглашению сторон: рекламодателю возвращается резерв за вычетом
         комиссии платформы; исполнителю ничего не перечисляется. Комиссия — запись PAYMENT без EARNING."""
         wallet = cls._get_or_create_wallet(deal.advertiser)
-        amount = deal.amount
-        commission_percent = Decimal(getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15))
-        commission = (amount * commission_percent / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if deal.commission_on_top:
+            commission_percent = deal.commission_percent
+            amount = deal.reserved_total
+            commission = deal.commission_amount or Decimal("0")
+        else:
+            amount = deal.amount
+            commission_percent = Decimal(getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15))
+            commission = (amount * commission_percent / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         refund = amount - commission
         cls._require_reserved(wallet, amount, deal)
         wallet.reserved_balance -= amount
@@ -206,19 +216,31 @@ class BillingService:
         blogger_part = Decimal(blogger_part).quantize(Decimal("0.01"))
         if not (Decimal("0") < blogger_part < amount):
             raise ValueError(f"Split part {blogger_part} must be between 0 and deal amount {amount}.")
-        commission_percent = Decimal(getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15))
-        commission = (blogger_part * commission_percent / Decimal("100")).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        earning = blogger_part - commission
-        refund = amount - blogger_part
+        if deal.commission_on_top:
+            # Комиссия по зафиксированной ставке — только с части исполнителя, сверх неё.
+            commission_percent = deal.commission_percent
+            commission = (blogger_part * commission_percent / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            earning = blogger_part
+            paid = blogger_part + commission
+            reserved = deal.reserved_total
+        else:
+            commission_percent = Decimal(getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15))
+            commission = (blogger_part * commission_percent / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            earning = blogger_part - commission
+            paid = blogger_part
+            reserved = amount
+        refund = reserved - paid
 
-        cls._require_reserved(advertiser_wallet, amount, deal)
-        advertiser_wallet.reserved_balance -= amount
+        cls._require_reserved(advertiser_wallet, reserved, deal)
+        advertiser_wallet.reserved_balance -= reserved
         advertiser_wallet.available_balance += refund
         advertiser_wallet.save(update_fields=["available_balance", "reserved_balance", "updated_at"])
         Transaction.objects.create(
-            wallet=advertiser_wallet, type=Transaction.Type.PAYMENT, amount=-blogger_part,
+            wallet=advertiser_wallet, type=Transaction.Type.PAYMENT, amount=-paid,
             balance_after=advertiser_wallet.available_balance - refund, deal=deal,
             description=f"Payment (claim decision) for deal #{deal.pk}: part {blogger_part} (commission {commission_percent}%)",
         )

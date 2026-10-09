@@ -66,7 +66,7 @@ class TerminationTest(TestCase):
         t.cancel(deal.pk, self.adv)
         deal.refresh_from_db()
         self.assertEqual(deal.status, S.CANCELLED)
-        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, before + deal.amount)
+        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, before + deal.reserved_total)
 
     def test_terminate_by_agreement_refunds_minus_commission(self):
         deal = self._deal()
@@ -78,9 +78,10 @@ class TerminationTest(TestCase):
         t.accept_termination(deal.pk, self.adv)
         deal.refresh_from_db()
         self.assertEqual((deal.status, deal.paid_amount), (S.CANCELLED, Decimal("0")))
-        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, before + Decimal("85000"))
+        # резерв 100 000 + 16% = 116 000; возврат — вознаграждение, комиссия платформы удержана
+        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, before + Decimal("100000"))
         self.assertEqual(Wallet.objects.get(user=self.adv).reserved_balance, Decimal("0"))
-        self.assertEqual(metrics.platform_revenue(), Decimal("15000"))
+        self.assertEqual(metrics.platform_revenue(), Decimal("16000"))
         self.assertTrue(Notification.objects.filter(user=self.blogger, title="Сделка прекращена по соглашению").exists())
 
     def test_decline_keeps_deal(self):

@@ -241,3 +241,20 @@ class PayoutRequisites(models.Model):
             "bank_inn": self.bank_inn,
             "bank_name": self.bank_name,
         }
+
+
+class SpecialTariff(models.Model):
+    """Специальная ставка комиссии рекламодателя вместо тарифных уровней (задаёт сотрудник)."""
+
+    advertiser = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="special_tariff")
+    percent = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0)])
+    valid_until = models.DateField(null=True, blank=True, help_text="Пусто — бессрочно")
+    note = models.CharField(max_length=255, blank=True, help_text="Основание: договор, скидка и т. п.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Special tariff"
+        verbose_name_plural = "Special tariffs"
+
+    def __str__(self):
+        return f"{self.advertiser} — {self.percent}%"

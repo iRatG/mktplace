@@ -139,6 +139,10 @@ def campaign_detail(request, pk):
     from apps.web.campaign_proposals import CARD_TERMS_FIELDS, campaign_snapshot, describe_terms
 
     context["card_terms_rows"] = describe_terms(campaign_snapshot(campaign), CARD_TERMS_FIELDS)
+    if context.get("is_owner"):
+        from apps.billing.tariffs import tier_description
+
+        context["commission_label"] = tier_description(campaign.advertiser)
     return render(request, "campaigns/detail.html", context)
 
 

@@ -49,6 +49,9 @@
                 <div>
                     <div class="text-xs text-gray-500 mb-0.5">Сумма</div>
                     <div class="text-lg font-bold text-gray-900">{{ deal.amount|money }} {{ currency.symbol }}</div>
+                    {% if deal.commission_on_top and user != deal.blogger %}
+                    <div class="text-xs text-gray-500 mt-0.5" data-deal-commission>+ комиссия платформы {{ deal.commission_percent|money }}% — {{ deal.commission_amount|money }} {{ currency.symbol }}; в резерве {{ deal.reserved_total|money }} {{ currency.symbol }}</div>
+                    {% endif %}
                 </div>
                 {% if deal.publication_date %}
                 <div>
@@ -305,7 +308,7 @@
             <div class="rounded-xl p-5 bg-green-50 border border-green-200">
                 <p class="text-green-700 text-sm font-medium">✅ Сделка завершена!</p>
                 {% with earning=deal.amount %}
-                <p class="text-green-700 text-xs mt-1">Вы получили оплату (за вычетом 15% комиссии платформы).</p>
+                <p class="text-green-700 text-xs mt-1">{% if deal.commission_on_top %}Вы получили {% if deal.paid_amount is not None %}{{ deal.paid_amount|money }}{% else %}{{ deal.amount|money }}{% endif %} {{ currency.symbol }} — комиссию платформы оплачивает рекламодатель.{% else %}Вы получили оплату (за вычетом 15% комиссии платформы).{% endif %}</p>
                 {% endwith %}
             </div>
             {% endif %}

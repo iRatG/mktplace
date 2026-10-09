@@ -97,6 +97,11 @@ class Deal(models.Model):
     dispute_opened_at = models.DateTimeField(null=True, blank=True)
     dispute_resolved_at = models.DateTimeField(null=True, blank=True)
     dispute_resolution = models.TextField(blank=True)
+    commission_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Комиссия сверх вознаграждения по тарифу на момент оферты; пусто — прежняя модель (из суммы блогера)",
+    )
+    commission_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     paid_amount = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True,
         help_text="Сколько фактически перечислено исполнителю (раздел суммы, компенсация); пусто — вся сумма или ничего",
@@ -194,6 +199,16 @@ class Deal(models.Model):
         if self.publication_accepted_at:
             return self.retention_until
         return max(self.claim_until, self.retention_until)
+
+    @property
+    def commission_on_top(self):
+        """Комиссия сверх вознаграждения (тарифные уровни) — у сделок из оферт с зафиксированной ставкой."""
+        return self.commission_percent is not None
+
+    @property
+    def reserved_total(self):
+        """Сколько зарезервировано у рекламодателя под сделку: вознаграждение + комиссия (или только сумма у старых)."""
+        return self.amount + (self.commission_amount or 0) if self.commission_on_top else self.amount
 
     @property
     def on_package_terms(self):

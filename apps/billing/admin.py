@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from .models import TestBalanceGrant, Transaction, Wallet, WithdrawalRequest
+from .models import SpecialTariff, TestBalanceGrant, Transaction, Wallet, WithdrawalRequest
 from .services import BillingService
 
 
@@ -105,3 +105,9 @@ class TestBalanceGrantAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False  # audit log — immutable
+
+
+@admin.register(SpecialTariff)
+class SpecialTariffAdmin(admin.ModelAdmin):
+    list_display = ("advertiser", "percent", "valid_until", "note")
+    search_fields = ("advertiser__email",)

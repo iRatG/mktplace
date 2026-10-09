@@ -203,7 +203,7 @@
                                 <input type="date" name="publication_date" id="pub_{{ resp.pk }}" required class="input-dark text-xs"
                                        min="{% now 'Y-m-d' %}"{% if campaign.end_date %} max="{{ campaign.end_date.isoformat }}"{% endif %}>
                                 {% include "campaigns/_publication_calendar.html" with calendar=publication_calendar %}
-                                <p class="text-xs text-gray-500">Блогеру уйдёт оферта, сумма встанет в резерв. Сделка заключится, когда блогер примет оферту (3 рабочих дня).</p>
+                                <p class="text-xs text-gray-500" data-commission>Блогеру уйдёт оферта. В резерв встанет его цена + комиссия платформы {{ commission_label }}. Сделка заключится, когда блогер примет оферту (3 рабочих дня).</p>
                                 <button class="bg-green-100 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs hover:bg-green-200 transition-colors">Направить оферту</button>
                             </form>
                         </details>
