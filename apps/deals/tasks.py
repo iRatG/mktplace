@@ -23,3 +23,13 @@ def auto_cancel_overdue_deals():
     from .services import auto_cancel_overdue_waiting_payment
 
     return f"Auto-cancelled {auto_cancel_overdue_waiting_payment()} overdue deals."
+
+
+@shared_task
+def publication_date_reminders():
+    """Дата публикации: напоминание исполнителю накануне, уведомление сторонам о просрочке (раз в час)."""
+    from .services import notify_overdue_publications, send_publication_reminders
+
+    reminded = send_publication_reminders()
+    overdue = notify_overdue_publications()
+    return f"Publication reminders: {reminded}; overdue notices: {overdue}."

@@ -125,8 +125,21 @@ def deal_detail(request, pk):
     ):
         tracking_link, _ = TrackingLink.objects.get_or_create(deal=deal)
 
+    # Перенос даты публикации по согласию: пока публикации нет и у сделки есть дата.
+    can_reschedule = (
+        not user.is_staff and deal.publication_date and deal.status in Deal.UNPUBLISHED_STATUSES
+    )
+    date_change = deal.pending_date_change if deal.status in Deal.UNPUBLISHED_STATUSES else None
+    reschedule_calendar = None
+    if can_reschedule and date_change is None:
+        from apps.campaigns.validation import publication_calendar
+        reschedule_calendar = publication_calendar(campaign)
+
     return render(request, "deals/detail.html", {
         "deal": deal,
+        "can_reschedule": can_reschedule,
+        "date_change": date_change,
+        "reschedule_calendar": reschedule_calendar,
         "logs": logs,
         "can_review": can_review,
         "existing_review": existing_review,
@@ -326,3 +339,42 @@ def deal_review_submit(request, pk):
 
     messages.success(request, "Спасибо! Ваш отзыв сохранён.")
     return redirect("web:deal_detail", pk=pk)
+
+
+def _date_change_action(request, pk, func, ok):
+    deal = _own_deal(request, pk)
+    try:
+        func(deal.pk, request.user)
+    except TransitionError as e:
+        messages.error(request, str(e))
+        return redirect("web:deal_detail", pk=pk)
+    messages.success(request, ok)
+    return redirect("web:deal_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def deal_propose_publication_date(request, pk):
+    from .campaigns import _parse_date
+
+    new_date = _parse_date(request.POST.get("publication_date"))
+    if new_date is None:
+        messages.error(request, "Укажите новую дату публикации.")
+        return redirect("web:deal_detail", pk=pk)
+    return _date_change_action(
+        request, pk, lambda deal_pk, user: transitions.propose_publication_date(deal_pk, user, new_date),
+        "Предложение о переносе даты отправлено. Дата изменится, когда вторая сторона согласится.",
+    )
+
+
+@login_required
+@require_POST
+def deal_accept_publication_date(request, pk):
+    return _date_change_action(request, pk, transitions.accept_publication_date, "Дата публикации перенесена.")
+
+
+@login_required
+@require_POST
+def deal_decline_publication_date(request, pk):
+    return _date_change_action(request, pk, transitions.decline_publication_date,
+                               "Перенос отклонён, дата публикации прежняя.")

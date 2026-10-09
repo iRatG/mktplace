@@ -45,6 +45,9 @@ from .deals import (
     deal_reject_creative,
     deal_review_submit,
     deal_dispute,
+    deal_propose_publication_date,
+    deal_accept_publication_date,
+    deal_decline_publication_date,
 )
 from .platforms import (
     platform_add,

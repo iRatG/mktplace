@@ -309,6 +309,78 @@ class NotificationService:
             deal=deal,
         )
 
+    # ── Дата публикации ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def notify_publication_reminder(deal):
+        """Завтра дата публикации → исполнителю."""
+        NotificationService.notify(
+            user=deal.blogger,
+            notification_type=Notification.Type.DEAL_UPDATED,
+            title="Завтра — дата публикации",
+            body=(
+                f"По сделке #{deal.pk} «{deal.campaign.name}» дата публикации — {deal.publication_date:%d.%m.%Y}. "
+                f"Опубликуйте и добавьте ссылку на странице сделки или договоритесь о переносе даты."
+            ),
+            deal=deal,
+        )
+
+    @staticmethod
+    def notify_publication_overdue(deal):
+        """Дата публикации прошла, публикации нет → обеим сторонам."""
+        day = f"{deal.publication_date:%d.%m.%Y}"
+        NotificationService.notify(
+            user=deal.blogger,
+            notification_type=Notification.Type.DEAL_UPDATED,
+            title="Дата публикации прошла",
+            body=(
+                f"По сделке #{deal.pk} «{deal.campaign.name}» дата публикации {day} прошла, публикации нет. "
+                f"Опубликуйте и добавьте ссылку или предложите рекламодателю перенести дату."
+            ),
+            deal=deal,
+        )
+        NotificationService.notify(
+            user=deal.advertiser,
+            notification_type=Notification.Type.DEAL_UPDATED,
+            title="Блогер не опубликовал к дате",
+            body=(
+                f"По сделке #{deal.pk} «{deal.campaign.name}» дата публикации {day} прошла, публикации нет. "
+                f"Обсудите с блогером в чате сделки или согласуйте перенос даты."
+            ),
+            deal=deal,
+        )
+
+    @staticmethod
+    def notify_publication_date_proposed(recipient, deal, change):
+        """Вторая сторона предложила перенести дату публикации → получателю ответить."""
+        NotificationService.notify(
+            user=recipient,
+            notification_type=Notification.Type.DEAL_UPDATED,
+            title="Предложен перенос даты публикации",
+            body=(
+                f"{change.proposed_by.public_name} предлагает перенести дату публикации по сделке #{deal.pk} "
+                f"«{deal.campaign.name}» с {change.old_date:%d.%m.%Y} на {change.new_date:%d.%m.%Y}. "
+                f"Примите или отклоните на странице сделки."
+            ),
+            deal=deal,
+        )
+
+    @staticmethod
+    def notify_publication_date_answered(proposer, deal, change):
+        """Ответ на перенос даты публикации → автору предложения."""
+        accepted = change.status == change.Status.ACCEPTED
+        NotificationService.notify(
+            user=proposer,
+            notification_type=Notification.Type.DEAL_UPDATED,
+            title="Перенос даты принят" if accepted else "Перенос даты отклонён",
+            body=(
+                f"Перенос даты публикации по сделке #{deal.pk} «{deal.campaign.name}» на "
+                f"{change.new_date:%d.%m.%Y} " + ("принят — новая дата действует." if accepted
+                                                  else f"отклонён. Дата остаётся {deal.publication_date:%d.%m.%Y}.")
+            ),
+            deal=deal,
+        )
+
     # ── Кампании ──────────────────────────────────────────────────────────────
 
     @staticmethod

@@ -17,7 +17,7 @@ from django.utils import timezone
 from apps.billing.services import BillingService
 from apps.notifications.service import NotificationService
 
-from .models import ChatMessage, Deal, DealStatusLog
+from .models import ChatMessage, Deal, DealStatusLog, PublicationDateChange
 
 S = Deal.Status
 
@@ -58,6 +58,11 @@ def _move(deal, new_status, actor, comment, **fields):
         setattr(deal, name, value)
     deal.status = new_status
     deal.save(update_fields=["status", "updated_at", *fields.keys()])
+    if new_status not in Deal.UNPUBLISHED_STATUSES:
+        # Публикация, отмена или спор — переносить дату больше нечего.
+        PublicationDateChange.objects.filter(deal=deal, status=PublicationDateChange.Status.PENDING).update(
+            status=PublicationDateChange.Status.CLOSED, answered_at=timezone.now(),
+        )
 
 
 def _chat(deal, text):
@@ -231,6 +236,94 @@ def resolve_dispute(pk, staff, resolution, comment=""):
     return deal
 
 
+# ── Перенос даты публикации по согласию сторон ───────────────────────────────
+
+def _other_side(deal, user):
+    return deal.advertiser if user == deal.blogger else deal.blogger
+
+
+def _date_error(deal, day):
+    from apps.campaigns.validation import publication_date_error
+
+    return publication_date_error(deal.campaign, day)
+
+
+def propose_publication_date(pk, actor, new_date):
+    """Сторона сделки предлагает новую дату публикации; вступает в силу после согласия второй стороны."""
+    with transaction.atomic():
+        deal = _lock(pk)
+        if actor not in (deal.blogger, deal.advertiser):
+            raise TransitionError("Перенести дату может только участник сделки.")
+        _require(deal, Deal.UNPUBLISHED_STATUSES, "Перенести дату можно, пока публикации нет.")
+        if not deal.publication_date:
+            raise TransitionError("У сделки нет даты публикации.")
+        if PublicationDateChange.objects.filter(deal=deal, status=PublicationDateChange.Status.PENDING).exists():
+            raise TransitionError("Предыдущее предложение о переносе даты ещё ждёт ответа.")
+        error = _date_error(deal, new_date)
+        if error:
+            raise TransitionError(error)
+        if new_date == deal.publication_date:
+            raise TransitionError("Новая дата совпадает с текущей.")
+        change = PublicationDateChange.objects.create(
+            deal=deal, proposed_by=actor, old_date=deal.publication_date, new_date=new_date,
+        )
+        side = "Блогер" if actor == deal.blogger else "Рекламодатель"
+        _chat(deal, f"{side} предлагает перенести дату публикации с {change.old_date:%d.%m.%Y} на {new_date:%d.%m.%Y}.")
+    _after_commit(NotificationService.notify_publication_date_proposed, _other_side(deal, actor), deal, change)
+    return change
+
+
+def _pending_change_for_answer(deal, actor):
+    if actor not in (deal.blogger, deal.advertiser):
+        raise TransitionError("Ответить на перенос даты может только участник сделки.")
+    change = (
+        PublicationDateChange.objects.select_for_update()
+        .filter(deal=deal, status=PublicationDateChange.Status.PENDING).first()
+    )
+    if change is None:
+        raise TransitionError("Нет предложения о переносе даты, ожидающего ответа.")
+    if change.proposed_by_id == actor.pk:
+        raise TransitionError("Ответить на предложение должна вторая сторона.")
+    return change
+
+
+def accept_publication_date(pk, actor):
+    """Вторая сторона согласна: дата сделки меняется, напоминание и просрочка — заново для новой даты."""
+    with transaction.atomic():
+        deal = _lock(pk)
+        change = _pending_change_for_answer(deal, actor)
+        _require(deal, Deal.UNPUBLISHED_STATUSES, "Перенести дату можно, пока публикации нет.")
+        error = _date_error(deal, change.new_date)
+        if error:
+            raise TransitionError(f"{error} Предложите другую дату.")
+        comment = f"Дата публикации перенесена с {change.old_date:%d.%m.%Y} на {change.new_date:%d.%m.%Y} по согласию сторон."
+        DealStatusLog.log(deal, deal.status, changed_by=actor, comment=comment)
+        deal.publication_date = change.new_date
+        deal.publication_reminder_sent_at = None
+        deal.overdue_notified_at = None
+        deal.save(update_fields=["publication_date", "publication_reminder_sent_at", "overdue_notified_at", "updated_at"])
+        change.status = PublicationDateChange.Status.ACCEPTED
+        change.answered_at = timezone.now()
+        change.save(update_fields=["status", "answered_at"])
+        _chat(deal, comment)
+    _after_commit(NotificationService.notify_publication_date_answered, change.proposed_by, deal, change)
+    return change
+
+
+def decline_publication_date(pk, actor):
+    """Вторая сторона не согласна: дата остаётся прежней."""
+    with transaction.atomic():
+        deal = _lock(pk)
+        change = _pending_change_for_answer(deal, actor)
+        change.status = PublicationDateChange.Status.DECLINED
+        change.answered_at = timezone.now()
+        change.save(update_fields=["status", "answered_at"])
+        _chat(deal, f"Перенос даты публикации на {change.new_date:%d.%m.%Y} отклонён. "
+                    f"Дата остаётся {deal.publication_date:%d.%m.%Y}.")
+    _after_commit(NotificationService.notify_publication_date_answered, change.proposed_by, deal, change)
+    return change
+
+
 # ── Отмена ───────────────────────────────────────────────────────────────────
 
 def cancel(pk, actor):
@@ -293,3 +386,33 @@ def auto_cancel_overdue_waiting_payment():
     threshold = timezone.now() - WAITING_PAYMENT_AUTO_CANCEL_AFTER
     qs = Deal.objects.filter(status=S.WAITING_PAYMENT, created_at__lte=threshold)
     return _run_each(qs, auto_cancel_waiting_payment)
+
+
+def _flag_once(queryset, flag, now):
+    """Отметить флагом и вернуть сделки, ещё не отмеченные (под блокировкой — без двойных уведомлений)."""
+    with transaction.atomic():
+        deals = list(queryset.filter(**{f"{flag}__isnull": True}).select_for_update(of=("self",))
+                     .select_related("campaign", "advertiser", "blogger"))
+        Deal.objects.filter(pk__in=[d.pk for d in deals]).update(**{flag: now})
+    return deals
+
+
+def send_publication_reminders(now=None):
+    """Накануне даты публикации — одно напоминание исполнителю. Возвращает число напоминаний."""
+    now = now or timezone.now()
+    tomorrow = timezone.localdate(now) + timedelta(days=1)
+    qs = Deal.objects.filter(status__in=Deal.UNPUBLISHED_STATUSES, publication_date=tomorrow)
+    deals = _flag_once(qs, "publication_reminder_sent_at", now)
+    for deal in deals:
+        NotificationService.notify_publication_reminder(deal)
+    return len(deals)
+
+
+def notify_overdue_publications(now=None):
+    """Дата публикации прошла, публикации нет — один раз уведомить обе стороны. Статус и деньги не меняются."""
+    now = now or timezone.now()
+    qs = Deal.objects.filter(status__in=Deal.OVERDUE_STATUSES, publication_date__lt=timezone.localdate(now))
+    deals = _flag_once(qs, "overdue_notified_at", now)
+    for deal in deals:
+        NotificationService.notify_publication_overdue(deal)
+    return len(deals)

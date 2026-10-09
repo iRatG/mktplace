@@ -67,6 +67,12 @@ urlpatterns = [
     path("deals/<int:pk>/confirm/", views.deal_confirm, name="deal_confirm"),
     path("deals/<int:pk>/cancel/", views.deal_cancel, name="deal_cancel"),
     path("deals/<int:pk>/dispute/", views.deal_dispute, name="deal_dispute"),
+    path("deals/<int:pk>/publication-date/propose/", views.deal_propose_publication_date,
+         name="deal_propose_publication_date"),
+    path("deals/<int:pk>/publication-date/accept/", views.deal_accept_publication_date,
+         name="deal_accept_publication_date"),
+    path("deals/<int:pk>/publication-date/decline/", views.deal_decline_publication_date,
+         name="deal_decline_publication_date"),
     path("deals/<int:pk>/messages/", views.deal_send_message, name="deal_send_message"),  # Sprint 6
     path("deals/<int:pk>/submit-creative/", views.deal_submit_creative, name="deal_submit_creative"),  # Sprint 7
     path("deals/<int:pk>/approve-creative/", views.deal_approve_creative, name="deal_approve_creative"),  # Sprint 7

@@ -68,6 +68,12 @@ class Deal(models.Model):
 
     # Publication fields
     publication_date = models.DateField(null=True, blank=True, help_text="Дата публикации из оферты")
+    publication_reminder_sent_at = models.DateTimeField(
+        null=True, blank=True, help_text="Когда напомнили исполнителю о дате публикации (сбрасывается при переносе)",
+    )
+    overdue_notified_at = models.DateTimeField(
+        null=True, blank=True, help_text="Когда уведомили стороны о просрочке даты публикации (сбрасывается при переносе)",
+    )
     publication_url = models.URLField(blank=True)
     publication_at = models.DateTimeField(null=True, blank=True)
 
@@ -98,6 +104,56 @@ class Deal(models.Model):
 
     def __str__(self):
         return f"Deal#{self.pk} {self.blogger.email} / {self.campaign.name} ({self.status})"
+
+    # Публикации ещё нет — дату можно перенести, о ней напоминают.
+    UNPUBLISHED_STATUSES = (Status.IN_PROGRESS, Status.ON_APPROVAL, Status.WAITING_PUBLICATION)
+    # Дата прошла в этих статусах — просрочка; «На согласовании» ход за рекламодателем — не просрочка.
+    OVERDUE_STATUSES = (Status.IN_PROGRESS, Status.WAITING_PUBLICATION)
+
+    @property
+    def overdue_days(self):
+        """На сколько дней просрочена дата публикации (0 — не просрочена)."""
+        from django.utils import timezone
+
+        if not self.publication_date or self.status not in self.OVERDUE_STATUSES:
+            return 0
+        return max((timezone.localdate() - self.publication_date).days, 0)
+
+    @property
+    def pending_date_change(self):
+        """Ожидающее ответа предложение перенести дату публикации — или None."""
+        return self.date_changes.filter(status=PublicationDateChange.Status.PENDING).select_related("proposed_by").first()
+
+
+class PublicationDateChange(models.Model):
+    """Предложение перенести дату публикации — вступает в силу, только когда вторая сторона согласилась."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Ждёт ответа"
+        ACCEPTED = "accepted", "Принято"
+        DECLINED = "declined", "Отклонено"
+        CLOSED = "closed", "Закрыто"
+
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="date_changes")
+    proposed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="proposed_date_changes",
+    )
+    old_date = models.DateField()
+    new_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    answered_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["deal"], condition=models.Q(status="pending"), name="one_pending_date_change_per_deal",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Deal#{self.deal_id}: {self.old_date} → {self.new_date} ({self.status})"
 
 
 class DealStatusLog(models.Model):

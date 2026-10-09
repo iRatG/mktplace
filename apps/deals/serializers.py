@@ -8,6 +8,8 @@ class DealSerializer(serializers.ModelSerializer):
     advertiser_email = serializers.EmailField(source="advertiser.email", read_only=True)
     campaign_name = serializers.CharField(source="campaign.name", read_only=True)
     platform_url = serializers.URLField(source="platform.url", read_only=True)
+    overdue_days = serializers.IntegerField(read_only=True)
+    pending_date_change = serializers.SerializerMethodField()
 
     class Meta:
         model = Deal
@@ -29,6 +31,9 @@ class DealSerializer(serializers.ModelSerializer):
             "creative_submitted_at",
             "creative_approved_at",
             "creative_rejection_reason",
+            "publication_date",
+            "overdue_days",
+            "pending_date_change",
             "publication_url",
             "publication_at",
             "dispute_reason",
@@ -48,12 +53,21 @@ class DealSerializer(serializers.ModelSerializer):
             "creative_submitted_at",
             "creative_approved_at",
             "creative_rejection_reason",
+            "publication_date",
             "publication_at",
             "dispute_opened_at",
             "dispute_resolved_at",
             "created_at",
             "updated_at",
         )
+
+    def get_pending_date_change(self, deal):
+        """Ожидающее ответа предложение перенести дату публикации — или null."""
+        change = deal.pending_date_change if deal.status in Deal.UNPUBLISHED_STATUSES else None
+        if change is None:
+            return None
+        return {"id": change.pk, "proposed_by": change.proposed_by_id, "old_date": str(change.old_date),
+                "new_date": str(change.new_date), "created_at": change.created_at.isoformat()}
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):

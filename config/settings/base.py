@@ -179,6 +179,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.deals.tasks.auto_cancel_overdue_deals',
         'schedule': 3600,  # every hour
     },
+    'publication-date-reminders': {
+        'task': 'apps.deals.tasks.publication_date_reminders',
+        'schedule': 3600,  # every hour — напоминание накануне даты публикации, просрочка (#33)
+    },
     'auto-complete-expired-campaigns': {
         'task': 'apps.campaigns.tasks.auto_complete_expired_campaigns',
         'schedule': 3600,  # every hour

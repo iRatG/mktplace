@@ -80,6 +80,29 @@ class DealViewSet(
     def cancel(self, request, pk=None):
         return self._transition(transitions.cancel, request.user, ok="Deal cancelled.")
 
+    @action(detail=True, methods=["post"], url_path="propose-publication-date")
+    def propose_publication_date(self, request, pk=None):
+        from datetime import date
+
+        try:
+            new_date = date.fromisoformat(str(request.data.get("publication_date", "")).strip())
+        except ValueError:
+            return DRFResponse({"publication_date": "Укажите дату публикации в формате ГГГГ-ММ-ДД."},
+                               status=status.HTTP_400_BAD_REQUEST)
+        return self._transition(
+            transitions.propose_publication_date, request.user, new_date,
+            ok="Publication date change proposed. It applies when the other side accepts.",
+        )
+
+    @action(detail=True, methods=["post"], url_path="accept-publication-date")
+    def accept_publication_date(self, request, pk=None):
+        return self._transition(transitions.accept_publication_date, request.user, ok="Publication date changed.")
+
+    @action(detail=True, methods=["post"], url_path="decline-publication-date")
+    def decline_publication_date(self, request, pk=None):
+        return self._transition(transitions.decline_publication_date, request.user,
+                                ok="Publication date change declined.")
+
     @action(detail=True, methods=["get"], url_path="status-log")
     def status_log(self, request, pk=None):
         deal = self.get_object()
