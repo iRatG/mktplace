@@ -44,8 +44,9 @@ elif user.role == User.Role.ADVERTISER:
 (`submit_creative`, `approve_creative`, `reject_creative`, `submit_publication`, `complete`, `open_dispute`,
 `resolve_dispute`, `cancel`, таймеры `auto_*`). Внутри каждого перехода: `atomic` + `select_for_update`, проверка стороны и
 статуса (`TransitionError` с текстом для пользователя), `DealStatusLog.log()` ДО смены статуса (помощник `_move`),
-деньги через `BillingService`, системное сообщение в чат, уведомления. Сделка создаётся только `create_deal`
-(через `apps/campaigns/services.accept_response` / `accept_direct_offer`). Новый переход — новая функция там же.
+деньги через `BillingService`, системное сообщение в чат, уведомления. Сделка создаётся только `create_deal` —
+при акцепте оферты исполнителем (`apps/campaigns/services.accept_direct_offer`); `accept_response` и прямое предложение
+лишь направляют оферту (`send_offer`, резерв при направлении). Новый переход — новая функция там же.
 
 ### Кампания: срок и деньги
 Срок кампании — `apps/campaigns/services.py` (`expired_error`, таймер `auto_complete_expired_campaigns` раз в час:
@@ -224,6 +225,15 @@ apps/web/           — Django Templates frontend
   продолжается». Досрочно — из ACTIVE, PAUSED и MODERATION с `approved_snapshot` (`Campaign.can_finish_early`),
   отметка `completed_early_at`, ожидающее предложение правок → CLOSED. API: `complete`; `cancel` делает то же,
   статус CANCELLED больше не ставится.
+- Пакет документов бизнеса (`task/docs`, с 09.10.2026) — источник истины по сделкам, деньгам и претензиям; план
+  приведения — `task/09-10-2026/приведение-к-документам.md`, тикеты #33–#46.
+- Сделка — акцептом индивидуальной оферты (#33, ПС 3.3, ТО 2): оферта = `DirectOffer` (прямое предложение или по
+  отклику, поле `response`), сумма резервируется при направлении (`BillingService.reserve_for_offer`,
+  `Transaction.offer`), возврат — `release_offer` при отклонении, истечении, завершении кампании; ожидающие оферты
+  занимают бюджет и места (`pending_offers` в `validation.py`). Срок акцепта — 3 рабочих дня (`working_days_after`).
+  Дата публикации — в оферте и сделке (`publication_date_error`, `publication_calendar`), публикация раньше даты
+  отклоняется. Даты кампании обязательны для модерации (`moderation_dates_error`), правка не сужает сроки под
+  назначенные публикации. Тестам, которым нужна сделка по отклику, — `apps/campaigns/testing.py`.
 
 ## VPS
 IP, пароли, логины и всё остальное про текущий сервер — **только** в `key_param.txt`
