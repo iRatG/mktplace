@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Заявки на статус ИП — UBlogers!{% endblock %}
+{% block title %}Заявки на подтверждение категории — UBlogers!{% endblock %}
 
 {% block content %}
 <div class="mb-6 flex items-center gap-3">
     <a href="{% url 'web:admin_dashboard' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Панель</a>
-    <h1 class="text-2xl font-bold text-gray-900">Заявки блогеров на статус ИП</h1>
+    <h1 class="text-2xl font-bold text-gray-900">Заявки блогеров на подтверждение категории</h1>
     <span class="text-sm text-gray-500">({{ applications|length }} на проверке)</span>
 </div>
 
@@ -15,7 +15,7 @@
         <div class="flex items-start justify-between gap-4 mb-4">
             <div>
                 <div class="flex items-center gap-2 mb-1">
-                    <span class="text-gray-900 font-semibold">{{ app.get_document_type_display }}</span>
+                    <span class="text-gray-900 font-semibold">{{ app.get_target_category_display }} · {{ app.get_document_type_display }}</span>
                     {% if app.document_number %}<span class="text-xs text-gray-500">№ {{ app.document_number }}</span>{% endif %}
                     <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">На проверке</span>
                 </div>
@@ -38,7 +38,7 @@
         <div class="pt-4 border-t border-gray-200 flex flex-col sm:flex-row gap-4">
             <form method="post" action="{% url 'web:admin_ip_application_approve' app.pk %}" class="flex-1">
                 {% csrf_token %}
-                <button type="submit" onclick="return confirm('Подтвердить статус ИП?')"
+                <button type="submit" onclick="return confirm('Подтвердить категорию?')"
                         class="w-full btn-orange px-4 py-2 text-sm rounded-xl">
                     ✅ Подтвердить
                 </button>

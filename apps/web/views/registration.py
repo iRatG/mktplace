@@ -543,20 +543,30 @@ def admin_ip_application_approve(request, pk):
         "status", "reviewed_by", "reviewed_at", "rejection_reason", "retention_anchor_at", "updated_at",
     ])
 
+    confirmed_flag = {
+        IPApplication.TargetCategory.IP: "is_ip_confirmed",
+        IPApplication.TargetCategory.SELF_EMPLOYED: "is_self_employed_confirmed",
+        IPApplication.TargetCategory.LEGAL_ENTITY: "is_legal_entity_confirmed",
+    }[application.target_category]
+    target_category_value = {
+        IPApplication.TargetCategory.IP: BloggerProfile.Category.IP,
+        IPApplication.TargetCategory.SELF_EMPLOYED: BloggerProfile.Category.SELF_EMPLOYED,
+        IPApplication.TargetCategory.LEGAL_ENTITY: BloggerProfile.Category.LEGAL_ENTITY,
+    }[application.target_category]
+
     profile = getattr(application.user, "blogger_profile", None)
     if profile:
-        update_fields = ["is_ip_confirmed"]
-        profile.is_ip_confirmed = True
-        # Поднять категорию до «ИП», только если блогер не выбрал другую категорию сам
-        # (T7/#39) — подтверждение ИП не должно тихо переписывать осознанный выбор
-        # «самозанятый»/«юрлицо-исполнитель».
+        update_fields = [confirmed_flag]
+        setattr(profile, confirmed_flag, True)
+        # Поднять категорию до подтверждённой, только если блогер не выбрал другую категорию сам
+        # (T7/#39) — подтверждение не должно тихо переписывать осознанный выбор другой категории.
         if profile.category == BloggerProfile.Category.INDIVIDUAL:
-            profile.category = BloggerProfile.Category.IP
+            profile.category = target_category_value
             update_fields.append("category")
         profile.save(update_fields=update_fields)
 
     NotificationService.notify_ip_application_approved(application.user, application)
-    messages.success(request, "Статус ИП подтверждён.")
+    messages.success(request, "Статус подтверждён.")
     return redirect("web:admin_ip_applications")
 
 

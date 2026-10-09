@@ -223,8 +223,15 @@ class BloggerProfileForm(forms.ModelForm):
 
     def clean_category(self):
         category = self.cleaned_data["category"]
-        if category == BloggerProfile.Category.IP and not self.instance.is_ip_confirmed:
-            raise ValidationError("Сначала подтвердите статус ИП — подайте заявку с документом.")
+        confirmation_required = {
+            BloggerProfile.Category.IP: (self.instance.is_ip_confirmed, "статус ИП"),
+            BloggerProfile.Category.SELF_EMPLOYED: (self.instance.is_self_employed_confirmed, "статус самозанятого"),
+            BloggerProfile.Category.LEGAL_ENTITY: (self.instance.is_legal_entity_confirmed, "статус юрлица-исполнителя"),
+        }
+        if category in confirmation_required:
+            confirmed, label = confirmation_required[category]
+            if not confirmed:
+                raise ValidationError(f"Сначала подтвердите {label} — подайте заявку с документом.")
         return category
 
 
@@ -640,14 +647,15 @@ class BloggerIdentitySubmitForm(forms.Form):
 
 
 class IPApplicationForm(forms.ModelForm):
-    """Форма подачи документа для подтверждения статуса ИП блогером."""
+    """Форма подачи документа для подтверждения категории исполнителя блогером (ИП, самозанятый, юрлицо)."""
 
     class Meta:
         model = IPApplication
-        fields = ["document_type", "document_number", "file"]
+        fields = ["target_category", "document_type", "document_number", "file"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["target_category"].label = "Категория"
         self.fields["document_type"].label = "Тип документа"
         self.fields["document_number"].label = "Номер документа"
         self.fields["file"].label = "Файл (PDF, JPG, PNG)"

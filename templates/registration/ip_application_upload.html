@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Подтверждение статуса ИП — UBlogers!{% endblock %}
+{% block title %}Подтверждение категории — UBlogers!{% endblock %}
 
 {% block content %}
 <div class="max-w-xl mx-auto">
@@ -8,9 +8,11 @@
     </div>
 
     <div class="card-dark rounded-2xl p-6">
-        <h1 class="text-xl font-bold text-gray-900 mb-2">Подтвердить статус ИП</h1>
+        <h1 class="text-xl font-bold text-gray-900 mb-2">Подтвердить категорию исполнителя</h1>
         <p class="text-xs text-gray-600 mb-6 leading-relaxed">
-            Загрузите патент или справку. Заявку проверит сотрудник вручную.
+            Выберите категорию и загрузите подтверждающий документ: для ИП — патент или справку, для
+            самозанятого — справку о регистрации, для юрлица-исполнителя — свидетельство или выписку
+            с ИНН. Заявку проверит сотрудник вручную.
         </p>
 
         <form method="post" enctype="multipart/form-data" class="space-y-4">
