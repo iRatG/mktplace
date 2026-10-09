@@ -209,10 +209,16 @@ class PasswordResetConfirmForm(forms.Form):
 class BloggerProfileForm(forms.ModelForm):
     class Meta:
         model = BloggerProfile
-        fields = ["nickname", "bio"]
+        fields = ["nickname", "bio", "category"]
         widgets = {
             "bio": forms.Textarea(attrs={"rows": 4}),
         }
+
+    def clean_category(self):
+        category = self.cleaned_data["category"]
+        if category == BloggerProfile.Category.IP and not self.instance.is_ip_confirmed:
+            raise ValidationError("Сначала подтвердите статус ИП — подайте заявку с документом.")
+        return category
 
 
 class AdvertiserProfileForm(forms.ModelForm):

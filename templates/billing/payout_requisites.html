@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load money static %}
+
+{% block title %}Реквизиты выплаты — UBlogers!{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{% url 'web:wallet' %}" class="text-sm text-gray-500 hover:text-indigo-600">← Кошелёк</a>
+    <h1 class="text-2xl font-bold text-gray-900 mt-2">Реквизиты выплаты</h1>
+    <p class="text-gray-600 text-sm mt-1">Подтверждаются один раз сотрудником — вывод средств работает только по подтверждённым реквизитам.</p>
+</div>
+
+{% if not has_pending %}
+<div class="card-dark rounded-xl p-6 mb-8">
+    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
+        Подать заявку — {% if requisite_type == 'card' %}карта{% else %}расчётный счёт{% endif %}
+    </h2>
+    <form method="post" action="{% url 'web:payout_requisites' %}" novalidate>
+        {% csrf_token %}
+        {% if requisite_type == 'card' %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="id_card_number" class="block text-sm text-gray-700 mb-1">Номер карты (Uzcard/Humo)</label>
+                <input type="text" name="card_number" id="id_card_number" data-card-input
+                       inputmode="numeric" autocomplete="cc-number" maxlength="19"
+                       placeholder="8600 0000 0000 0000" class="input-dark">
+                <p class="text-xs text-gray-500 mt-1">16 цифр</p>
+            </div>
+            <div>
+                <label for="id_card_holder_name" class="block text-sm text-gray-700 mb-1">ФИО держателя карты</label>
+                <input type="text" name="card_holder_name" id="id_card_holder_name" class="input-dark" placeholder="Как на карте">
+                <p class="text-xs text-gray-500 mt-1">Должно совпадать с ФИО из подтверждённой личности</p>
+            </div>
+        </div>
+        {% else %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="id_account_number" class="block text-sm text-gray-700 mb-1">Номер счёта</label>
+                <input type="text" name="account_number" id="id_account_number" class="input-dark">
+            </div>
+            <div>
+                <label for="id_bank_mfo" class="block text-sm text-gray-700 mb-1">МФО банка</label>
+                <input type="text" name="bank_mfo" id="id_bank_mfo" class="input-dark">
+            </div>
+            <div>
+                <label for="id_bank_inn" class="block text-sm text-gray-700 mb-1">ИНН банка</label>
+                <input type="text" name="bank_inn" id="id_bank_inn" class="input-dark">
+            </div>
+            <div>
+                <label for="id_bank_name" class="block text-sm text-gray-700 mb-1">Название банка</label>
+                <input type="text" name="bank_name" id="id_bank_name" class="input-dark">
+            </div>
+        </div>
+        {% endif %}
+        <button type="submit" class="btn-orange px-5 py-2.5 text-sm rounded-xl">Отправить на проверку</button>
+    </form>
+</div>
+{% else %}
+<div class="rounded-xl p-4 bg-yellow-50 border border-yellow-200 mb-8 text-sm text-yellow-700">
+    Заявка на реквизиты рассматривается сотрудником. Новую заявку можно подать после решения по текущей.
+</div>
+{% endif %}
+
+<div class="card-dark rounded-xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-gray-900">История заявок</h2>
+    </div>
+    {% if applications %}
+    <div class="divide-y divide-gray-100">
+        {% for app in applications %}
+        <div class="px-6 py-3.5 flex items-center justify-between gap-4">
+            <div>
+                <div class="text-sm text-gray-900">{{ app.get_requisite_type_display }} · {{ app.masked_number }}</div>
+                <div class="text-xs text-gray-500 mt-0.5">{{ app.created_at|date:"d.m.Y H:i" }}</div>
+                {% if app.status == 'rejected' and app.rejection_reason %}
+                <div class="text-xs text-red-600 mt-1">Причина: {{ app.rejection_reason }}</div>
+                {% endif %}
+            </div>
+            <span class="text-xs px-2 py-1 rounded-full font-medium shrink-0
+                {% if app.status == 'approved' %}bg-green-100 text-green-700
+                {% elif app.status == 'rejected' %}bg-red-100 text-red-700
+                {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                {{ app.get_status_display }}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-6 py-10 text-center text-gray-500 text-sm">Заявок пока нет.</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/number-input.js' %}"></script>
+{% endblock %}

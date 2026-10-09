@@ -57,6 +57,10 @@ from .profiles import (
     blogger_public_profile,
 )
 from .billing import (
+    admin_payout_requisites,
+    admin_payout_requisites_approve,
+    admin_payout_requisites_reject,
+    payout_requisites_view,
     wallet_view,
 )
 from .catalog import (

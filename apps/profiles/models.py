@@ -40,6 +40,12 @@ class AdvertiserProfile(models.Model):
 
 
 class BloggerProfile(models.Model):
+    class Category(models.TextChoices):
+        INDIVIDUAL = "individual", "Физлицо"
+        SELF_EMPLOYED = "self_employed", "Самозанятый"
+        IP = "ip", "ИП"
+        LEGAL_ENTITY = "legal_entity", "Юрлицо-исполнитель"
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -53,6 +59,11 @@ class BloggerProfile(models.Model):
     phone = models.CharField(max_length=30, blank=True)
     pinfl = models.CharField(max_length=14, blank=True, verbose_name="ПИНФЛ")
     is_ip_confirmed = models.BooleanField(default=False)
+    category = models.CharField(
+        max_length=20, choices=Category.choices, default=Category.INDIVIDUAL,
+        verbose_name="Категория исполнителя",
+        help_text="Определяет тип реквизитов выплаты: карта (физлицо/самозанятый) или счёт (ИП/юрлицо).",
+    )
     is_complete = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

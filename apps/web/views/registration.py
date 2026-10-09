@@ -545,8 +545,15 @@ def admin_ip_application_approve(request, pk):
 
     profile = getattr(application.user, "blogger_profile", None)
     if profile:
+        update_fields = ["is_ip_confirmed"]
         profile.is_ip_confirmed = True
-        profile.save(update_fields=["is_ip_confirmed"])
+        # Поднять категорию до «ИП», только если блогер не выбрал другую категорию сам
+        # (T7/#39) — подтверждение ИП не должно тихо переписывать осознанный выбор
+        # «самозанятый»/«юрлицо-исполнитель».
+        if profile.category == BloggerProfile.Category.INDIVIDUAL:
+            profile.category = BloggerProfile.Category.IP
+            update_fields.append("category")
+        profile.save(update_fields=update_fields)
 
     NotificationService.notify_ip_application_approved(application.user, application)
     messages.success(request, "Статус ИП подтверждён.")

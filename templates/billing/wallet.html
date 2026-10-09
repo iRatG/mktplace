@@ -49,31 +49,32 @@
     <div class="rounded-xl p-4 bg-gray-50 border border-gray-200 mb-4 text-sm text-gray-700">
         Вывод средств недоступен для демо-аккаунтов.
     </div>
+    {% elif not requisites %}
+    {# Без подтверждённых реквизитов форма вывода недоступна (T7/#39) — сначала их нужно подтвердить. #}
+    <div class="rounded-xl p-4 bg-gray-50 border border-gray-200 mb-4 text-sm text-gray-700">
+        Чтобы выводить деньги, сначала подтвердите реквизиты выплаты.
+        <a href="{% url 'web:payout_requisites' %}" class="text-orange-600 hover:text-orange-700 font-medium">Подтвердить реквизиты →</a>
+    </div>
     {% endif %}
-    {# novalidate: сумму и карту проверяет сервер, ошибки — в сообщении над страницей. #}
+    {% if not user.is_demo and requisites %}
+    <p class="text-xs text-gray-500 mb-3">Выплата уйдёт на: {{ requisites.masked_number }}
+        (<a href="{% url 'web:payout_requisites' %}" class="text-orange-600 hover:text-orange-700">изменить реквизиты</a>)</p>
+    {# novalidate: сумму проверяет сервер, ошибки — в сообщении над страницей. #}
     <form method="post" action="{% url 'web:wallet' %}" novalidate>
         {% csrf_token %}
-        <fieldset {% if user.is_demo %}disabled class="opacity-60"{% endif %}>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
                 {% with label="Сумма ("|add:currency.symbol|add:")" placeholder="Минимум "|add:min_withdrawal_text %}
                 {% include "partials/number_input.html" with name="amount" value=entered.amount label=label step=10000 placeholder=placeholder %}
                 {% endwith %}
             </div>
-            <div>
-                <label for="id_card" class="block text-sm text-gray-700 mb-1">Номер карты</label>
-                <input type="text" name="card" id="id_card" value="{{ entered.card }}" data-card-input
-                       inputmode="numeric" autocomplete="cc-number" maxlength="19"
-                       placeholder="8600 0000 0000 0000" class="input-dark">
-                <p class="text-xs text-gray-500 mt-1">16 цифр</p>
-            </div>
         </div>
         <button type="submit" class="btn-orange px-5 py-2.5 text-sm rounded-xl">
             Подать заявку
         </button>
-        </fieldset>
         <p class="text-xs text-gray-400 mt-3">Минимальная сумма: {{ min_withdrawal|money }} {{ currency.symbol }}. Обработка: 3 рабочих дня.</p>
     </form>
+    {% endif %}
 </div>
 {% endif %}
 

@@ -197,7 +197,7 @@ class ProfileEditTest(TestCase):
         u = make_blogger()
         c = Client()
         c.force_login(u)
-        c.post(reverse("web:profile_edit"), {"nickname": "Vasya", "bio": "Hello world"})
+        c.post(reverse("web:profile_edit"), {"nickname": "Vasya", "bio": "Hello world", "category": "individual"})
         p = BloggerProfile.objects.get(user=u)
         self.assertEqual(p.nickname, "Vasya")
         self.assertEqual(p.bio, "Hello world")
@@ -206,7 +206,7 @@ class ProfileEditTest(TestCase):
         u = make_blogger()
         c = Client()
         c.force_login(u)
-        c.post(reverse("web:profile_edit"), {"nickname": "Vasya", "bio": "Hello"})
+        c.post(reverse("web:profile_edit"), {"nickname": "Vasya", "bio": "Hello", "category": "individual"})
         p = BloggerProfile.objects.get(user=u)
         self.assertTrue(p.is_complete)
 

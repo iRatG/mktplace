@@ -34,6 +34,8 @@ class Notification(models.Model):
         LEGAL_ENTITY_REJECTED = "legal_entity_rejected", "Legal Entity Rejected"
         IP_APPLICATION_APPROVED = "ip_application_approved", "IP Application Approved"
         IP_APPLICATION_REJECTED = "ip_application_rejected", "IP Application Rejected"
+        PAYOUT_REQUISITES_APPROVED = "payout_requisites_approved", "Payout Requisites Approved"
+        PAYOUT_REQUISITES_REJECTED = "payout_requisites_rejected", "Payout Requisites Rejected"
         SYSTEM = "system", "System"
 
     user = models.ForeignKey(

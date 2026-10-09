@@ -74,6 +74,10 @@ urlpatterns = [
 
     # Billing
     path("wallet/", views.wallet_view, name="wallet"),
+    path("profile/payout-requisites/", views.payout_requisites_view, name="payout_requisites"),
+    path("panel/payout-requisites/", views.admin_payout_requisites, name="admin_payout_requisites"),
+    path("panel/payout-requisites/<int:pk>/approve/", views.admin_payout_requisites_approve, name="admin_payout_requisites_approve"),
+    path("panel/payout-requisites/<int:pk>/reject/", views.admin_payout_requisites_reject, name="admin_payout_requisites_reject"),
 
     # Admin panel (staff only)
     path("panel/", views.admin_dashboard, name="admin_dashboard"),

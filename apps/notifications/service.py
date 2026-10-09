@@ -672,3 +672,28 @@ class NotificationService:
             body=f"Ваш документ отклонён. Причина: {reason}",
             url=reverse("web:ip_application_list"),
         )
+
+    # ── Реквизиты выплаты (T7/#39) ───────────────────────────────────────────
+
+    @staticmethod
+    def notify_payout_requisites_approved(blogger, application):
+        """Реквизиты выплаты подтверждены → блогеру."""
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.PAYOUT_REQUISITES_APPROVED,
+            title="Реквизиты выплаты подтверждены",
+            body="Теперь вы можете подать заявку на вывод средств.",
+            url=reverse("web:wallet"),
+        )
+
+    @staticmethod
+    def notify_payout_requisites_rejected(blogger, application):
+        """Реквизиты выплаты отклонены → блогеру."""
+        reason = application.rejection_reason or "причина не указана"
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.PAYOUT_REQUISITES_REJECTED,
+            title="Реквизиты выплаты отклонены",
+            body=f"Причина: {reason}",
+            url=reverse("web:payout_requisites"),
+        )

@@ -37,6 +37,17 @@
                 {% if form.bio.errors %}<p class="text-red-600 text-xs mt-1">{{ form.bio.errors|join:", " }}</p>{% endif %}
             </div>
 
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Категория исполнителя</label>
+                <select name="category" class="input-dark">
+                    {% for value, label in form.fields.category.choices %}
+                    <option value="{{ value }}" {% if form.category.value|stringformat:"s" == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Определяет тип реквизитов выплаты: карта — для физлица и самозанятого, расчётный счёт — для ИП и юрлица. «ИП» доступно только после подтверждения статуса ИП документом.</p>
+                {% if form.category.errors %}<p class="text-red-600 text-xs mt-1">{{ form.category.errors|join:", " }}</p>{% endif %}
+            </div>
+
             {% else %}
 
             <div class="bg-orange-200 border border-orange-200 rounded-lg px-4 py-3 text-xs text-gray-600 leading-relaxed">
