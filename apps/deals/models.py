@@ -85,6 +85,12 @@ class Deal(models.Model):
     )
     publication_url = models.URLField(blank=True)
     publication_at = models.DateTimeField(null=True, blank=True)
+    publication_accepted_at = models.DateTimeField(
+        null=True, blank=True, help_text="Рекламодатель принял публикацию (без оплаты — оплата по сроку)",
+    )
+    # Размещение по условиям оферты; None — сделка до правила: оплата через 72 часа или при подтверждении.
+    min_retention_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    evidence_required = models.JSONField(default=list, blank=True)
 
     # Dispute fields
     dispute_reason = models.TextField(blank=True)
@@ -154,9 +160,66 @@ class Deal(models.Model):
         return bool(due and due <= timezone.now())
 
     @property
+    def claim_until(self):
+        """До какого момента подаётся претензия по размещению (3 рабочих дня с загрузки подтверждения) — или None."""
+        if self.min_retention_days is None or not self.publication_at:
+            return None
+        from apps.campaigns.validation import working_days_after
+
+        return working_days_after(self.publication_at, CLAIM_WORKING_DAYS)
+
+    @property
+    def retention_until(self):
+        """До какого момента исполнитель сохраняет публикацию (минимальный срок сохранения) — или None."""
+        if self.min_retention_days is None or not self.publication_at:
+            return None
+        from datetime import timedelta
+
+        return self.publication_at + timedelta(days=self.min_retention_days)
+
+    @property
+    def payout_due(self):
+        """Когда исполнителю перечисляются деньги, если нет претензии: по позднему из сроков — претензионного (если
+        публикацию не приняли раньше) и срока сохранения. Сделки до правила — 72 часа после публикации."""
+        from datetime import timedelta
+
+        if not self.publication_at:
+            return None
+        if self.min_retention_days is None:
+            return self.publication_at + timedelta(hours=72)
+        if self.publication_accepted_at:
+            return self.retention_until
+        return max(self.claim_until, self.retention_until)
+
+    @property
     def pending_date_change(self):
         """Ожидающее ответа предложение перенести дату публикации — или None."""
         return self.date_changes.filter(status=PublicationDateChange.Status.PENDING).select_related("proposed_by").first()
+
+
+CLAIM_WORKING_DAYS = 3
+
+
+class DealEvidence(models.Model):
+    """Доказательство исполнения к публикации: скриншот, статистика, подтверждение времени или сохранности."""
+
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="evidence")
+    kind = models.CharField(max_length=30)
+    file = models.FileField(upload_to="deal_evidence/%Y/%m/")
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["uploaded_at"]
+
+    @property
+    def kind_label(self):
+        from apps.campaigns.models import EVIDENCE_CHOICES
+
+        return dict(EVIDENCE_CHOICES).get(self.kind, self.kind)
+
+    def __str__(self):
+        return f"Deal#{self.deal_id} {self.kind}"
 
 
 class PublicationDateChange(models.Model):

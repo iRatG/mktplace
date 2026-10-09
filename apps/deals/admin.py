@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ChatMessage, Deal, DealStatusLog, PublicationDateChange
+from .models import ChatMessage, Deal, DealEvidence, DealStatusLog, PublicationDateChange
 
 
 class DealStatusLogInline(admin.TabularInline):
@@ -21,6 +21,13 @@ class PublicationDateChangeInline(admin.TabularInline):
     model = PublicationDateChange
     extra = 0
     readonly_fields = ("proposed_by", "old_date", "new_date", "status", "created_at", "answered_at")
+    can_delete = False
+
+
+class DealEvidenceInline(admin.TabularInline):
+    model = DealEvidence
+    extra = 0
+    readonly_fields = ("kind", "file", "uploaded_by", "uploaded_at")
     can_delete = False
 
 
@@ -55,7 +62,7 @@ class DealAdmin(admin.ModelAdmin):
         "dispute_opened_at",
         "dispute_resolved_at",
     )
-    inlines = [DealStatusLogInline, PublicationDateChangeInline, ChatMessageInline]
+    inlines = [DealStatusLogInline, PublicationDateChangeInline, DealEvidenceInline, ChatMessageInline]
 
 
 @admin.register(DealStatusLog)

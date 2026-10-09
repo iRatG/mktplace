@@ -142,9 +142,16 @@ def deal_detail(request, pk):
     offer = DirectOffer.objects.filter(deal=deal).only("terms").first()
     offer_terms_rows = describe_terms(offer.terms) if offer else []
 
+    from apps.campaigns.models import EVIDENCE_CHOICES
+
+    evidence_labels = dict(EVIDENCE_CHOICES)
+    evidence_fields = [(kind, evidence_labels.get(kind, kind)) for kind in deal.evidence_required]
+
     return render(request, "deals/detail.html", {
         "deal": deal,
         "offer_terms_rows": offer_terms_rows,
+        "evidence_fields": evidence_fields,
+        "evidence_items": deal.evidence.all(),
         "can_reschedule": can_reschedule,
         "date_change": date_change,
         "reschedule_calendar": reschedule_calendar,
@@ -159,11 +166,18 @@ def deal_detail(request, pk):
     })
 
 
+def _evidence_files(files, deal):
+    """Файлы доказательств из формы: поле evidence_<вид>, можно несколько файлов на вид."""
+    return {kind: files.getlist(f"evidence_{kind}") for kind in deal.evidence_required}
+
+
 @login_required
 @require_POST
 def deal_submit_publication(request, pk):
+    deal = _own_deal(request, pk, "blogger")
     try:
-        transitions.submit_publication(_own_deal(request, pk, "blogger").pk, request.user, request.POST.get("publication_url", ""))
+        transitions.submit_publication(deal.pk, request.user, request.POST.get("publication_url", ""),
+                                       evidence=_evidence_files(request.FILES, deal))
     except TransitionError as e:
         messages.error(request, str(e))
         return redirect("web:deal_detail", pk=pk)
@@ -175,11 +189,15 @@ def deal_submit_publication(request, pk):
 @require_POST
 def deal_confirm(request, pk):
     try:
-        transitions.complete(_own_deal(request, pk, "advertiser").pk, request.user)
+        deal = transitions.confirm_publication(_own_deal(request, pk, "advertiser").pk, request.user)
     except TransitionError as e:
         messages.error(request, str(e))
         return redirect("web:deal_detail", pk=pk)
-    messages.success(request, "Сделка завершена. Блогер получил оплату.")
+    if deal.status == Deal.Status.COMPLETED:
+        messages.success(request, "Сделка завершена. Блогер получил оплату.")
+    else:
+        messages.success(request, f"Публикация принята. Оплата блогеру — "
+                                  f"{timezone.localtime(deal.payout_due):%d.%m.%Y %H:%M}, по окончании срока сохранения.")
     return redirect("web:deal_detail", pk=pk)
 
 

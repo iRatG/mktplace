@@ -17,7 +17,7 @@ from django.utils import timezone
 from apps.billing.services import BillingService
 from apps.notifications.service import NotificationService
 
-from .models import ChatMessage, Deal, DealStatusLog, PublicationDateChange
+from .models import ChatMessage, Deal, DealEvidence, DealStatusLog, PublicationDateChange
 
 S = Deal.Status
 
@@ -77,6 +77,16 @@ def _after_commit(func, *args, **kwargs):
 
 # ── Создание ─────────────────────────────────────────────────────────────────
 
+def placement_terms(terms):
+    """Срок сохранения и доказательства из снимка оферты. Нет в снимке — сделка по прежним правилам (72 часа)."""
+    terms = terms or {}
+    if "min_retention_days" not in terms:
+        return {}
+    evidence = terms.get("evidence_required") or []
+    return {"min_retention_days": int(terms["min_retention_days"] or 3),
+            "evidence_required": list(evidence) if isinstance(evidence, (list, tuple)) else []}
+
+
 def approval_terms(terms):
     """Порядок согласования из снимка условий оферты. Оферта без этих условий (направлена до правила) —
     согласование не обязательно: сделка живёт по условиям на момент заключения."""
@@ -104,6 +114,7 @@ def create_deal(*, campaign, blogger, platform, advertiser, amount, actor, comme
         campaign=campaign, blogger=blogger, platform=platform, advertiser=advertiser,
         response=response, amount=amount, status=S.WAITING_PAYMENT, publication_date=publication_date,
         **approval_terms(offer.terms if offer is not None else None),
+        **placement_terms(offer.terms if offer is not None else None),
     )
     if offer is not None and offer.reserved_at:
         Transaction.objects.filter(offer=offer, type=Transaction.Type.RESERVE).update(deal=deal)
@@ -172,7 +183,15 @@ def reject_creative(pk, actor, reason):
 
 # ── Публикация и завершение ──────────────────────────────────────────────────
 
-def submit_publication(pk, actor, url):
+def _evidence_missing(deal, evidence):
+    from apps.campaigns.models import EVIDENCE_CHOICES
+
+    labels = dict(EVIDENCE_CHOICES)
+    return [labels.get(kind, kind) for kind in deal.evidence_required if not (evidence or {}).get(kind)]
+
+
+def submit_publication(pk, actor, url, evidence=None):
+    """Блогер размещает публикацию: ссылка и доказательства, которые требует оферта (evidence — {вид: [файлы]})."""
     url = (url or "").strip()
     if not url:
         raise TransitionError("Укажите ссылку на публикацию.")
@@ -187,6 +206,13 @@ def submit_publication(pk, actor, url):
             raise TransitionError("По условиям сделки публиковать можно только после согласования материала рекламодателем.")
         if deal.publication_date and timezone.localdate() < deal.publication_date:
             raise TransitionError(f"Публикация — не раньше {deal.publication_date:%d.%m.%Y}.")
+        missing = _evidence_missing(deal, evidence)
+        if missing:
+            raise TransitionError("Приложите доказательства исполнения: " + ", ".join(missing) + ".")
+        for kind, files in (evidence or {}).items():
+            if kind in deal.evidence_required:
+                for f in files:
+                    DealEvidence.objects.create(deal=deal, kind=kind, file=f, uploaded_by=actor)
         _move(deal, S.CHECKING, actor, f"Публикация размещена: {url}",
               publication_url=url, publication_at=timezone.now())
         _chat(deal, f"Блогер добавил публикацию: {url}")
@@ -194,27 +220,66 @@ def submit_publication(pk, actor, url):
     return deal
 
 
+def confirm_publication(pk, actor):
+    """Рекламодатель принимает публикацию.
+
+    Сделка по условиям оферты со сроком сохранения: отметка «принята» без оплаты — деньги уходят по окончании срока
+    сохранения (претензия об удалении возможна весь срок). Сделка до правила: оплата сразу, как раньше.
+    """
+    with transaction.atomic():
+        deal = _lock(pk)
+        _require_actor(actor, deal.advertiser, "Принять публикацию может только рекламодатель сделки.")
+        _require(deal, (S.CHECKING,), "Принять можно только сделку «На проверке».")
+        if deal.min_retention_days is not None:
+            if deal.publication_accepted_at:
+                raise TransitionError("Публикация уже принята.")
+            deal.publication_accepted_at = timezone.now()
+            deal.save(update_fields=["publication_accepted_at", "updated_at"])
+            comment = (f"Рекламодатель принял публикацию. Оплата исполнителю — "
+                       f"{timezone.localtime(deal.payout_due):%d.%m.%Y %H:%M}, по окончании срока сохранения.")
+            DealStatusLog.log(deal, deal.status, changed_by=actor, comment=comment)
+            _chat(deal, comment)
+    if deal.min_retention_days is None:
+        return complete(pk, actor)
+    _after_commit(NotificationService.notify_publication_accepted, deal)
+    if deal.payout_due <= timezone.now():
+        return complete(pk, actor=None)
+    return deal
+
+
 def complete(pk, actor=None):
-    """Рекламодатель подтвердил публикацию; actor=None — автозавершение через 72 часа после публикации."""
+    """Оплата исполнителю и завершение. actor=None — по сроку (таймер); рекламодатель — только у сделок до правила
+    (подтверждение = оплата). Новые сделки рекламодатель принимает через confirm_publication."""
     with transaction.atomic():
         deal = _lock(pk)
         _require_actor(actor, deal.advertiser, "Подтвердить публикацию может только рекламодатель сделки.")
         _require(deal, (S.CHECKING,), "Подтвердить можно только сделку «На проверке».")
+        if actor is not None and deal.min_retention_days is not None:
+            raise TransitionError("Оплата по этой сделке — по окончании срока сохранения публикации.")
         if actor is None and not checking_overdue(deal):
-            raise TransitionError("72 часа после публикации ещё не прошли.")
-        comment = ("Рекламодатель подтвердил публикацию. Оплата выполнена." if actor
-                   else "Публикация подтверждена автоматически: 72 часа без ответа рекламодателя. Оплата выполнена.")
+            raise TransitionError("Срок для оплаты ещё не наступил.")
+        if actor is not None:
+            how, comment = "confirmed", "Рекламодатель подтвердил публикацию. Оплата выполнена."
+        elif deal.min_retention_days is None:
+            how = "timer"
+            comment = "Публикация подтверждена автоматически: 72 часа без ответа рекламодателя. Оплата выполнена."
+        elif deal.publication_accepted_at:
+            how, comment = "accepted", "Публикация принята, срок сохранения истёк. Оплата выполнена."
+        else:
+            how = "timer"
+            comment = "Претензий не поступило, срок претензии и срок сохранения истекли. Оплата выполнена."
         BillingService.complete_deal_payment(deal)
         _move(deal, S.COMPLETED, actor, comment, last_distributed_at=timezone.now())
         _chat(deal, comment)
-    _after_commit(NotificationService.notify_deal_completed, deal.blogger, deal)
+    _after_commit(NotificationService.notify_deal_completed, deal.blogger, deal, how=how)
     return deal
 
 
 def checking_overdue(deal, now=None):
-    """72 часа проверки отсчитываются от публикации (а не от любого сохранения сделки)."""
-    started = deal.publication_at or deal.updated_at
-    return started <= (now or timezone.now()) - CHECKING_AUTO_COMPLETE_AFTER
+    """Наступил ли срок оплаты (Deal.payout_due): по условиям оферты — поздний из сроков претензии и сохранения,
+    у сделок до правила — 72 часа после публикации."""
+    due = deal.payout_due or (deal.updated_at + CHECKING_AUTO_COMPLETE_AFTER)
+    return due <= (now or timezone.now())
 
 
 # ── Спор ─────────────────────────────────────────────────────────────────────
@@ -395,11 +460,10 @@ def _run_each(queryset, transition):
 
 
 def auto_complete_overdue():
-    threshold = timezone.now() - CHECKING_AUTO_COMPLETE_AFTER
-    qs = Deal.objects.filter(status=S.CHECKING, publication_at__lte=threshold) | Deal.objects.filter(
-        status=S.CHECKING, publication_at__isnull=True, updated_at__lte=threshold,
-    )
-    return _run_each(qs, lambda pk: complete(pk, actor=None))
+    """Оплата по сроку: сделки «На проверке», у которых наступил payout_due (срок у каждой свой)."""
+    now = timezone.now()
+    due = [d.pk for d in Deal.objects.filter(status=S.CHECKING) if checking_overdue(d, now)]
+    return _run_each(Deal.objects.filter(pk__in=due), lambda pk: complete(pk, actor=None))
 
 
 def auto_approve_overdue_creatives():

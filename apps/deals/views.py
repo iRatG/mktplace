@@ -61,14 +61,17 @@ class DealViewSet(
 
     @action(detail=True, methods=["post"], url_path="submit-publication")
     def submit_publication(self, request, pk=None):
+        deal = self.get_object()
+        evidence = {kind: request.FILES.getlist(f"evidence_{kind}") for kind in deal.evidence_required}
         return self._transition(
-            transitions.submit_publication, request.user, request.data.get("publication_url", ""),
+            transitions.submit_publication, request.user, request.data.get("publication_url", ""), evidence,
             ok="Publication submitted for checking.",
         )
 
     @action(detail=True, methods=["post"], url_path="confirm-publication")
     def confirm_publication(self, request, pk=None):
-        return self._transition(transitions.complete, request.user, ok="Publication confirmed. Deal completed.")
+        return self._transition(transitions.confirm_publication, request.user,
+                                ok="Publication confirmed. Payment follows the terms of the deal.")
 
     @action(detail=True, methods=["post"])
     def dispute(self, request, pk=None):

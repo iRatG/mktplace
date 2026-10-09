@@ -183,14 +183,21 @@ class NotificationService:
     # ── Сделки ────────────────────────────────────────────────────────────────
 
     @staticmethod
-    def notify_deal_completed(blogger, deal):
-        """Сделка завершена, деньги зачислены → блогеру."""
+    def notify_deal_completed(blogger, deal, how="confirmed"):
+        """Сделка завершена, деньги зачислены → блогеру. how: confirmed / accepted / timer — текст по пути."""
+        reason = {
+            "confirmed": "Рекламодатель подтвердил сделку",
+            "accepted": "Публикация принята, срок сохранения истёк по сделке",
+            "timer": "Сроки претензии и сохранения истекли без претензий по сделке",
+        }.get(how, "Завершена сделка")
+        if how == "timer" and deal.min_retention_days is None:
+            reason = "72 часа без ответа рекламодателя — сделка подтверждена автоматически:"
         NotificationService.notify(
             user=blogger,
             notification_type=Notification.Type.PAYMENT_RECEIVED,
             title="Деньги зачислены на баланс",
             body=(
-                f"Рекламодатель подтвердил сделку #{deal.pk} "
+                f"{reason} #{deal.pk} "
                 f"«{deal.campaign.name}». Средства переведены на ваш баланс."
             ),
             deal=deal,
@@ -278,7 +285,12 @@ class NotificationService:
             title="Блогер добавил публикацию",
             body=(
                 f"Блогер разместил публикацию по сделке #{deal.pk} «{deal.campaign.name}». "
-                f"Проверьте и подтвердите — без ответа сделка завершится автоматически через 72 часа."
+                + (f"Проверьте: претензию по размещению можно подать до "
+                   f"{timezone.localtime(deal.claim_until):%d.%m.%Y %H:%M}, об удалении публикации — до "
+                   f"{timezone.localtime(deal.retention_until):%d.%m.%Y %H:%M}. Без претензий оплата исполнителю — "
+                   f"{timezone.localtime(deal.payout_due):%d.%m.%Y %H:%M}."
+                   if deal.min_retention_days is not None else
+                   "Проверьте и подтвердите — без ответа сделка завершится автоматически через 72 часа.")
             ),
             deal=deal,
         )
@@ -313,6 +325,21 @@ class NotificationService:
         )
 
     # ── Дата публикации ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def notify_publication_accepted(deal):
+        """Рекламодатель принял публикацию → исполнителю: когда придут деньги и до какого числа сохранять пост."""
+        NotificationService.notify(
+            user=deal.blogger,
+            notification_type=Notification.Type.DEAL_UPDATED,
+            title="Публикация принята",
+            body=(
+                f"Рекламодатель принял публикацию по сделке #{deal.pk} «{deal.campaign.name}». "
+                f"Сохраняйте её до {timezone.localtime(deal.retention_until):%d.%m.%Y %H:%M} — оплата "
+                f"{timezone.localtime(deal.payout_due):%d.%m.%Y %H:%M}."
+            ),
+            deal=deal,
+        )
 
     @staticmethod
     def notify_review_overdue(deal):

@@ -145,6 +145,20 @@
                class="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700 text-sm break-all transition-colors">
                 <span>🔗</span> {{ deal.publication_url }}
             </a>
+            {% if evidence_items %}
+            <ul class="mt-3 space-y-1 text-xs" data-evidence-list>
+                {% for item in evidence_items %}
+                <li><a href="{{ item.file.url }}" target="_blank" rel="noopener" class="text-orange-600 hover:text-orange-700">{{ item.kind_label }}</a> <span class="text-gray-400">· {{ item.uploaded_at|date:"d.m.Y H:i" }}</span></li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            {% if deal.status == 'checking' and deal.min_retention_days is not None %}
+            <dl class="mt-3 space-y-1 text-xs text-gray-700" data-payout-terms>
+                {% if not deal.publication_accepted_at %}<div>Претензия по размещению — до {{ deal.claim_until|date:"d.m.Y H:i" }}</div>{% endif %}
+                <div>Сохранять публикацию — до {{ deal.retention_until|date:"d.m.Y H:i" }} (претензия об удалении — весь этот срок)</div>
+                <div class="font-medium text-gray-900">{% if deal.publication_accepted_at %}Публикация принята — оплата {% else %}Оплата исполнителю без претензий — {% endif %}{{ deal.payout_due|date:"d.m.Y H:i" }}</div>
+            </dl>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -219,7 +233,7 @@
                 {% elif deal.publication_date and deal.publication_date|date:"Y-m-d" > today %}
                 <p class="text-sm font-medium text-gray-900" data-publication-not-yet>Публикация — не раньше {{ deal.publication_date|date:"d.m.Y" }}. Форма для ссылки откроется в этот день.</p>
                 {% else %}
-                <form method="post" action="{% url 'web:deal_submit_publication' deal.pk %}">
+                <form method="post" action="{% url 'web:deal_submit_publication' deal.pk %}" enctype="multipart/form-data" class="space-y-3">
                     {% csrf_token %}
                     <div class="flex gap-3">
                         <input type="url" name="publication_url"
@@ -229,6 +243,17 @@
                             Отправить
                         </button>
                     </div>
+                    {% if evidence_fields %}
+                    <div class="space-y-2" data-evidence-inputs>
+                        <p class="text-xs text-gray-600">По условиям оферты приложите доказательства исполнения:</p>
+                        {% for kind, label in evidence_fields %}
+                        <label class="block text-xs text-gray-700">{{ label }}
+                            <input type="file" name="evidence_{{ kind }}" multiple required class="block mt-1 text-xs">
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if deal.min_retention_days %}<p class="text-xs text-gray-500">Публикацию нужно сохранять не меньше {{ deal.min_retention_days }} дн. — оплата по окончании этого срока, если нет претензий.</p>{% endif %}
                 </form>
                 {% endif %}
             </div>
@@ -268,7 +293,11 @@
             {% if deal.status == 'checking' %}
             <div class="rounded-xl p-5 bg-orange-50 border border-orange-200">
                 <p class="text-orange-700 text-sm font-medium">⏳ Ожидаем подтверждения рекламодателя</p>
+                {% if deal.min_retention_days is not None %}
+                <p class="text-orange-700 text-xs mt-1">Оплата — {{ deal.payout_due|date:"d.m.Y H:i" }}, если до этого не будет претензии. Сохраняйте публикацию до {{ deal.retention_until|date:"d.m.Y H:i" }}.</p>
+                {% else %}
                 <p class="text-orange-700 text-xs mt-1">Если рекламодатель не ответит в течение 72 часов после публикации — сделка завершится автоматически.</p>
+                {% endif %}
                 <details class="mt-3">
                     <summary class="text-xs text-gray-600 cursor-pointer hover:text-gray-900">С публикацией что-то не так — открыть спор</summary>
                     <form method="post" action="{% url 'web:deal_dispute' deal.pk %}" class="mt-2 space-y-2"
@@ -343,6 +372,24 @@
             <!-- Advertiser: confirm or dispute -->
             <div class="card-dark rounded-xl p-6">
                 <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Проверить публикацию</h2>
+                {% if deal.min_retention_days is not None %}
+                <p class="text-gray-600 text-sm mb-4">
+                    Блогер добавил публикацию. Проверьте её по критериям приёмки. «Принять публикацию» — отметка, что
+                    претензий к размещению нет; оплата блогеру — по окончании срока сохранения.
+                </p>
+                {% if deal.publication_accepted_at %}
+                <p class="text-sm font-medium text-gray-900 mb-2" data-publication-accepted>Публикация принята — оплата {{ deal.payout_due|date:"d.m.Y H:i" }}.</p>
+                {% else %}
+                <div class="flex gap-3 flex-wrap">
+                    <form method="post" action="{% url 'web:deal_confirm' deal.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-orange px-5 py-2.5 text-sm rounded-xl">
+                            ✅ Принять публикацию
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+                {% else %}
                 <p class="text-gray-600 text-sm mb-4">
                     Блогер добавил ссылку на публикацию. Проверьте и подтвердите — средства будут переведены блогеру.
                 </p>
@@ -354,6 +401,7 @@
                         </button>
                     </form>
                 </div>
+                {% endif %}
                 <details class="mt-3">
                     <summary class="text-xs text-gray-600 cursor-pointer hover:text-gray-900">С публикацией что-то не так — открыть спор</summary>
                     <form method="post" action="{% url 'web:deal_dispute' deal.pk %}" class="mt-2 space-y-2"

@@ -10,6 +10,10 @@ class DealSerializer(serializers.ModelSerializer):
     platform_url = serializers.URLField(source="platform.url", read_only=True)
     overdue_days = serializers.IntegerField(read_only=True)
     content_due = serializers.DateField(read_only=True)
+    claim_until = serializers.DateTimeField(read_only=True)
+    retention_until = serializers.DateTimeField(read_only=True)
+    payout_due = serializers.DateTimeField(read_only=True)
+    evidence = serializers.SerializerMethodField()
     review_due = serializers.DateTimeField(read_only=True)
     pending_date_change = serializers.SerializerMethodField()
 
@@ -44,6 +48,13 @@ class DealSerializer(serializers.ModelSerializer):
             "pending_date_change",
             "publication_url",
             "publication_at",
+            "publication_accepted_at",
+            "min_retention_days",
+            "evidence_required",
+            "evidence",
+            "claim_until",
+            "retention_until",
+            "payout_due",
             "dispute_reason",
             "dispute_opened_at",
             "dispute_resolved_at",
@@ -68,6 +79,10 @@ class DealSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+
+    def get_evidence(self, deal):
+        return [{"kind": e.kind, "file": e.file.url, "uploaded_at": e.uploaded_at.isoformat()}
+                for e in deal.evidence.all()]
 
     def get_pending_date_change(self, deal):
         """Ожидающее ответа предложение перенести дату публикации — или null."""
