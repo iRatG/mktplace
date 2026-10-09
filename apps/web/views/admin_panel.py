@@ -29,6 +29,12 @@ from ..forms import CampaignForm, CategoryForm
 from .pages import _redirect_dashboard
 
 
+def _pending_platform_reviews():
+    from apps.feedback.models import PlatformReview
+
+    return PlatformReview.objects.filter(status=PlatformReview.Status.PENDING).count()
+
+
 def _staff_required(view_func):
     """Decorator: allow only is_staff users, redirect others to dashboard."""
     @functools.wraps(view_func)
@@ -59,6 +65,7 @@ def admin_dashboard(request):
         "deals_disputed": Deal.objects.filter(status=Deal.Status.DISPUTED).count(),
         "withdrawals_pending": WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING).count(),
         "permits_pending": PermitDocument.objects.filter(status=PermitDocument.Status.PENDING).count(),
+        "reviews_pending": _pending_platform_reviews(),
         "users_total": User.objects.count(),
         "users_active": User.objects.filter(status=User.Status.ACTIVE).count(),
         "new_users_month": User.objects.filter(date_joined__gte=last_30).count(),

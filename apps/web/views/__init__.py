@@ -142,3 +142,9 @@ from .registration import (
     admin_ip_application_approve,
     admin_ip_application_reject,
 )
+from .platform_reviews import (  # noqa: E402
+    platform_reviews,
+    admin_platform_reviews,
+    admin_platform_review_moderate,
+    admin_platform_review_remove,
+)

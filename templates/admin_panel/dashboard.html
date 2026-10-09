@@ -24,8 +24,13 @@
     </a>
     <a href="{% url 'web:admin_disputes' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block">
         <div class="text-2xl font-bold {% if deals_disputed %}text-red-600{% else %}text-gray-900{% endif %}">{{ deals_disputed }}</div>
-        <div class="text-xs text-gray-600 mt-1">Споров открыто</div>
+        <div class="text-xs text-gray-600 mt-1">Претензий на рассмотрении</div>
         {% if deals_disputed %}<div class="text-xs text-red-600 mt-1">Требует решения</div>{% endif %}
+    </a>
+    <a href="{% url 'web:admin_platform_reviews' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block" data-reviews-tile>
+        <div class="text-2xl font-bold {% if reviews_pending %}text-orange-600{% else %}text-gray-900{% endif %}">{{ reviews_pending }}</div>
+        <div class="text-xs text-gray-600 mt-1">Отзывов о платформе на проверке</div>
+        {% if reviews_pending %}<div class="text-xs text-orange-600 mt-1">Требует действия</div>{% endif %}
     </a>
     <a href="{% url 'web:admin_withdrawals' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block">
         <div class="text-2xl font-bold {% if withdrawals_pending %}text-yellow-700{% else %}text-gray-900{% endif %}">{{ withdrawals_pending }}</div>

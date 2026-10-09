@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Отзывы о платформе — UBlogers!{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <h1 class="text-2xl font-bold text-gray-900 mb-2">Отзывы о платформе</h1>
+    <p class="text-sm text-gray-600 mb-6">Отзывы пользователей о работе платформы. Публикуются после проверки.</p>
+
+    {% if user.is_authenticated %}
+    <details class="card-dark rounded-xl p-5 mb-6" data-review-form {% if form %}open{% endif %}>
+        <summary class="text-sm font-semibold text-gray-800 cursor-pointer">Оставить отзыв</summary>
+        <form method="post" class="mt-4 space-y-3">
+            {% csrf_token %}
+            <div class="flex gap-3 text-sm text-gray-800">
+                {% for n in "12345" %}
+                <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="rating" value="{{ n }}" required {% if form.rating == n %}checked{% endif %}> {{ n }}★</label>
+                {% endfor %}
+            </div>
+            <textarea name="text" rows="4" required class="input-dark resize-y text-sm" spellcheck="true" lang="ru"
+                      placeholder="Ваш личный опыт: что получилось, как работает сервис">{{ form.text }}</textarea>
+            <textarea name="reason" rows="2" class="input-dark resize-y text-sm" spellcheck="true" lang="ru"
+                      placeholder="Если оценка 1–2: чем вы остались недовольны (обязательно)">{{ form.reason }}</textarea>
+            <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="is_anonymous" {% if form.is_anonymous %}checked{% endif %}> Опубликовать анонимно</label>
+            <p class="text-xs text-gray-500">Требования: отзыв о вашем опыте работы с платформой, без посторонних материалов, просьб и рекламы; в отрицательном отзыве — причина; без оскорблений, клеветы и ненормативной лексики; не повторять уже оставленный отзыв. Если публикуете с именем — его увидят все.</p>
+            <button type="submit" class="btn-orange px-5 py-2 text-sm rounded-xl">Отправить на проверку</button>
+        </form>
+    </details>
+    {% else %}
+    <p class="text-sm text-gray-600 mb-6"><a href="{% url 'web:login' %}" class="text-orange-700">Войдите</a>, чтобы оставить отзыв.</p>
+    {% endif %}
+
+    <div class="space-y-3">
+        {% for review in reviews %}
+        <div class="card-dark rounded-xl p-5" data-review>
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-900">{{ review.author_label }}</span>
+                <span class="text-sm text-yellow-700">{% for i in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span>
+            </div>
+            <p class="text-sm text-gray-800 whitespace-pre-line">{{ review.text }}</p>
+            {% if review.reason %}<p class="text-sm text-gray-600 mt-2 whitespace-pre-line"><span class="text-gray-500">Что не понравилось:</span> {{ review.reason }}</p>{% endif %}
+            <p class="text-xs text-gray-400 mt-2">{{ review.created_at|date:"d.m.Y" }}</p>
+        </div>
+        {% empty %}
+        <p class="text-sm text-gray-500">Отзывов пока нет.</p>
+        {% endfor %}
+    </div>
+    {% include "partials/pagination.html" %}
+</div>
+{% endblock %}
