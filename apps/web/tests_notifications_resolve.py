@@ -205,8 +205,10 @@ class ApiParityTest(TestCase):
             campaign=self.campaign, blogger=self.blogger, platform=self.platform,
         )
         self.api.force_authenticate(self.adv)
+        from apps.campaigns.testing import publication_day
+
         r = self.api.post(reverse("campaigns:response-accept", kwargs={"pk": resp_obj.pk}),
-                          {"publication_date": timezone.localdate().isoformat()}, format="json")
+                          {"publication_date": publication_day(self.campaign).isoformat()}, format="json")
         self.assertEqual(r.status_code, 201)
         # Принятие отклика направляет оферту — то же уведомление, что на сайте (#33).
         self.assertTrue(_unread(self.blogger, type=T.DIRECT_OFFER_RECEIVED, title="Вам направлена оферта").exists())

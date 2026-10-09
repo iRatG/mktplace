@@ -33,6 +33,7 @@ NotificationService — синхронный сервис создания in-ap
 """
 
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.billing.formatting import format_money
 
@@ -261,7 +262,9 @@ class NotificationService:
             title="Креатив на согласовании",
             body=(
                 f"Блогер отправил креатив по сделке #{deal.pk} "
-                f"«{deal.campaign.name}». Проверьте и согласуйте."
+                f"«{deal.campaign.name}». Проверьте и согласуйте"
+                + (f" или направьте замечания до {timezone.localtime(deal.review_due):%d.%m.%Y %H:%M}."
+                   if deal.review_due else ".")
             ),
             deal=deal,
         )
@@ -310,6 +313,32 @@ class NotificationService:
         )
 
     # ── Дата публикации ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def notify_review_overdue(deal):
+        """Срок рассмотрения материала истёк без ответа → обеим сторонам."""
+        due = f"{timezone.localtime(deal.review_due):%d.%m.%Y %H:%M}"
+        NotificationService.notify(
+            user=deal.advertiser,
+            notification_type=Notification.Type.DEAL_UPDATED,
+            title="Истёк срок рассмотрения материала",
+            body=(
+                f"По сделке #{deal.pk} «{deal.campaign.name}» материал нужно было рассмотреть до {due}. "
+                f"Согласуйте его или направьте замечания на странице сделки."
+            ),
+            deal=deal,
+        )
+        NotificationService.notify(
+            user=deal.blogger,
+            notification_type=Notification.Type.DEAL_UPDATED,
+            title="Рекламодатель не ответил на материал в срок",
+            body=(
+                f"По сделке #{deal.pk} «{deal.campaign.name}» срок рассмотрения материала истёк {due}. "
+                f"Публиковать без согласования нельзя. Если дату публикации не выдержать — предложите перенос даты "
+                f"на странице сделки."
+            ),
+            deal=deal,
+        )
 
     @staticmethod
     def notify_publication_reminder(deal):

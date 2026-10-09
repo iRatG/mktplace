@@ -27,9 +27,12 @@ def auto_cancel_overdue_deals():
 
 @shared_task
 def publication_date_reminders():
-    """Дата публикации: напоминание исполнителю накануне, уведомление сторонам о просрочке (раз в час)."""
+    """Сроки сделки: напоминание о дате публикации, просрочка даты и срока рассмотрения материала (раз в час)."""
     from .services import notify_overdue_publications, send_publication_reminders
+
+    from .services import notify_overdue_reviews
 
     reminded = send_publication_reminders()
     overdue = notify_overdue_publications()
-    return f"Publication reminders: {reminded}; overdue notices: {overdue}."
+    reviews = notify_overdue_reviews()
+    return f"Publication reminders: {reminded}; overdue notices: {overdue}; overdue reviews: {reviews}."

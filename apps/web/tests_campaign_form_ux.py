@@ -77,10 +77,10 @@ class NumberFieldsTest(TestCase):
 
     def test_every_number_field_has_step_buttons(self):
         html = self.client.get(reverse("web:campaign_create")).content.decode()
-        # цена, ставка CPA, бюджет, мин. подписчиков, макс. блогеров
-        self.assertEqual(html.count("data-number-input"), 5)
-        self.assertEqual(html.count('data-step-button="-1"'), 5)
-        self.assertEqual(html.count('data-step-button="1"'), 5)
+        # цена, ставка CPA, бюджет, мин. подписчиков, макс. блогеров, сроки сдачи и рассмотрения материала
+        self.assertEqual(html.count("data-number-input"), 7)
+        self.assertEqual(html.count('data-step-button="-1"'), 7)
+        self.assertEqual(html.count('data-step-button="1"'), 7)
         self.assertNotIn('type="number"', html)
 
     def test_max_bloggers_accepts_spaces(self):

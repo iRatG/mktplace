@@ -13,7 +13,7 @@ from rest_framework.test import APIClient
 from apps.billing.models import Wallet
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
-from apps.campaigns.testing import accept_web, blogger_accepts
+from apps.campaigns.testing import accept_web, blogger_accepts, publication_day
 from apps.campaigns.validation import budget_committed, budget_remaining
 from apps.deals.models import Deal
 from apps.platforms.models import Platform
@@ -92,7 +92,7 @@ class CampaignBudgetTest(TestCase):
         api = APIClient()
         api.force_authenticate(self.adv)
         r = api.post(reverse("campaigns:response-accept", kwargs={"pk": resp.pk}),
-                     {"publication_date": timezone.localdate().isoformat()}, format="json")
+                     {"publication_date": publication_day(self.campaign).isoformat()}, format="json")
         self.assertEqual(r.status_code, 400)
         self.assertIn("бюджета", r.json()["detail"])
         self.assertFalse(Deal.objects.exists())

@@ -161,8 +161,13 @@
             {% if deal.status == 'in_progress' and not deal.creative_approved_at %}
             <div class="card-dark rounded-xl p-6">
                 <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Отправить креатив на согласование</h2>
-                <p class="text-gray-600 text-sm mb-4">
+                <p class="text-gray-600 text-sm mb-4" data-content-due>
+                    {% if deal.approval_required %}
+                    Обязательный шаг: публиковать можно только после согласования рекламодателем.
+                    {% if deal.content_due %}Сдать материал — до {{ deal.content_due|date:"d.m.Y" }} ({{ deal.content_lead_days }} раб. дн. до даты публикации).{% endif %}
+                    {% else %}
                     Необязательный шаг. Загрузите текст и/или медиафайл — рекламодатель согласует, после чего можно публиковать.
+                    {% endif %}
                 </p>
                 <form method="post" action="{% url 'web:deal_submit_creative' deal.pk %}"
                       enctype="multipart/form-data" class="space-y-3">
@@ -201,7 +206,9 @@
                     {% endif %}
                 </p>
                 {% now "Y-m-d" as today %}
-                {% if deal.publication_date and deal.publication_date|date:"Y-m-d" > today %}
+                {% if deal.approval_required and not deal.creative_approved_at %}
+                <p class="text-sm font-medium text-gray-900" data-publication-needs-approval>Публикация — после согласования материала рекламодателем.</p>
+                {% elif deal.publication_date and deal.publication_date|date:"Y-m-d" > today %}
                 <p class="text-sm font-medium text-gray-900" data-publication-not-yet>Публикация — не раньше {{ deal.publication_date|date:"d.m.Y" }}. Форма для ссылки откроется в этот день.</p>
                 {% else %}
                 <form method="post" action="{% url 'web:deal_submit_publication' deal.pk %}">
@@ -225,7 +232,12 @@
                 <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Креатив на согласовании</h2>
                 <div class="rounded-xl p-4 bg-purple-50 border border-purple-200 mb-4">
                     <p class="text-purple-700 text-sm font-medium">⏳ Ожидаем ответа рекламодателя</p>
+                    {% if deal.review_due %}
+                    <p class="text-purple-700 text-xs mt-1" data-review-due>Рекламодатель рассматривает материал до {{ deal.review_due|date:"d.m.Y H:i" }}.</p>
+                    {% if deal.review_overdue %}<p class="text-red-600 text-xs mt-1 font-medium" data-review-overdue>Срок рассмотрения истёк. Публиковать без согласования нельзя; если дату не выдержать — предложите перенос даты.</p>{% endif %}
+                    {% else %}
                     <p class="text-purple-700 text-xs mt-1">После согласования вы сможете опубликовать пост.</p>
+                    {% endif %}
                 </div>
                 {% if deal.creative_text %}
                 <div>
@@ -276,7 +288,12 @@
             <!-- Advertiser: review and approve/reject creative -->
             <div class="card-dark rounded-xl p-6">
                 <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Согласование креатива</h2>
-                <p class="text-gray-600 text-sm mb-4">Блогер отправил креатив на проверку. Проверьте и примите решение.</p>
+                <p class="text-gray-600 text-sm mb-4">Блогер отправил креатив на проверку. Проверьте и примите решение{% if deal.approval_required %}: согласуйте или направьте мотивированные замечания{% endif %}.</p>
+                {% if deal.review_due %}
+                <p class="text-sm mb-4 {% if deal.review_overdue %}text-red-600 font-medium{% else %}text-gray-700{% endif %}" data-review-due>
+                    Срок рассмотрения — до {{ deal.review_due|date:"d.m.Y H:i" }}{% if deal.review_overdue %} — истёк{% endif %}. Без вашего согласования блогер не может публиковать.
+                </p>
+                {% endif %}
 
                 {% if deal.creative_text %}
                 <div class="mb-4">

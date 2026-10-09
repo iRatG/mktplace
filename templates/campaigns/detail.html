@@ -348,6 +348,10 @@
                     <dd class="font-medium text-gray-900">{% if campaign.content_start %}с {{ campaign.content_start|long_date }} {% endif %}{% if campaign.deadline %}до {{ campaign.deadline|long_date }}{% endif %}</dd>
                 </div>
                 {% endif %}
+                <div class="flex justify-between gap-4" data-approval-terms>
+                    <dt class="text-gray-500">Согласование материала</dt>
+                    <dd class="font-medium text-gray-900 text-right">{% if campaign.approval_required %}обязательно: сдать за {{ campaign.content_lead_days }} раб. дн. до даты публикации, рассмотрение — {{ campaign.review_days }} раб. дн.{% else %}не требуется{% endif %}</dd>
+                </div>
                 <div class="flex justify-between">
                     <dt class="text-gray-500">Макс. блогеров</dt>
                     <dd class="font-medium text-gray-900">{% if campaign.max_bloggers %}{{ campaign.max_bloggers }}{% else %}без ограничения{% endif %}</dd>

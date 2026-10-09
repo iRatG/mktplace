@@ -8,11 +8,16 @@ from django.utils import timezone
 
 
 def publication_day(campaign):
-    """Допустимая дата публикации для кампании: сегодня, но не раньше её начала."""
-    today = timezone.localdate()
-    if campaign.start_date and campaign.start_date > today:
+    """Ближайшая допустимая дата публикации: не раньше начала кампании, а при обязательном согласовании — с запасом
+    на сдачу материала (content_lead_days рабочих дней)."""
+    from .validation import working_days_after
+
+    day = timezone.localdate()
+    if campaign.approval_required:
+        day = working_days_after(day, campaign.content_lead_days)
+    if campaign.start_date and campaign.start_date > day:
         return campaign.start_date
-    return today
+    return day
 
 
 def accept_web(client, advertiser, response, publication_date=None):

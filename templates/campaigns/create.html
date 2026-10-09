@@ -173,6 +173,27 @@
             </div>
         </div>
 
+        <!-- Порядок согласования материала — условие оферты -->
+        <div class="card-dark rounded-xl p-5 space-y-3" data-approval-settings>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Согласование материала</h2>
+            <label class="flex items-start gap-2 text-sm text-gray-800 cursor-pointer">
+                <input type="checkbox" name="approval_required" id="id_approval_required" class="mt-0.5 accent-orange-500"
+                       {% if form.approval_required.value %}checked{% endif %}>
+                <span>Согласовать материал перед публикацией
+                    <span class="block text-xs text-gray-500">Блогер публикует только после вашего согласования. Без согласования — публикует сам.</span>
+                </span>
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    {% include "partials/number_input.html" with field=form.content_lead_days label="Сдать материал за, раб. дней до даты публикации" step=1 placeholder="5" %}
+                </div>
+                <div>
+                    {% include "partials/number_input.html" with field=form.review_days label="Срок рассмотрения, раб. дней" step=1 placeholder="2" %}
+                </div>
+            </div>
+            <p class="text-xs text-gray-500">Рабочие дни — пн–пт. Сроки действуют, если согласование включено.</p>
+        </div>
+
         <!-- Форматы и площадки -->
         <div class="card-dark rounded-xl p-5 space-y-4">
             <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Форматы и площадки</h2>

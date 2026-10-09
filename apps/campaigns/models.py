@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -135,6 +135,19 @@ class Campaign(models.Model):
                   "чтобы при повторной модерации показать «было → стало»",
     )
     max_bloggers = models.PositiveIntegerField(default=0)
+    # Порядок согласования материала — условие оферты, переходит в сделку.
+    approval_required = models.BooleanField(
+        default=True, verbose_name="Согласовать материал перед публикацией",
+        help_text="Без согласования рекламодателя публиковать нельзя",
+    )
+    content_lead_days = models.PositiveSmallIntegerField(
+        default=5, validators=[MinValueValidator(1), MaxValueValidator(30)],
+        verbose_name="Сдать материал за, рабочих дней до даты публикации",
+    )
+    review_days = models.PositiveSmallIntegerField(
+        default=2, validators=[MinValueValidator(1), MaxValueValidator(10)],
+        verbose_name="Срок рассмотрения материала, рабочих дней",
+    )
     completed_early_at = models.DateTimeField(
         null=True, blank=True, help_text="Когда рекламодатель завершил кампанию досрочно (не по сроку)",
     )

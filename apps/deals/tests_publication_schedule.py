@@ -43,6 +43,7 @@ class PublicationScheduleTest(TestCase):
             advertiser=self.adv, name="Кампания", payment_type=Campaign.PaymentType.FIXED,
             fixed_price=Decimal("150000"), budget=Decimal("1500000"), status=Campaign.Status.ACTIVE,
             start_date=self.today, end_date=self.today + timedelta(days=30),
+            approval_required=False,  # здесь проверяются даты и оферты, согласование — в tests_content_approval
         )
         resp = CampaignResponse.objects.create(
             campaign=self.campaign, blogger=self.blogger, platform=platform, content_type="post",

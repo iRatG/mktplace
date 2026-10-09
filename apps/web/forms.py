@@ -71,6 +71,7 @@ class CampaignForm(forms.ModelForm):
             "start_date", "end_date", "content_start", "deadline",
             "min_subscribers", "content_types", "allowed_socials",
             "max_bloggers",
+            "approval_required", "content_lead_days", "review_days",
         ]
         field_classes = {
             "fixed_price": SpacedDecimalField,
@@ -92,6 +93,9 @@ class CampaignForm(forms.ModelForm):
         self.fields["category"].required = False
         self.fields["description"].required = False
         self.fields["subject"].required = False
+        # Сроки согласования: пусто — значения по умолчанию (5 и 2 рабочих дня).
+        self.fields["content_lead_days"].required = False
+        self.fields["review_days"].required = False
         # Restore saved multi-values from JSON list
         if self.instance.pk:
             self.initial["content_types"] = self.instance.content_types
@@ -100,6 +104,9 @@ class CampaignForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         payment_type = cleaned.get("payment_type")
+        for name in ("content_lead_days", "review_days"):
+            if name in cleaned and cleaned[name] is None:
+                cleaned[name] = Campaign._meta.get_field(name).default
 
         # Fixed: обязательна fixed_price > 0
         if payment_type == Campaign.PaymentType.FIXED:

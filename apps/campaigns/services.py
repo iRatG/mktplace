@@ -207,7 +207,7 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
     from apps.billing.services import BillingService
     from apps.web.campaign_proposals import campaign_snapshot
 
-    from .validation import deal_acceptance_error, publication_date_error, working_days_after
+    from .validation import content_lead_error, deal_acceptance_error, publication_date_error, working_days_after
 
     with transaction.atomic():
         campaign = Campaign.objects.select_for_update().filter(pk=campaign_pk).first()
@@ -215,7 +215,7 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
             raise AcceptError("Кампания не найдена.")
         if campaign.status != Campaign.Status.ACTIVE:
             raise AcceptError("Направить оферту можно только по активной кампании.")
-        error = publication_date_error(campaign, publication_date)
+        error = publication_date_error(campaign, publication_date) or content_lead_error(campaign, publication_date)
         if error:
             raise AcceptError(error)
         amount = price or campaign.fixed_price

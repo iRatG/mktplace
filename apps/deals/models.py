@@ -65,6 +65,15 @@ class Deal(models.Model):
     creative_submitted_at = models.DateTimeField(null=True, blank=True)
     creative_approved_at = models.DateTimeField(null=True, blank=True)
     creative_rejection_reason = models.TextField(blank=True)
+    creative_submissions = models.PositiveSmallIntegerField(default=0, help_text="Сколько раз материал отправлен на согласование")
+    review_overdue_notified_at = models.DateTimeField(
+        null=True, blank=True, help_text="Когда уведомили стороны, что срок рассмотрения материала истёк",
+    )
+
+    # Порядок согласования — условия оферты на момент заключения (сделки до правила — без обязательного согласования).
+    approval_required = models.BooleanField(default=False)
+    content_lead_days = models.PositiveSmallIntegerField(default=5)
+    review_days = models.PositiveSmallIntegerField(default=2)
 
     # Publication fields
     publication_date = models.DateField(null=True, blank=True, help_text="Дата публикации из оферты")
@@ -118,6 +127,31 @@ class Deal(models.Model):
         if not self.publication_date or self.status not in self.OVERDUE_STATUSES:
             return 0
         return max((timezone.localdate() - self.publication_date).days, 0)
+
+    @property
+    def content_due(self):
+        """Последний день сдачи материала на согласование — или None (согласование не обязательно, нет даты)."""
+        if not self.approval_required or not self.publication_date:
+            return None
+        from apps.campaigns.validation import working_days_before
+
+        return working_days_before(self.publication_date, self.content_lead_days)
+
+    @property
+    def review_due(self):
+        """До какого момента рекламодатель рассматривает отправленный материал — или None."""
+        if not self.approval_required or self.status != self.Status.ON_APPROVAL or not self.creative_submitted_at:
+            return None
+        from apps.campaigns.validation import working_days_after
+
+        return working_days_after(self.creative_submitted_at, self.review_days)
+
+    @property
+    def review_overdue(self):
+        from django.utils import timezone
+
+        due = self.review_due
+        return bool(due and due <= timezone.now())
 
     @property
     def pending_date_change(self):

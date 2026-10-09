@@ -42,6 +42,9 @@ class CampaignSerializer(serializers.ModelSerializer):
             "status",
             "rejection_reason",
             "max_bloggers",
+            "approval_required",
+            "content_lead_days",
+            "review_days",
             "responses_count",
             "created_at",
             "updated_at",
@@ -87,6 +90,9 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             "min_er",
             "allowed_socials",
             "max_bloggers",
+            "approval_required",
+            "content_lead_days",
+            "review_days",
         )
         read_only_fields = ("id",)
 

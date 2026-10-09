@@ -77,6 +77,19 @@ def _after_commit(func, *args, **kwargs):
 
 # ── Создание ─────────────────────────────────────────────────────────────────
 
+def approval_terms(terms):
+    """Порядок согласования из снимка условий оферты. Оферта без этих условий (направлена до правила) —
+    согласование не обязательно: сделка живёт по условиям на момент заключения."""
+    terms = terms or {}
+    if "approval_required" not in terms:
+        return {"approval_required": False}
+    return {
+        "approval_required": str(terms["approval_required"]).strip().lower() in ("true", "on", "1"),
+        "content_lead_days": int(terms.get("content_lead_days") or 5),
+        "review_days": int(terms.get("review_days") or 2),
+    }
+
+
 def create_deal(*, campaign, blogger, platform, advertiser, amount, actor, comment, response=None,
                 offer=None, publication_date=None):
     """Сделка по акцепту индивидуальной оферты — сразу «В работе».
@@ -90,6 +103,7 @@ def create_deal(*, campaign, blogger, platform, advertiser, amount, actor, comme
     deal = Deal.objects.create(
         campaign=campaign, blogger=blogger, platform=platform, advertiser=advertiser,
         response=response, amount=amount, status=S.WAITING_PAYMENT, publication_date=publication_date,
+        **approval_terms(offer.terms if offer is not None else None),
     )
     if offer is not None and offer.reserved_at:
         Transaction.objects.filter(offer=offer, type=Transaction.Type.RESERVE).update(deal=deal)
@@ -108,21 +122,31 @@ def submit_creative(pk, actor, text, media=None):
         if deal.creative_approved_at:
             raise TransitionError("Креатив уже согласован — можно публиковать.")
         _require(deal, (S.IN_PROGRESS,), "Отправить креатив можно только для сделки «В работе».")
-        fields = {"creative_text": text, "creative_submitted_at": timezone.now(), "creative_rejection_reason": ""}
+        fields = {"creative_text": text, "creative_submitted_at": timezone.now(), "creative_rejection_reason": "",
+                  "creative_submissions": deal.creative_submissions + 1, "review_overdue_notified_at": None}
         if media:
             fields["creative_media"] = media
-        _move(deal, S.ON_APPROVAL, actor, "Блогер отправил креатив на согласование.", **fields)
-        _chat(deal, "Блогер отправил креатив на согласование.")
+        comment = "Блогер отправил креатив на согласование."
+        if deal.creative_submissions:
+            comment = "Блогер отправил исправленный креатив на согласование."
+        due = deal.content_due
+        if due and timezone.localdate() > due:
+            comment += f" Срок сдачи по оферте — {due:%d.%m.%Y}, материал сдан позже."
+        _move(deal, S.ON_APPROVAL, actor, comment, **fields)
+        _chat(deal, comment)
     _after_commit(NotificationService.notify_creative_submitted, deal.advertiser, deal)
     return deal
 
 
 def approve_creative(pk, actor=None):
-    """Рекламодатель согласовал креатив; actor=None — автоодобрение через 48 часов."""
+    """Рекламодатель согласовал креатив; actor=None — автоодобрение через 48 часов, только если согласование
+    по оферте не обязательно (при обязательном согласовании молчание рекламодателя согласием не считается)."""
     with transaction.atomic():
         deal = _lock(pk)
         _require_actor(actor, deal.advertiser, "Согласовать креатив может только рекламодатель сделки.")
         _require(deal, (S.ON_APPROVAL,), "Согласовать можно только сделку «На согласовании».")
+        if actor is None and deal.approval_required:
+            raise TransitionError("По условиям сделки материал согласует только рекламодатель.")
         comment = "Рекламодатель согласовал креатив." if actor else "Креатив согласован автоматически: 48 часов без ответа."
         _move(deal, S.WAITING_PUBLICATION, actor, comment,
               creative_approved_at=timezone.now(), creative_rejection_reason="")
@@ -159,6 +183,8 @@ def submit_publication(pk, actor, url):
         _require_actor(actor, deal.blogger, "Добавить публикацию может только блогер сделки.")
         _require(deal, (S.IN_PROGRESS, S.WAITING_PUBLICATION),
                  "Добавить публикацию можно только для сделки «В работе» или «Ждёт публикации».")
+        if deal.approval_required and not deal.creative_approved_at:
+            raise TransitionError("По условиям сделки публиковать можно только после согласования материала рекламодателем.")
         if deal.publication_date and timezone.localdate() < deal.publication_date:
             raise TransitionError(f"Публикация — не раньше {deal.publication_date:%d.%m.%Y}.")
         _move(deal, S.CHECKING, actor, f"Публикация размещена: {url}",
@@ -378,7 +404,7 @@ def auto_complete_overdue():
 
 def auto_approve_overdue_creatives():
     threshold = timezone.now() - CREATIVE_AUTO_APPROVE_AFTER
-    qs = Deal.objects.filter(status=S.ON_APPROVAL, creative_submitted_at__lte=threshold)
+    qs = Deal.objects.filter(status=S.ON_APPROVAL, approval_required=False, creative_submitted_at__lte=threshold)
     return _run_each(qs, lambda pk: approve_creative(pk, actor=None))
 
 
@@ -415,4 +441,19 @@ def notify_overdue_publications(now=None):
     deals = _flag_once(qs, "overdue_notified_at", now)
     for deal in deals:
         NotificationService.notify_publication_overdue(deal)
+    return len(deals)
+
+
+def notify_overdue_reviews(now=None):
+    """Срок рассмотрения материала истёк, а рекламодатель не ответил — один раз уведомить обе стороны (на отправку).
+    Сделка остаётся «На согласовании»: молчание не согласие."""
+    now = now or timezone.now()
+    candidates = Deal.objects.filter(
+        status=S.ON_APPROVAL, approval_required=True, review_overdue_notified_at__isnull=True,
+        creative_submitted_at__lte=now - timedelta(days=1),
+    )
+    overdue = [d.pk for d in candidates if d.review_due and d.review_due <= now]
+    deals = _flag_once(Deal.objects.filter(pk__in=overdue), "review_overdue_notified_at", now)
+    for deal in deals:
+        NotificationService.notify_review_overdue(deal)
     return len(deals)

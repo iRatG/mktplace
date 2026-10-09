@@ -58,6 +58,7 @@
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Окончание</dt><dd class="text-gray-800">{{ campaign.end_date|long_date|default:"—" }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Приём контента с</dt><dd class="text-gray-800">{{ campaign.content_start|long_date|default:"—" }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Приём контента до</dt><dd class="text-gray-800">{{ campaign.deadline|long_date|default:"—" }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-600">Согласование материала</dt><dd class="text-gray-800 text-right">{% if campaign.approval_required %}обязательно: за {{ campaign.content_lead_days }} раб. дн. до даты, рассмотрение {{ campaign.review_days }} раб. дн.{% else %}не требуется{% endif %}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Мин. подписчиков</dt><dd class="text-gray-800">{{ campaign.min_subscribers|money }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-600">Макс. блогеров</dt><dd class="text-gray-800">{% if campaign.max_bloggers %}{{ campaign.max_bloggers }}{% else %}без ограничения{% endif %}</dd></div>
         </dl>

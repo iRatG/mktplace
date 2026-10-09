@@ -109,6 +109,20 @@ def publication_date_error(campaign, day):
     return None
 
 
+def content_lead_error(campaign, day):
+    """При обязательном согласовании срок сдачи материала (N рабочих дней до даты) не должен пройти уже при
+    направлении оферты — сообщение или None."""
+    from django.utils import timezone
+
+    if not campaign.approval_required or not day:
+        return None
+    if working_days_before(day, campaign.content_lead_days) < timezone.localdate():
+        earliest = working_days_after(timezone.localdate(), campaign.content_lead_days)
+        return (f"Материал сдаётся на согласование за {campaign.content_lead_days} раб. дн. до даты публикации — "
+                f"выберите дату не раньше {earliest:%d.%m.%Y}.")
+    return None
+
+
 def scheduled_publication_dates(campaign):
     """Назначенные даты публикаций кампании: неотменённые сделки и ожидающие оферты."""
     from apps.deals.models import Deal
