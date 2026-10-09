@@ -57,7 +57,7 @@ class BillingService:
     @classmethod
     @db_transaction.atomic
     def reserve_for_offer(cls, offer):
-        """Резерв под индивидуальную оферту при её направлении (ПР 5.2): available → reserved."""
+        """Резерв под индивидуальную оферту при её направлении: available → reserved."""
         wallet = cls._get_or_create_wallet(offer.advertiser)
         amount = offer.reserved_amount
         if wallet.available_balance < amount:

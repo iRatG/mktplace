@@ -227,7 +227,7 @@ class Response(models.Model):
 
 
 class DirectOffer(models.Model):
-    """Индивидуальная оферта рекламодателя исполнителю (пакет документов: ПС 3.3, ПЭТ 6–7, ТО).
+    """Индивидуальная оферта рекламодателя исполнителю.
 
     Два пути: прямое предложение из каталога и оферта по принятому отклику (``response``). Сумма резервируется при
     направлении (``reserved_at``), сделка заключается только акцептом исполнителя. Оферты, направленные до этого
@@ -283,10 +283,10 @@ class DirectOffer(models.Model):
         Response, on_delete=models.SET_NULL, null=True, blank=True, related_name="offer",
         help_text="Отклик, по которому направлена оферта (пусто — прямое предложение)",
     )
-    publication_date = models.DateField(null=True, blank=True, help_text="Дата публикации (ТО 4.3)")
+    publication_date = models.DateField(null=True, blank=True, help_text="Дата публикации")
     reserved_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    reserved_at = models.DateTimeField(null=True, blank=True, help_text="Когда сумма зарезервирована (ПР 5.2)")
-    terms = models.JSONField(default=dict, blank=True, help_text="Условия кампании на момент направления (ТО 4.10)")
+    reserved_at = models.DateTimeField(null=True, blank=True, help_text="Когда сумма зарезервирована")
+    terms = models.JSONField(default=dict, blank=True, help_text="Условия кампании на момент направления")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

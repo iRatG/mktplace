@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='directoffer',
             name='publication_date',
-            field=models.DateField(blank=True, help_text='Дата публикации (ТО 4.3)', null=True),
+            field=models.DateField(blank=True, help_text='Дата публикации', null=True),
         ),
         migrations.AddField(
             model_name='directoffer',
@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='directoffer',
             name='reserved_at',
-            field=models.DateTimeField(blank=True, help_text='Когда сумма зарезервирована (ПР 5.2)', null=True),
+            field=models.DateTimeField(blank=True, help_text='Когда сумма зарезервирована', null=True),
         ),
         migrations.AddField(
             model_name='directoffer',
@@ -34,6 +34,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='directoffer',
             name='terms',
-            field=models.JSONField(blank=True, default=dict, help_text='Условия кампании на момент направления (ТО 4.10)'),
+            field=models.JSONField(blank=True, default=dict, help_text='Условия кампании на момент направления'),
         ),
     ]

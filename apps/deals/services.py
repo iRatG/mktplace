@@ -74,7 +74,7 @@ def _after_commit(func, *args, **kwargs):
 
 def create_deal(*, campaign, blogger, platform, advertiser, amount, actor, comment, response=None,
                 offer=None, publication_date=None):
-    """Сделка по акцепту индивидуальной оферты — сразу «В работе» (ПС 3.3, ТО 2).
+    """Сделка по акцепту индивидуальной оферты — сразу «В работе».
 
     Деньги зарезервированы при направлении оферты (``offer.reserved_at``) — повторного резерва нет, записи
     резерва привязываются к сделке. Оферта без резерва (направлена до этого правила) — резерв здесь.

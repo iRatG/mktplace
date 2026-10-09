@@ -14,7 +14,7 @@ from .models import RESPONSE_REMINDER_BEFORE, Campaign, DirectOffer, Response
 
 COMPLETABLE_STATUSES = (Campaign.Status.ACTIVE, Campaign.Status.PAUSED)
 
-# Срок акцепта индивидуальной оферты исполнителем — рабочие дни (ТО 4.3, ПЭТ 6.4).
+# Срок акцепта индивидуальной оферты исполнителем — рабочие дни.
 OFFER_ACCEPT_WORKING_DAYS = 3
 
 
@@ -197,7 +197,7 @@ class AcceptError(Exception):
 
 def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, content_type="post",
                price=None, message="", response=None):
-    """Направить исполнителю индивидуальную оферту: резерв суммы, срок акцепта 3 рабочих дня (ПР 5.2, ТО 4.3).
+    """Направить исполнителю индивидуальную оферту: резерв суммы, срок акцепта 3 рабочих дня.
 
     Под блокировкой кампании: кампания активна и не истекла, дата публикации (Р9), лимит блогеров и бюджет
     вместе с другими ожидающими офертами, баланс рекламодателя. Любая причина отказа — AcceptError.
@@ -246,7 +246,7 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
 
 
 def accept_response(response_pk, actor, publication_date):
-    """Рекламодатель принимает отклик: исполнителю направляется оферта с датой публикации (ПЭТ 6.2).
+    """Рекламодатель принимает отклик: исполнителю направляется оферта с датой публикации.
 
     Сделка — только после акцепта исполнителя (accept_direct_offer). Отклик → ACCEPTED.
     """
@@ -311,7 +311,7 @@ def increase_budget(campaign_pk, new_budget, actor):
 
 
 def accept_direct_offer(offer_pk, actor):
-    """Исполнитель принимает оферту («Принять оферту», ТО 4.8): заключается сделка «В работе».
+    """Исполнитель принимает оферту («Принять оферту»): заключается сделка «В работе».
 
     Деньги и место зарезервированы при направлении — проверяем только оферту и кампанию. Оферта без резерва
     (направлена до этого правила) проходит прежние проверки лимита и бюджета и резервирует сейчас.

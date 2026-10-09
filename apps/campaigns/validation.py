@@ -19,7 +19,7 @@ CAP_DEAL_STATUSES = (
 
 
 def pending_offers(campaign):
-    """Оферты кампании, ждущие акцепта, с резервом: занимают место и бюджет (пакет документов, ПР 5.2)."""
+    """Оферты кампании, ждущие акцепта, с резервом: занимают место и бюджет."""
     from .models import DirectOffer
 
     return DirectOffer.objects.filter(

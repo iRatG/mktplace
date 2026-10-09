@@ -225,9 +225,7 @@ apps/web/           — Django Templates frontend
   продолжается». Досрочно — из ACTIVE, PAUSED и MODERATION с `approved_snapshot` (`Campaign.can_finish_early`),
   отметка `completed_early_at`, ожидающее предложение правок → CLOSED. API: `complete`; `cancel` делает то же,
   статус CANCELLED больше не ставится.
-- Пакет документов бизнеса (`task/docs`, с 09.10.2026) — источник истины по сделкам, деньгам и претензиям; план
-  приведения — `task/09-10-2026/приведение-к-документам.md`, тикеты #33–#46.
-- Сделка — акцептом индивидуальной оферты (#33, ПС 3.3, ТО 2): оферта = `DirectOffer` (прямое предложение или по
+- Сделка — акцептом индивидуальной оферты (#33): оферта = `DirectOffer` (прямое предложение или по
   отклику, поле `response`), сумма резервируется при направлении (`BillingService.reserve_for_offer`,
   `Transaction.offer`), возврат — `release_offer` при отклонении, истечении, завершении кампании; ожидающие оферты
   занимают бюджет и места (`pending_offers` в `validation.py`). Срок акцепта — 3 рабочих дня (`working_days_after`).

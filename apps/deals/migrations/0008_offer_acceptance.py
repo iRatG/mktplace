@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='deal',
             name='publication_date',
-            field=models.DateField(blank=True, help_text='Дата публикации из оферты (ТО 4.3)', null=True),
+            field=models.DateField(blank=True, help_text='Дата публикации из оферты', null=True),
         ),
     ]

@@ -253,7 +253,7 @@ class DirectOfferCreateTest(TestCase):
         self.assertEqual(offer.blogger, self.blogger)
         self.assertEqual(offer.status, DirectOffer.Status.PENDING)
         self.assertEqual(offer.proposed_price, Decimal("50000"))
-        # Оферта: сумма в резерве при направлении (ПР 5.2, #33).
+        # Оферта: сумма в резерве при направлении (#33).
         self.assertEqual(offer.reserved_amount, Decimal("50000"))
         self.assertEqual(Wallet.objects.get(user=self.advertiser).reserved_balance, Decimal("50000"))
 

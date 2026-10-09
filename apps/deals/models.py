@@ -67,7 +67,7 @@ class Deal(models.Model):
     creative_rejection_reason = models.TextField(blank=True)
 
     # Publication fields
-    publication_date = models.DateField(null=True, blank=True, help_text="Дата публикации из оферты (ТО 4.3)")
+    publication_date = models.DateField(null=True, blank=True, help_text="Дата публикации из оферты")
     publication_url = models.URLField(blank=True)
     publication_at = models.DateTimeField(null=True, blank=True)
 
