@@ -171,6 +171,32 @@ class BillingService:
 
     @classmethod
     @db_transaction.atomic
+    def refund_minus_commission(cls, deal):
+        """Прекращение заключённой сделки по соглашению сторон: рекламодателю возвращается резерв за вычетом
+        комиссии платформы; исполнителю ничего не перечисляется. Комиссия — запись PAYMENT без EARNING."""
+        wallet = cls._get_or_create_wallet(deal.advertiser)
+        amount = deal.amount
+        commission_percent = Decimal(getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15))
+        commission = (amount * commission_percent / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        refund = amount - commission
+        cls._require_reserved(wallet, amount, deal)
+        wallet.reserved_balance -= amount
+        wallet.available_balance += refund
+        wallet.save(update_fields=["available_balance", "reserved_balance", "updated_at"])
+        Transaction.objects.create(
+            wallet=wallet, type=Transaction.Type.PAYMENT, amount=-commission,
+            balance_after=wallet.available_balance - refund, deal=deal,
+            description=f"Platform commission {commission_percent}% on terminated deal #{deal.pk}",
+        )
+        Transaction.objects.create(
+            wallet=wallet, type=Transaction.Type.RELEASE, amount=refund,
+            balance_after=wallet.available_balance, deal=deal,
+            description=f"Refund (terminated by agreement) for deal #{deal.pk}",
+        )
+        return wallet, commission
+
+    @classmethod
+    @db_transaction.atomic
     def split_deal_payment(cls, deal, blogger_part):
         """Решение по претензии с разделом суммы (или компенсацией): исполнителю — blogger_part за вычетом комиссии,
         остаток возвращается рекламодателю. Комиссия — только с перечисленной исполнителю части."""

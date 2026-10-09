@@ -156,6 +156,7 @@ def deal_detail(request, pk):
         "can_claim": (not user.is_staff and user in (deal.blogger, deal.advertiser)
                       and deal.status in transitions.CLAIMABLE),
         "claim_subjects": Claim.Subject.choices,
+        "unpublished_statuses": Deal.UNPUBLISHED_STATUSES,
         "claim_demands": Claim.Demand.choices,
         "can_reschedule": can_reschedule,
         "date_change": date_change,
@@ -430,3 +431,36 @@ def deal_accept_publication_date(request, pk):
 def deal_decline_publication_date(request, pk):
     return _date_change_action(request, pk, transitions.decline_publication_date,
                                "Перенос отклонён, дата публикации прежняя.")
+
+
+def _termination_action(request, pk, func, ok):
+    try:
+        func(_own_deal(request, pk).pk, request.user)
+    except TransitionError as e:
+        messages.error(request, str(e))
+        return redirect("web:deal_detail", pk=pk)
+    messages.success(request, ok)
+    return redirect("web:deal_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def deal_propose_termination(request, pk):
+    reason = request.POST.get("reason", "")
+    return _termination_action(
+        request, pk, lambda deal_pk, user: transitions.propose_termination(deal_pk, user, reason),
+        "Предложение отправлено. Сделка прекратится, когда вторая сторона согласится.",
+    )
+
+
+@login_required
+@require_POST
+def deal_accept_termination(request, pk):
+    return _termination_action(request, pk, transitions.accept_termination,
+                               "Сделка прекращена по соглашению сторон.")
+
+
+@login_required
+@require_POST
+def deal_decline_termination(request, pk):
+    return _termination_action(request, pk, transitions.decline_termination, "Предложение отклонено, сделка продолжается.")

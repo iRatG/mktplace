@@ -467,8 +467,42 @@
         </details>
         {% endif %}
 
-        <!-- Cancel button — roles and statuses enforced server-side too -->
-        {% if deal.status == 'waiting_payment' %}
+        <!-- Прекращение по соглашению сторон — сделки по новым условиям; одностороннего отказа нет -->
+        {% if deal.on_package_terms and deal.status in unpublished_statuses and not user.is_staff %}
+        {% with request=deal.pending_termination %}
+        {% if request %}
+        <div class="card-dark rounded-xl p-6 border border-gray-200" data-termination>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Прекращение по соглашению сторон</h2>
+            <p class="text-sm text-gray-700">{% if request.proposed_by == user %}Вы предложили{% else %}{{ request.proposed_by.public_name }} предлагает{% endif %} прекратить сделку. Причина: {{ request.reason }}</p>
+            <p class="text-xs text-gray-500 mt-1">Если вторая сторона согласится, рекламодателю вернётся резерв за вычетом комиссии платформы, исполнителю ничего не перечисляется.</p>
+            {% if request.proposed_by != user %}
+            <div class="flex gap-2 mt-3">
+                <form method="post" action="{% url 'web:deal_accept_termination' deal.pk %}" onsubmit="return confirm('Прекратить сделку по соглашению сторон?');">
+                    {% csrf_token %}<button type="submit" class="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50">Согласиться</button>
+                </form>
+                <form method="post" action="{% url 'web:deal_decline_termination' deal.pk %}">
+                    {% csrf_token %}<button type="submit" class="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50">Отклонить</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <details class="card-dark rounded-xl p-6" data-termination-form>
+            <summary class="text-sm text-gray-700 cursor-pointer">Предложить прекратить сделку по соглашению сторон</summary>
+            <p class="text-xs text-gray-500 mt-2">Отказаться от заключённой сделки в одностороннем порядке нельзя. Если вторая сторона согласится, рекламодателю вернётся резерв за вычетом комиссии платформы. При нарушениях — подайте претензию.</p>
+            <form method="post" action="{% url 'web:deal_propose_termination' deal.pk %}" class="mt-3 space-y-2">
+                {% csrf_token %}
+                <textarea name="reason" rows="2" required class="input-dark resize-none text-sm" placeholder="Причина"></textarea>
+                <button type="submit" class="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50">Предложить</button>
+            </form>
+        </details>
+        {% endif %}
+        {% endwith %}
+        {% endif %}
+
+        <!-- Cancel button — только сделки по прежним правилам; роли и статусы проверяет сервер -->
+        {% if deal.on_package_terms %}
+        {% elif deal.status == 'waiting_payment' %}
         <div>
             <form method="post" action="{% url 'web:deal_cancel' deal.pk %}"
                   onsubmit="return confirm('Отменить сделку? Средства вернутся рекламодателю.')">

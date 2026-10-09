@@ -196,6 +196,17 @@ class Deal(models.Model):
         return max(self.claim_until, self.retention_until)
 
     @property
+    def on_package_terms(self):
+        """Сделка заключена по новым условиям (оферта со сроком сохранения): одностороннего отказа нет, выход — по
+        соглашению сторон или через претензию. Ранее заключённые — по прежним правилам отмены."""
+        return self.min_retention_days is not None
+
+    @property
+    def pending_termination(self):
+        """Ожидающее ответа предложение прекратить сделку по соглашению сторон — или None."""
+        return self.terminations.filter(status=TerminationRequest.Status.PENDING).select_related("proposed_by").first()
+
+    @property
     def open_claim(self):
         """Претензия, которая рассматривается сейчас, — или None."""
         return self.claims.filter(status__in=["open", "extra_docs"]).select_related("author").first()
@@ -329,6 +340,31 @@ class DealEvidence(models.Model):
 
     def __str__(self):
         return f"Deal#{self.deal_id} {self.kind}"
+
+
+class TerminationRequest(models.Model):
+    """Предложение прекратить заключённую сделку по соглашению сторон; вступает в силу, когда вторая сторона согласна."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Ждёт ответа"
+        ACCEPTED = "accepted", "Принято"
+        DECLINED = "declined", "Отклонено"
+        CLOSED = "closed", "Закрыто"
+
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="terminations")
+    proposed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    reason = models.TextField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    answered_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["deal"], condition=models.Q(status="pending"), name="one_pending_termination_per_deal",
+            ),
+        ]
 
 
 class PublicationDateChange(models.Model):

@@ -89,6 +89,19 @@ class DealViewSet(
             return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return DRFResponse({"detail": "Claim opened."})
 
+    @action(detail=True, methods=["post"], url_path="propose-termination")
+    def propose_termination(self, request, pk=None):
+        return self._transition(transitions.propose_termination, request.user, request.data.get("reason", ""),
+                                ok="Termination proposed. It applies when the other side accepts.")
+
+    @action(detail=True, methods=["post"], url_path="accept-termination")
+    def accept_termination(self, request, pk=None):
+        return self._transition(transitions.accept_termination, request.user, ok="Deal terminated by agreement.")
+
+    @action(detail=True, methods=["post"], url_path="decline-termination")
+    def decline_termination(self, request, pk=None):
+        return self._transition(transitions.decline_termination, request.user, ok="Termination declined.")
+
     @action(detail=True, methods=["post"], url_path="claim-materials")
     def claim_materials(self, request, pk=None):
         return self._transition(

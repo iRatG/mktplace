@@ -19,7 +19,7 @@ from apps.notifications.service import NotificationService
 
 from .models import (
     CLAIM_ANSWER_WORKING_DAYS, CLAIM_DECISION_WORKING_DAYS, CLAIM_EXTRA_DOCS_WORKING_DAYS, COMPENSATION_PERCENT,
-    ChatMessage, Claim, ClaimFile, Deal, DealEvidence, DealStatusLog, PublicationDateChange,
+    ChatMessage, Claim, ClaimFile, Deal, DealEvidence, DealStatusLog, PublicationDateChange, TerminationRequest,
 )
 
 S = Deal.Status
@@ -61,10 +61,11 @@ def _move(deal, new_status, actor, comment, **fields):
     deal.status = new_status
     deal.save(update_fields=["status", "updated_at", *fields.keys()])
     if new_status not in Deal.UNPUBLISHED_STATUSES:
-        # Публикация, отмена или спор — переносить дату больше нечего.
-        PublicationDateChange.objects.filter(deal=deal, status=PublicationDateChange.Status.PENDING).update(
-            status=PublicationDateChange.Status.CLOSED, answered_at=timezone.now(),
-        )
+        # Публикация, отмена или претензия — переносить дату и прекращать по соглашению больше нечего.
+        for model in (PublicationDateChange, TerminationRequest):
+            model.objects.filter(deal=deal, status=model.Status.PENDING).update(
+                status=model.Status.CLOSED, answered_at=timezone.now(),
+            )
 
 
 def _chat(deal, text):
@@ -478,6 +479,71 @@ def remind_claim_decisions(now=None):
     return reminded + len(back)
 
 
+# ── Прекращение сделки по соглашению сторон ──────────────────────────────────
+
+def propose_termination(pk, actor, reason):
+    """Сторона предлагает прекратить заключённую сделку до публикации; причина обязательна."""
+    reason = (reason or "").strip()
+    if not reason:
+        raise TransitionError("Укажите причину.")
+    with transaction.atomic():
+        deal = _lock(pk)
+        if actor not in (deal.blogger, deal.advertiser):
+            raise TransitionError("Предложить прекращение может только сторона сделки.")
+        _require(deal, Deal.UNPUBLISHED_STATUSES,
+                 "Прекратить по соглашению можно, пока публикации нет. После публикации — через претензию.")
+        if TerminationRequest.objects.filter(deal=deal, status=TerminationRequest.Status.PENDING).exists():
+            raise TransitionError("Предыдущее предложение о прекращении ещё ждёт ответа.")
+        request = TerminationRequest.objects.create(deal=deal, proposed_by=actor, reason=reason)
+        side = "Блогер" if actor == deal.blogger else "Рекламодатель"
+        _chat(deal, f"{side} предлагает прекратить сделку по соглашению сторон. Причина: {reason}")
+    _after_commit(NotificationService.notify_termination_proposed, request)
+    return request
+
+
+def _pending_termination(deal, actor):
+    if actor not in (deal.blogger, deal.advertiser):
+        raise TransitionError("Ответить может только сторона сделки.")
+    request = (TerminationRequest.objects.select_for_update()
+               .filter(deal=deal, status=TerminationRequest.Status.PENDING).first())
+    if request is None:
+        raise TransitionError("Нет предложения о прекращении, ожидающего ответа.")
+    if request.proposed_by_id == actor.pk:
+        raise TransitionError("Ответить на предложение должна вторая сторона.")
+    return request
+
+
+def accept_termination(pk, actor):
+    """Вторая сторона согласна: сделка прекращена, рекламодателю — возврат за вычетом комиссии платформы."""
+    with transaction.atomic():
+        deal = _lock(pk)
+        request = _pending_termination(deal, actor)
+        _require(deal, Deal.UNPUBLISHED_STATUSES, "Прекратить по соглашению можно, пока публикации нет.")
+        _, commission = BillingService.refund_minus_commission(deal)
+        request.status = TerminationRequest.Status.ACCEPTED
+        request.answered_at = timezone.now()
+        request.save(update_fields=["status", "answered_at"])
+        comment = (f"Сделка прекращена по соглашению сторон. Причина: {request.reason}. Рекламодателю возвращено "
+                   f"{deal.amount - commission}, комиссия платформы {commission}.")
+        _move(deal, S.CANCELLED, actor, comment, paid_amount=0)
+        _chat(deal, "Сделка прекращена по соглашению сторон. Резерв возвращён рекламодателю за вычетом комиссии платформы.")
+    _after_commit(NotificationService.notify_termination_answered, request)
+    return request
+
+
+def decline_termination(pk, actor):
+    """Вторая сторона не согласна: сделка продолжается; при нарушениях — претензия."""
+    with transaction.atomic():
+        deal = _lock(pk)
+        request = _pending_termination(deal, actor)
+        request.status = TerminationRequest.Status.DECLINED
+        request.answered_at = timezone.now()
+        request.save(update_fields=["status", "answered_at"])
+        _chat(deal, "Предложение прекратить сделку отклонено — сделка продолжается.")
+    _after_commit(NotificationService.notify_termination_answered, request)
+    return request
+
+
 # ── Перенос даты публикации по согласию сторон ───────────────────────────────
 
 def _other_side(deal, user):
@@ -569,9 +635,13 @@ def decline_publication_date(pk, actor):
 # ── Отмена ───────────────────────────────────────────────────────────────────
 
 def cancel(pk, actor):
-    """Блогер — только до начала работы; рекламодатель — пока публикации нет."""
+    """Односторонняя отмена — только у сделок, заключённых по прежним правилам (блогер — до начала работы,
+    рекламодатель — пока публикации нет). Сделки по новым условиям: выход по соглашению сторон или через претензию."""
     with transaction.atomic():
         deal = _lock(pk)
+        if deal.on_package_terms:
+            raise TransitionError("Отказаться от заключённой сделки в одностороннем порядке нельзя: предложите второй "
+                                  "стороне прекратить сделку по соглашению или подайте претензию.")
         if actor == deal.blogger:
             allowed = BLOGGER_CANCELLABLE
         elif actor == deal.advertiser:

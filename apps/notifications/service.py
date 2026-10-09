@@ -221,6 +221,35 @@ class NotificationService:
         )
 
     @staticmethod
+    def notify_termination_proposed(request):
+        """Предложено прекратить сделку по соглашению → второй стороне."""
+        deal = request.deal
+        other = deal.advertiser if request.proposed_by_id == deal.blogger_id else deal.blogger
+        NotificationService.notify(
+            user=other,
+            notification_type=Notification.Type.DEAL_UPDATED,
+            title="Предложено прекратить сделку",
+            body=(f"{request.proposed_by.public_name} предлагает прекратить сделку #{deal.pk} «{deal.campaign.name}» "
+                  f"по соглашению сторон. Причина: {request.reason}. Согласитесь или отклоните на странице сделки."),
+            deal=deal,
+        )
+
+    @staticmethod
+    def notify_termination_answered(request):
+        """Ответ на предложение о прекращении → автору."""
+        deal = request.deal
+        accepted = request.status == request.Status.ACCEPTED
+        NotificationService.notify(
+            user=request.proposed_by,
+            notification_type=Notification.Type.DEAL_CANCELLED if accepted else Notification.Type.DEAL_UPDATED,
+            title="Сделка прекращена по соглашению" if accepted else "Прекращение сделки отклонено",
+            body=(f"По сделке #{deal.pk} «{deal.campaign.name}» " +
+                  ("вторая сторона согласилась: сделка прекращена, резерв возвращён рекламодателю за вычетом "
+                   "комиссии платформы." if accepted else "вторая сторона не согласилась — сделка продолжается.")),
+            deal=deal,
+        )
+
+    @staticmethod
     def _staff():
         from apps.users.models import User
 
