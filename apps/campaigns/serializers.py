@@ -42,6 +42,7 @@ class CampaignSerializer(serializers.ModelSerializer):
             "status",
             "rejection_reason",
             "max_bloggers",
+            "visibility",
             "approval_required",
             "content_lead_days",
             "review_days",
@@ -103,6 +104,7 @@ class CampaignCreateSerializer(serializers.ModelSerializer):
             "min_er",
             "allowed_socials",
             "max_bloggers",
+            "visibility",
             "approval_required",
             "content_lead_days",
             "review_days",
@@ -242,6 +244,10 @@ class ResponseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"campaign": "This campaign is not accepting responses."}
             )
+        from .validation import campaigns_visible_to
+
+        if campaign and not campaigns_visible_to(request.user).filter(pk=campaign.pk).exists():
+            raise serializers.ValidationError({"campaign": "Закрытая кампания — заявку подают только приглашённые."})
 
         if campaign and active_response(campaign, request.user) is not None:
             raise serializers.ValidationError(

@@ -41,6 +41,26 @@
         </div>
 
         <!-- Advertiser actions -->
+        {% if is_owner and campaign.visibility == "closed" %}
+        <div class="card-dark rounded-xl p-5" data-invitations>
+            <h3 class="font-semibold text-gray-900 mb-2 text-sm">Закрытая кампания — приглашения ({{ invitations|length }})</h3>
+            {% if campaign.status == "active" %}
+            <form method="post" action="{% url 'web:campaign_invite' campaign.pk %}" class="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-3">
+                {% csrf_token %}
+                <select name="social_type" class="input-dark text-xs"><option value="">Любая соцсеть</option>{% for v, l in invite_socials %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+                <select name="category" class="input-dark text-xs"><option value="">Любая тематика</option>{% for c in invite_categories %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}</select>
+                <input type="text" name="min_subscribers" inputmode="numeric" class="input-dark text-xs" placeholder="Мин. подписчиков">
+                <button type="submit" class="btn-orange text-xs px-3 py-2 rounded-lg">Пригласить по критериям</button>
+            </form>
+            <p class="text-xs text-gray-500 mb-2">Одного исполнителя можно пригласить из каталога блогеров. Приглашение даёт увидеть кампанию и подать заявку, это не оферта.</p>
+            {% else %}
+            <p class="text-xs text-gray-500 mb-2">Приглашать можно, когда кампания активна.</p>
+            {% endif %}
+            {% if invitations %}
+            <div class="flex flex-wrap gap-1">{% for inv in invitations %}<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{{ inv.blogger.public_name }}</span>{% endfor %}</div>
+            {% endif %}
+        </div>
+        {% endif %}
         {% if is_owner %}
         {% if proposal %}
         <div class="card-dark rounded-xl p-5 border border-orange-300">

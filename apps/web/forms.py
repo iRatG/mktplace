@@ -78,7 +78,7 @@ class CampaignForm(forms.ModelForm):
             "start_date", "end_date", "content_start", "deadline",
             "min_subscribers", "content_types", "allowed_socials",
             "max_bloggers",
-            "approval_required", "content_lead_days", "review_days",
+            "visibility", "approval_required", "content_lead_days", "review_days",
             "content_units", "key_message", "mandatory_points", "disclosures", "forbidden_phrases",
             "content_restrictions", "visual_requirements", "tags_requirements",
             "acceptance_criteria", "min_retention_days", "evidence_required", "rights_owner", "reuse_allowed",
@@ -109,6 +109,7 @@ class CampaignForm(forms.ModelForm):
         self.fields["content_units"].required = False
         self.fields["min_retention_days"].required = False
         self.fields["rights_owner"].required = False
+        self.fields["visibility"].required = False
         # Restore saved multi-values from JSON list
         if self.instance.pk:
             self.initial["content_types"] = self.instance.content_types
@@ -118,7 +119,8 @@ class CampaignForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         payment_type = cleaned.get("payment_type")
-        for name in ("content_lead_days", "review_days", "content_units", "min_retention_days", "rights_owner"):
+        for name in ("content_lead_days", "review_days", "content_units", "min_retention_days", "rights_owner",
+                     "visibility"):
             if name in cleaned and cleaned[name] in (None, ""):
                 cleaned[name] = Campaign._meta.get_field(name).default
 

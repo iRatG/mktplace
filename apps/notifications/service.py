@@ -221,6 +221,19 @@ class NotificationService:
         )
 
     @staticmethod
+    def notify_campaign_invitation(blogger, campaign):
+        """Приглашение в закрытую кампанию → исполнителю (это не оферта)."""
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.CAMPAIGN_STATUS,
+            title="Приглашение в закрытую кампанию",
+            body=(f"Рекламодатель приглашает вас в кампанию «{campaign.name}». Ознакомьтесь с условиями и, если "
+                  f"интересно, подайте заявку. Приглашение ни к чему не обязывает."),
+            url=reverse("web:campaign_detail", kwargs={"pk": campaign.pk}),
+            campaign=campaign,
+        )
+
+    @staticmethod
     def notify_termination_proposed(request):
         """Предложено прекратить сделку по соглашению → второй стороне."""
         deal = request.deal

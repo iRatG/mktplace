@@ -35,6 +35,7 @@ LABELS = {
     "max_bloggers": "Макс. блогеров",
     "content_types": "Форматы контента",
     "allowed_socials": "Площадки",
+    "visibility": "Тип кампании",
     "approval_required": "Согласовать материал перед публикацией",
     "content_lead_days": "Сдать материал за, раб. дней до даты",
     "review_days": "Срок рассмотрения, раб. дней",

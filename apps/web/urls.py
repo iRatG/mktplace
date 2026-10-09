@@ -61,6 +61,7 @@ urlpatterns = [
     path("bloggers/<int:pk>/", views.blogger_public_profile, name="blogger_public_profile"),
 
     # Deals
+    path("campaigns/<int:pk>/invite/", views.campaign_invite, name="campaign_invite"),
     path("deals/", views.deal_list, name="deal_list"),
     path("deals/<int:pk>/", views.deal_detail, name="deal_detail"),
     path("deals/<int:pk>/submit-publication/", views.deal_submit_publication, name="deal_submit_publication"),

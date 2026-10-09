@@ -142,6 +142,13 @@ class Campaign(models.Model):
                   "чтобы при повторной модерации показать «было → стало»",
     )
     max_bloggers = models.PositiveIntegerField(default=0)
+    class Visibility(models.TextChoices):
+        OPEN = "open", "Открытая — в общем списке, отклик любого подходящего исполнителя"
+        CLOSED = "closed", "Закрытая — только для приглашённых исполнителей"
+
+    visibility = models.CharField(
+        max_length=10, choices=Visibility.choices, default=Visibility.OPEN, verbose_name="Тип кампании",
+    )
     # Порядок согласования материала — условие оферты, переходит в сделку.
     approval_required = models.BooleanField(
         default=True, verbose_name="Согласовать материал перед публикацией",
@@ -207,6 +214,23 @@ class Campaign(models.Model):
         if self.status in (self.Status.ACTIVE, self.Status.PAUSED):
             return True
         return self.status == self.Status.MODERATION and bool(self.approved_snapshot)
+
+
+class CampaignInvitation(models.Model):
+    """Приглашение исполнителя в закрытую кампанию: даёт увидеть кампанию и подать заявку. Это не оферта и не
+    обязывает ни одну из сторон заключить сделку."""
+
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="invitations")
+    blogger = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="campaign_invitations")
+    invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["campaign", "blogger"], name="one_invitation_per_blogger")]
+
+    def __str__(self):
+        return f"Invitation campaign={self.campaign_id} blogger={self.blogger_id}"
 
 
 class Response(models.Model):

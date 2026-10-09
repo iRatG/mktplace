@@ -69,6 +69,20 @@
             </div>
         </div>
 
+        <!-- Тип кампании -->
+        <div class="card-dark rounded-xl p-5 space-y-2" data-visibility>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Тип кампании</h2>
+            {% for value, label in form.fields.visibility.choices %}
+            <label class="flex items-start gap-2 text-sm text-gray-800 cursor-pointer">
+                <input type="radio" name="visibility" value="{{ value }}" class="mt-0.5 accent-orange-500"
+                       {% if form.visibility.value == value or not form.visibility.value and value == "open" %}checked{% endif %}>
+                <span>{{ label }}</span>
+            </label>
+            {% endfor %}
+            <p class="text-xs text-gray-500">В закрытую кампанию вы приглашаете исполнителей сами — по одному из каталога или по критериям со страницы кампании. Приглашение — не оферта.</p>
+            {% for error in form.visibility.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="visibility">{{ error }}</p>{% endfor %}
+        </div>
+
         <!-- Оплата -->
         <div class="card-dark rounded-xl p-5 space-y-4">
             <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Оплата и бюджет</h2>

@@ -80,7 +80,11 @@ def blogger_catalog(request):
     from django.core.paginator import Paginator
     total = qs.count()
     page_obj = Paginator(qs, 20).get_page(request.GET.get("page", 1))
+    closed_campaigns = Campaign.objects.filter(
+        advertiser=request.user, status=Campaign.Status.ACTIVE, visibility=Campaign.Visibility.CLOSED,
+    ) if not request.user.is_staff else Campaign.objects.none()
     return render(request, "catalog/index.html", {
+        "closed_campaigns": closed_campaigns,
         "platforms": page_obj,
         "page_obj": page_obj,
         "form": form,

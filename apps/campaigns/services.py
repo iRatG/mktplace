@@ -364,3 +364,45 @@ def accept_direct_offer(offer_pk, actor):
         offer.save(update_fields=["status", "deal", "updated_at"])
     NotificationService.notify_direct_offer_accepted(offer.advertiser, campaign, actor, deal)
     return deal
+
+
+# ── Приглашения в закрытую кампанию ───────────────────────────────────────────
+
+INVITE_BY_CRITERIA_LIMIT = 200
+
+
+def invite_bloggers(campaign_pk, advertiser, bloggers):
+    """Пригласить исполнителей в закрытую активную кампанию. Повторные приглашения пропускаются.
+    Возвращает число новых приглашений."""
+    from .models import CampaignInvitation
+
+    campaign = Campaign.objects.filter(pk=campaign_pk, advertiser=advertiser).first()
+    if campaign is None:
+        raise AcceptError("Кампания не найдена.")
+    if campaign.visibility != Campaign.Visibility.CLOSED:
+        raise AcceptError("Приглашения — только для закрытой кампании. Открытую видят все исполнители.")
+    if campaign.status != Campaign.Status.ACTIVE:
+        raise AcceptError("Пригласить можно в активную кампанию.")
+    existing = set(CampaignInvitation.objects.filter(campaign=campaign).values_list("blogger_id", flat=True))
+    new = [b for b in dict.fromkeys(bloggers) if b.pk not in existing and b.role == "blogger"]
+    CampaignInvitation.objects.bulk_create(
+        [CampaignInvitation(campaign=campaign, blogger=b, invited_by=advertiser) for b in new]
+    )
+    for blogger in new:
+        NotificationService.notify_campaign_invitation(blogger, campaign)
+    return len(new)
+
+
+def invite_by_criteria(campaign_pk, advertiser, *, social_type="", min_subscribers=0, category=None):
+    """Массовое приглашение: владельцы одобренных площадок по критериям (не больше INVITE_BY_CRITERIA_LIMIT)."""
+    from apps.platforms.models import Platform
+    from apps.users.models import User
+
+    platforms = Platform.objects.filter(status=Platform.Status.APPROVED, subscribers__gte=min_subscribers or 0)
+    if social_type:
+        platforms = platforms.filter(social_type=social_type)
+    if category is not None:
+        platforms = platforms.filter(categories=category)
+    blogger_ids = list(platforms.values_list("blogger_id", flat=True).distinct()[:INVITE_BY_CRITERIA_LIMIT])
+    bloggers = list(User.objects.filter(pk__in=blogger_ids))
+    return invite_bloggers(campaign_pk, advertiser, bloggers)

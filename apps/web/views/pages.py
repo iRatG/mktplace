@@ -206,7 +206,16 @@ def blogger_dashboard(request):
         .order_by("-created_at")
     )
 
+    from apps.campaigns.models import CampaignInvitation
+
+    invitations = (
+        CampaignInvitation.objects.filter(blogger=user, campaign__status=Campaign.Status.ACTIVE)
+        .exclude(campaign__responses__blogger=user)
+        .select_related("campaign")[:10]
+    )
+
     context = {
+        "invitations": invitations,
         "wallet": wallet,
         "my_responses_count": CampaignResponse.objects.filter(blogger=user).count(),
         "active_deals_count": active_deals_qs.count(),

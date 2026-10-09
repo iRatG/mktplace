@@ -168,6 +168,19 @@
                             Предложить сделку
                         </a>
                     </div>
+                    {% if closed_campaigns %}
+                    <form method="post" class="flex gap-2" data-invite-one
+                          onsubmit="this.action=this.querySelector('select').value; return !!this.action;">
+                        {% csrf_token %}
+                        <input type="hidden" name="blogger" value="{{ p.blogger.pk }}">
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <select class="input-dark text-xs flex-1" required>
+                            <option value="">Пригласить в закрытую кампанию…</option>
+                            {% for c in closed_campaigns %}<option value="{% url 'web:campaign_invite' c.pk %}">{{ c.name }}</option>{% endfor %}
+                        </select>
+                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:border-orange-300">Пригласить</button>
+                    </form>
+                    {% endif %}
 
                 </div>
                 {% endwith %}

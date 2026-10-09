@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -81,8 +82,10 @@ def campaign_list(request):
         from django.db.models import OuterRef, Subquery
 
         last_response = CampaignResponse.objects.filter(campaign=OuterRef("pk"), blogger=user).order_by("-created_at")
+        from apps.campaigns.validation import campaigns_visible_to
+
         qs = (
-            Campaign.objects.filter(status=Campaign.Status.ACTIVE).select_related("category")
+            campaigns_visible_to(user).select_related("category")
             .annotate(my_response_status=Subquery(last_response.values("status")[:1]))
             .order_by("-created_at")
         )
@@ -120,7 +123,9 @@ def campaign_detail(request, pk):
             "publication_calendar": publication_calendar(campaign),
         }
     else:
-        campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)
+        from apps.campaigns.validation import campaigns_visible_to
+
+        campaign = get_object_or_404(campaigns_visible_to(user), pk=pk)
         already_responded = active_response(campaign, user) is not None
         last_rejected = (
             CampaignResponse.objects.filter(
@@ -141,8 +146,13 @@ def campaign_detail(request, pk):
     context["card_terms_rows"] = describe_terms(campaign_snapshot(campaign), CARD_TERMS_FIELDS)
     if context.get("is_owner"):
         from apps.billing.tariffs import tier_description
+        from apps.platforms.models import Category, Platform as PlatformModel
 
         context["commission_label"] = tier_description(campaign.advertiser)
+        if campaign.visibility == Campaign.Visibility.CLOSED:
+            context["invitations"] = campaign.invitations.select_related("blogger__blogger_profile")
+            context["invite_socials"] = PlatformModel.SocialType.choices
+            context["invite_categories"] = Category.objects.all()
     return render(request, "campaigns/detail.html", context)
 
 
@@ -293,7 +303,9 @@ def campaign_respond(request, pk):
         messages.error(request, "Только блогеры могут откликаться.")
         return redirect("web:campaign_detail", pk=pk)
 
-    campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.ACTIVE)
+    from apps.campaigns.validation import campaigns_visible_to
+
+    campaign = get_object_or_404(campaigns_visible_to(request.user), pk=pk)
 
     if active_response(campaign, request.user) is not None:
         messages.error(request, "Вы уже откликнулись на эту кампанию — дождитесь решения рекламодателя.")
@@ -426,3 +438,30 @@ def campaign_proposal_accept(request, pk):
 @require_POST
 def campaign_proposal_decline(request, pk):
     return _answer_proposal(request, pk, accept=False)
+
+
+@login_required
+@require_POST
+def campaign_invite(request, pk):
+    """Пригласить исполнителей в закрытую кампанию: по критериям (со страницы кампании) или одного (из каталога)."""
+    from apps.campaigns.services import AcceptError, invite_bloggers, invite_by_criteria
+    from apps.platforms.models import Category
+
+    back = request.POST.get("next") or reverse("web:campaign_detail", kwargs={"pk": pk})
+    try:
+        if request.POST.get("blogger"):
+            blogger = get_object_or_404(User, pk=request.POST["blogger"], role=User.Role.BLOGGER)
+            count = invite_bloggers(pk, request.user, [blogger])
+        else:
+            try:
+                min_subs = int((request.POST.get("min_subscribers") or "0").replace(" ", ""))
+            except ValueError:
+                min_subs = 0
+            category = Category.objects.filter(pk=request.POST.get("category") or None).first()
+            count = invite_by_criteria(pk, request.user, social_type=request.POST.get("social_type", ""),
+                                       min_subscribers=min_subs, category=category)
+    except AcceptError as e:
+        messages.error(request, str(e))
+        return redirect(back)
+    messages.success(request, f"Приглашено исполнителей: {count}." if count else "Новых исполнителей для приглашения нет.")
+    return redirect(back)

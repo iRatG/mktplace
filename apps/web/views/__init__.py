@@ -17,6 +17,7 @@ from .pages import (
     blogger_dashboard,
 )
 from .campaigns import (
+    campaign_invite,
     campaign_list,
     campaign_detail,
     campaign_create,

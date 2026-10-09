@@ -107,6 +107,17 @@
 </div>
 
 <!-- Incoming direct offers (Module 10) -->
+{% if invitations %}
+<div class="card-dark rounded-xl overflow-hidden mb-6" data-invitations>
+    <div class="px-6 py-4 border-b border-gray-200"><h2 class="font-semibold text-gray-900">Приглашения в закрытые кампании</h2></div>
+    <div class="divide-y divide-gray-100">
+        {% for inv in invitations %}
+        <a href="{% url 'web:campaign_detail' inv.campaign.pk %}" class="block px-6 py-3 text-sm text-gray-900 hover:bg-orange-50">{{ inv.campaign.name }} <span class="text-xs text-gray-500">· посмотреть условия и подать заявку</span></a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if incoming_offers %}
 <div class="card-dark rounded-xl overflow-hidden mb-6">
     <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">

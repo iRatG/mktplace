@@ -109,6 +109,17 @@ def publication_date_error(campaign, day):
     return None
 
 
+def campaigns_visible_to(blogger):
+    """Активные кампании, которые видит исполнитель: открытые и закрытые, куда он приглашён."""
+    from django.db.models import Q
+
+    from .models import Campaign
+
+    return Campaign.objects.filter(status=Campaign.Status.ACTIVE).filter(
+        Q(visibility=Campaign.Visibility.OPEN) | Q(invitations__blogger=blogger)
+    ).distinct()
+
+
 def content_lead_error(campaign, day):
     """При обязательном согласовании срок сдачи материала (N рабочих дней до даты) не должен пройти уже при
     направлении оферты — сообщение или None."""

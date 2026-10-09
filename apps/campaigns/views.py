@@ -24,10 +24,10 @@ class CampaignViewSet(viewsets.ModelViewSet):
             return Campaign.objects.filter(advertiser=user).select_related(
                 "advertiser", "category"
             )
-        # Bloggers see active campaigns
-        return Campaign.objects.filter(
-            status=Campaign.Status.ACTIVE
-        ).select_related("advertiser", "category")
+        # Исполнители видят активные открытые кампании и закрытые, куда приглашены.
+        from .validation import campaigns_visible_to
+
+        return campaigns_visible_to(user).select_related("advertiser", "category")
 
     def get_serializer_class(self):
         if self.action in ("create", "update", "partial_update"):
