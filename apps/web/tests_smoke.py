@@ -463,3 +463,137 @@ class SmokeRoleGuardsTest(_SmokeBase):
         c.force_login(self.staff)
         resp = c.get(reverse("web:deal_detail", kwargs={"pk": self.deal.pk}))
         self.assertEqual(resp.status_code, 200)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6. Новое 09.10.2026: отзывы о платформе, закрытые кампании (#43, #46)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class SmokePlatformReviewsTest(_SmokeBase):
+    """#46: страница отзывов доступна вошедшим пользователям, очередь — только staff."""
+
+    def test_platform_reviews_ok_for_anonymous(self):
+        """Страница отзывов публичная — читать может кто угодно, оставлять отзыв (POST) требует входа."""
+        resp = self.client.get(reverse("web:platform_reviews"))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_platform_reviews_ok_for_advertiser(self):
+        c = Client()
+        c.force_login(self.adv)
+        self.assertEqual(c.get(reverse("web:platform_reviews")).status_code, 200)
+
+    def test_platform_reviews_ok_for_blogger(self):
+        c = Client()
+        c.force_login(self.blg)
+        self.assertEqual(c.get(reverse("web:platform_reviews")).status_code, 200)
+
+    def test_admin_platform_reviews_ok_for_staff(self):
+        c = Client()
+        c.force_login(self.staff)
+        self.assertEqual(c.get(reverse("web:admin_platform_reviews")).status_code, 200)
+
+    def test_admin_platform_reviews_not_accessible_to_advertiser(self):
+        c = Client()
+        c.force_login(self.adv)
+        self.assertNotEqual(c.get(reverse("web:admin_platform_reviews")).status_code, 200)
+
+
+class SmokeClosedCampaignVisibilityTest(_SmokeBase):
+    """#43: закрытую кампанию видит только приглашённый блогер; тип кампании виден в форме."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.closed = _make_campaign(cls.adv)
+        Campaign.objects.filter(pk=cls.closed.pk).update(visibility=Campaign.Visibility.CLOSED)
+        cls.closed.refresh_from_db()
+
+    def test_uninvited_blogger_gets_404(self):
+        c = Client()
+        c.force_login(self.blg)
+        resp = c.get(reverse("web:campaign_detail", kwargs={"pk": self.closed.pk}))
+        self.assertEqual(resp.status_code, 404)
+
+    def test_invited_blogger_sees_campaign(self):
+        from apps.campaigns.models import CampaignInvitation
+        CampaignInvitation.objects.create(campaign=self.closed, blogger=self.blg, invited_by=self.adv)
+        c = Client()
+        c.force_login(self.blg)
+        resp = c.get(reverse("web:campaign_detail", kwargs={"pk": self.closed.pk}))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_create_page_shows_visibility_type(self):
+        c = Client()
+        c.force_login(self.adv)
+        resp = c.get(reverse("web:campaign_create"))
+        self.assertContains(resp, "data-visibility")
+
+    def test_catalog_shows_invite_control_for_closed_campaign(self):
+        c = Client()
+        c.force_login(self.adv)
+        resp = c.get(reverse("web:blogger_catalog"))
+        self.assertContains(resp, "Пригласить в закрытую кампанию")
+
+
+class SmokeDealLifecycleContentTest(TestCase):
+    """09.10.2026: условия оферты, сроки оплаты, претензия, прекращение по соглашению и комиссия на
+    странице сделки — заключённой по новым условиям (через реальный цикл отклик → оферта → акцепт)."""
+
+    def setUp(self):
+        from apps.campaigns.models import Response as CampaignResponse
+        from apps.campaigns.testing import CARD_FIELDS, deal_from_response, publication_day
+
+        self.today = timezone.now().date()
+        self.adv = _make_user("adv2@smoke.com", User.Role.ADVERTISER)
+        self.blg = _make_user("blg2@smoke.com", User.Role.BLOGGER)
+        self.staff = _make_user("staff2@smoke.com", User.Role.ADVERTISER, is_staff=True)
+        Wallet.objects.update_or_create(user=self.adv, defaults={"available_balance": Decimal("5000000")})
+        self.campaign = Campaign.objects.create(
+            advertiser=self.adv, name="Lifecycle", payment_type=Campaign.PaymentType.FIXED,
+            fixed_price=Decimal("150000"), budget=Decimal("1500000"), status=Campaign.Status.ACTIVE,
+            start_date=self.today, end_date=self.today + timedelta(days=40), approval_required=False,
+            **CARD_FIELDS,
+        )
+        platform = _make_platform(self.blg)
+        response = CampaignResponse.objects.create(
+            campaign=self.campaign, blogger=self.blg, platform=platform,
+            content_type="post", proposed_price=Decimal("150000"),
+        )
+        self.deal = deal_from_response(response, self.adv, publication_day(self.campaign))
+
+    def test_deal_detail_shows_payout_terms_for_blogger(self):
+        from apps.deals import services as deal_services
+
+        deal_services.submit_publication(self.deal.pk, self.blg, "https://instagram.com/p/smoke-payout")
+        c = Client()
+        c.force_login(self.blg)
+        resp = c.get(reverse("web:deal_detail", kwargs={"pk": self.deal.pk}))
+        self.assertContains(resp, "data-payout-terms")
+
+    def test_deal_detail_shows_commission_for_advertiser(self):
+        c = Client()
+        c.force_login(self.adv)
+        resp = c.get(reverse("web:deal_detail", kwargs={"pk": self.deal.pk}))
+        self.assertContains(resp, "data-deal-commission")
+
+    def test_deal_detail_shows_termination_proposal_form(self):
+        c = Client()
+        c.force_login(self.blg)
+        resp = c.get(reverse("web:deal_detail", kwargs={"pk": self.deal.pk}))
+        self.assertContains(resp, "data-termination-form")
+
+    def test_claim_form_and_staff_panel_after_publication(self):
+        from apps.campaigns.testing import CLAIM_FIELDS
+        from apps.deals import services as deal_services
+
+        deal_services.submit_publication(self.deal.pk, self.blg, "https://instagram.com/p/smoke")
+        c = Client()
+        c.force_login(self.adv)
+        resp = c.get(reverse("web:deal_detail", kwargs={"pk": self.deal.pk}))
+        self.assertContains(resp, "data-claim-form")
+
+        deal_services.open_claim(self.deal.pk, self.adv, **CLAIM_FIELDS)
+        staff_client = Client()
+        staff_client.force_login(self.staff)
+        panel = staff_client.get(reverse("web:admin_disputes"))
+        self.assertContains(panel, f"Сделка #{self.deal.pk}")
