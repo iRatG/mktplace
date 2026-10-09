@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.conf import settings
 
 from apps.billing.formatting import format_money
+from apps.registration.models import LegalEntityApplication
 
 from .models import Campaign
 
@@ -138,6 +139,17 @@ def moderation_dates_error(campaign):
     if not campaign.start_date or not campaign.end_date:
         return "Укажите даты начала и окончания кампании — без них кампанию нельзя отправить на модерацию."
     return None
+
+
+def advertiser_verification_error(advertiser):
+    """Отправить кампанию на модерацию может только подтверждённый рекламодатель — сообщение или None."""
+    if advertiser.is_demo:
+        return None
+    if LegalEntityApplication.objects.filter(
+        user=advertiser, status=LegalEntityApplication.Status.APPROVED,
+    ).exists():
+        return None
+    return "Чтобы отправить кампанию на модерацию, подтвердите аккаунт — обратитесь в поддержку."
 
 
 def latest_content_end(end_date):

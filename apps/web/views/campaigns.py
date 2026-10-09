@@ -92,6 +92,8 @@ def campaign_list(request):
 
 @login_required
 def campaign_detail(request, pk):
+    from apps.campaigns.validation import advertiser_verification_error
+
     user = request.user
     if user.is_staff:
         campaign = get_object_or_404(Campaign, pk=pk)
@@ -100,6 +102,7 @@ def campaign_detail(request, pk):
             "campaign": campaign,
             "is_owner": True,
             "responses": responses,
+            "advertiser_verification_error": advertiser_verification_error(campaign.advertiser),
             **_pending_proposal_context(campaign),
             **_budget_context(campaign),
             "publication_calendar": publication_calendar(campaign),
@@ -111,6 +114,7 @@ def campaign_detail(request, pk):
             "campaign": campaign,
             "is_owner": True,
             "responses": responses,
+            "advertiser_verification_error": advertiser_verification_error(campaign.advertiser),
             **_pending_proposal_context(campaign),
             **_budget_context(campaign),
             "publication_calendar": publication_calendar(campaign),
@@ -190,10 +194,14 @@ def campaign_submit(request, pk):
     # Отклонённую кампанию после правок отправляют повторно; причину очищает одобрение.
     from apps.campaigns.validation import moderation_dates_error
 
+    from apps.campaigns.validation import advertiser_verification_error
+
     if campaign.status not in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
         messages.error(request, "На модерацию можно отправить только черновик или отклонённую кампанию.")
     elif moderation_dates_error(campaign):
         messages.error(request, moderation_dates_error(campaign))
+    elif advertiser_verification_error(request.user):
+        messages.error(request, advertiser_verification_error(request.user))
     else:
         source = (
             NotificationService.MODERATION_AFTER_REJECTION

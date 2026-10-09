@@ -32,7 +32,7 @@ def make_blogger(email="blogger@test.com", password="Test1234!"):
 
 
 def make_advertiser(email="adv@test.com", password="Test1234!"):
-    u = User.objects.create_user(email=email, password=password, role=User.Role.ADVERTISER)
+    u = User.objects.create_user(email=email, password=password, role=User.Role.ADVERTISER, is_demo=True)
     u.status = User.Status.ACTIVE
     u.is_email_confirmed = True
     u.save()

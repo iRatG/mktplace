@@ -132,6 +132,8 @@ class ResolveOnOpenTest(TestCase):
 class NewEventsTest(TestCase):
     def setUp(self):
         self.adv = _user("adv@test.com")
+        self.adv.is_demo = True
+        self.adv.save(update_fields=["is_demo"])
         self.blogger = _user("bl@test.com", User.Role.BLOGGER)
         self.staff1 = _user("s1@test.com", is_staff=True)
         self.staff2 = _user("s2@test.com", is_staff=True)
@@ -185,6 +187,8 @@ class ApiParityTest(TestCase):
 
     def setUp(self):
         self.adv = _user("adv@test.com")
+        self.adv.is_demo = True
+        self.adv.save(update_fields=["is_demo"])
         self.blogger = _user("bl@test.com", User.Role.BLOGGER)
         self.staff = _user("s@test.com", is_staff=True)
         self.platform = _platform(self.blogger)

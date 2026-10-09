@@ -71,10 +71,14 @@ class CampaignViewSet(viewsets.ModelViewSet):
                 {"detail": "Only draft or rejected campaigns can be submitted for moderation."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        from .validation import moderation_dates_error
+        from .validation import advertiser_verification_error, moderation_dates_error
 
         if moderation_dates_error(campaign):
             return DRFResponse({"detail": moderation_dates_error(campaign)}, status=status.HTTP_400_BAD_REQUEST)
+        if advertiser_verification_error(request.user):
+            return DRFResponse(
+                {"detail": advertiser_verification_error(request.user)}, status=status.HTTP_400_BAD_REQUEST,
+            )
         source = (
             NotificationService.MODERATION_AFTER_REJECTION
             if campaign.status == Campaign.Status.REJECTED

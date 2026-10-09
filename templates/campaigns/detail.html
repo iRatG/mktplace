@@ -76,12 +76,19 @@
                     class="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-50">
                     Редактировать
                 </a>
+                {% if advertiser_verification_error %}
+                <div class="rounded-xl p-3 bg-gray-50 border border-gray-200 text-xs text-gray-600">
+                    {{ advertiser_verification_error }}
+                    <a href="{% url 'web:support' %}" class="text-orange-600 hover:text-orange-700 font-medium">Написать в поддержку →</a>
+                </div>
+                {% else %}
                 <form method="post" action="{% url 'web:campaign_submit' campaign.pk %}">
                     {% csrf_token %}
                     <button class="btn-orange px-3 py-2 text-sm">
                         Отправить на модерацию
                     </button>
                 </form>
+                {% endif %}
                 {% endif %}
                 {% if campaign.status == 'active' %}
                 <form method="post" action="{% url 'web:campaign_pause' campaign.pk %}">

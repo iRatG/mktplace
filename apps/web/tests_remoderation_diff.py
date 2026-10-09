@@ -14,10 +14,10 @@ from apps.users.models import User
 from apps.web.campaign_proposals import changes_since_approval, form_data_from_campaign
 
 
-def _user(email, is_staff=False):
+def _user(email, is_staff=False, is_demo=False):
     return User.objects.create_user(
         email=email, password="pass1234", role=User.Role.ADVERTISER,
-        status=User.Status.ACTIVE, is_staff=is_staff,
+        status=User.Status.ACTIVE, is_staff=is_staff, is_demo=is_demo,
     )
 
 
@@ -40,7 +40,7 @@ def _edit_payload(campaign, **changes):
 
 class RemoderationDiffTest(TestCase):
     def setUp(self):
-        self.adv = _user("adv@test.com")
+        self.adv = _user("adv@test.com", is_demo=True)
         self.staff = _user("staff@test.com", is_staff=True)
         self.campaign = _campaign(self.adv)
 

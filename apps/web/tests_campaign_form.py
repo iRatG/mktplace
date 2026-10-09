@@ -284,7 +284,7 @@ class CampaignApiValidationTest(TestCase):
 
 class CampaignResubmitTest(TestCase):
     def setUp(self):
-        self.adv = _user("adv_resubmit@test.com", User.Role.ADVERTISER)
+        self.adv = _user("adv_resubmit@test.com", User.Role.ADVERTISER, is_demo=True)
 
     def test_web_rejected_to_moderation_keeps_reason(self):
         campaign = _campaign(self.adv, status=Campaign.Status.REJECTED, rejection_reason="Нет описания")
