@@ -181,17 +181,26 @@ class IdentityVerification(models.Model):
 
 
 class IPApplication(models.Model):
-    """Заявка блогера на подтверждение статуса ИП (патент/справка).
+    """Заявка блогера на подтверждение категории исполнителя (ИП, самозанятый, юрлицо-исполнитель).
 
     Отдельный шаг ПОСЛЕ подтверждения личности через OneID (identity_verification
     должна быть VERIFIED). Проверяется сотрудником вручную по загруженному документу,
     общая очередь PENDING — в отличие от заявок юрлиц, персонального закрепления
-    за сотрудником бизнес не просил.
+    за сотрудником бизнес не просил. Имя модели осталось историческим (изначально только
+    для ИП, #39) — заявка теперь обслуживает все три подтверждаемые категории через
+    target_category, заводить отдельные модели на каждую категорию не стали (#48).
     """
+
+    class TargetCategory(models.TextChoices):
+        IP = "ip", "ИП"
+        SELF_EMPLOYED = "self_employed", "Самозанятый"
+        LEGAL_ENTITY = "legal_entity", "Юрлицо-исполнитель"
 
     class DocType(models.TextChoices):
         PATENT = "patent", "Патент"
         SPRAVKA = "spravka", "Справка"
+        SELF_EMPLOYED_CERT = "self_employed_cert", "Справка о регистрации самозанятого"
+        LEGAL_ENTITY_EXTRACT = "legal_entity_extract", "Свидетельство/выписка юрлица"
 
     class Status(models.TextChoices):
         PENDING = "pending", "На проверке"
@@ -210,10 +219,16 @@ class IPApplication(models.Model):
         related_name="ip_applications",
         null=True,
         blank=True,
-        help_text="Должна быть VERIFIED перед подачей заявки на ИП",
+        help_text="Должна быть VERIFIED перед подачей заявки",
+    )
+    target_category = models.CharField(
+        max_length=20, choices=TargetCategory.choices, default=TargetCategory.IP,
+        help_text="Какую категорию исполнителя подтверждает заявка",
     )
     document_type = models.CharField(max_length=20, choices=DocType.choices)
-    document_number = models.CharField(max_length=100, blank=True)
+    document_number = models.CharField(
+        max_length=100, blank=True, help_text="Номер документа; для юрлица — ИНН",
+    )
     file = models.FileField(upload_to="ip_documents/%Y/%m/", help_text="PDF, JPG или PNG")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     rejection_reason = models.TextField(blank=True)
@@ -238,7 +253,10 @@ class IPApplication(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.user.email} — {self.get_document_type_display()} ({self.get_status_display()})"
+        return (
+            f"{self.user.email} — {self.get_target_category_display()} / "
+            f"{self.get_document_type_display()} ({self.get_status_display()})"
+        )
 
 
 class IPApplicationStatusLog(models.Model):

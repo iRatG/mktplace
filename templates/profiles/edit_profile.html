@@ -44,7 +44,7 @@
                     <option value="{{ value }}" {% if form.category.value|stringformat:"s" == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
-                <p class="text-xs text-gray-500 mt-1">Определяет тип реквизитов выплаты: карта — для физлица и самозанятого, расчётный счёт — для ИП и юрлица. «ИП» доступно только после подтверждения статуса ИП документом.</p>
+                <p class="text-xs text-gray-500 mt-1">Определяет тип реквизитов выплаты: карта — для физлица и самозанятого, расчётный счёт — для ИП и юрлица. «ИП», «Самозанятый» и «Юрлицо-исполнитель» доступны только после подтверждения документом — <a href="{% url 'web:ip_application_list' %}" class="text-orange-600 hover:text-orange-700">подать заявку →</a></p>
                 {% if form.category.errors %}<p class="text-red-600 text-xs mt-1">{{ form.category.errors|join:", " }}</p>{% endif %}
             </div>
 
