@@ -61,6 +61,13 @@ ACTIVE/PAUSED после `end_date` → COMPLETED, ожидающие откли
 старые сделки, одобренные в IN_PROGRESS). Публикация принимается из IN_PROGRESS (креатив пропущен) и
 WAITING_PUBLICATION; рекламодатель отменяет сделку из WAITING_PAYMENT / IN_PROGRESS / WAITING_PUBLICATION,
 блогер — только из WAITING_PAYMENT.
+Порядок согласования — условие оферты (#34): `Campaign.approval_required` (по умолчанию да),
+`content_lead_days` (5) и `review_days` (2) рабочих дней копируются в сделку из снимка оферты (`approval_terms`;
+сделки и оферты до правила — без обязательного согласования). При `deal.approval_required` публикация — только после
+согласования, автоодобрения нет (`auto_approve_creative` берёт только сделки без него), истёкший срок рассмотрения —
+уведомление обеим сторонам (`notify_overdue_reviews`). Тестам с датой в оферте — `apps.campaigns.testing.publication_day`
+(учитывает срок сдачи). Дата публикации меняется только переносом по согласию сторон (`propose/accept/
+decline_publication_date`, #33); просрочка — `Deal.overdue_days`, без автоотмены.
 
 ### Денежные итоги — только через `apps/billing/metrics.py`
 `BillingService` пишет списания (`PAYMENT`, `RESERVE`, `WITHDRAWAL`) с минусом, зачисления — с плюсом; отдельной
