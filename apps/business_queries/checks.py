@@ -2,8 +2,8 @@
 
 Симметрично apps.registration.checks: если группа "IT Team" пуста, никто
 не сможет открыть /tickets/ (гейт `_it_team_required`) и Django admin для
-Ticket тоже откажет всем (`_is_it_team_member`, см. CRIT-5 в
-AUDIT_REPORT_2026-09-13.md) — тикеты продолжат создаваться, но их некому
+Ticket тоже откажет всем (`_is_it_team_member`, CRIT-5 аудита
+13.09.2026) — тикеты продолжат создаваться, но их некому
 будет прочитать. Проверка добавлена по итогам того же разбора, что и
 apps.registration.checks (openspec change
 2026-09-20-fix-registration-reviewer-and-deploy-gaps).

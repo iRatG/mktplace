@@ -79,8 +79,8 @@ task/
 # внутри openspec/, в общий репозиторий пока не попадает (см. openspec/config.yaml)
 openspec/
 
-# Claude Code: локальные настройки сессии — содержат историю разрешённых команд
-# (в т.ч. с реальными паролями VPS, вставленными в сами команды) и runtime-файлы.
-# .claude/commands/ и .claude/skills/ (интеграция OpenSpec) НЕ игнорируются намеренно.
-.claude/settings.local.json
-.claude/scheduled_tasks.lock
+# Claude Code: настройки сессии, команды и навыки OpenSpec — только локально (в общем репозитории — только движок сайта).
+.claude/
+
+# Отчёты, ТЗ и презентации — не движок, хранятся локально в task/
+AUDIT_REPORT_*.md
