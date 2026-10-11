@@ -246,3 +246,56 @@ class ClaimsTest(TestCase):
         api.force_authenticate(self.blogger)
         r = api.post(f"/api/v1/deals/{deal.pk}/claim-materials/", {"text": "Ответ"}, format="json")
         self.assertEqual(r.status_code, 200, r.content)
+
+
+class ClaimAfterApprovalTest(TestCase):
+    """#52: материал согласован и размещён — рекламодатель подаёт претензию только о несогласованном материале,
+    удалении раньше срока или нарушении срока."""
+
+    setUp = ClaimsTest.setUp
+    _deal = ClaimsTest._deal
+    _published = ClaimsTest._published
+    _claim = ClaimsTest._claim
+
+    def _approved_published(self):
+        deal = self._published()
+        Deal.objects.filter(pk=deal.pk).update(creative_approved_at=timezone.now())
+        deal.refresh_from_db()
+        return deal
+
+    def test_advertiser_limited_to_three_subjects(self):
+        deal = self._approved_published()
+        for subject in ("placement", "other", "not_accepted"):
+            with self.assertRaisesMessage(TransitionError, "Материал согласован и размещён"):
+                self._claim(deal, subject=subject)
+        self.assertEqual([v for v, _ in t.claim_subjects_for(deal, self.adv)], ["retention", "deadline", "unapproved"])
+        claim = self._claim(deal, subject="unapproved")
+        self.assertEqual(claim.subject, "unapproved")
+
+    def test_retention_and_deadline_allowed(self):
+        for subject in ("retention", "deadline"):
+            self.assertEqual(self._claim(self._approved_published(), subject=subject).subject, subject)
+
+    def test_blogger_and_unapproved_deal_unchanged(self):
+        deal = self._approved_published()
+        self.assertEqual(len(t.claim_subjects_for(deal, self.blogger)), len(Claim.Subject.choices))
+        self.assertEqual(self._claim(deal, actor=self.blogger, subject="other").subject, "other")
+        plain = self._published()  # без согласования материала
+        self.assertEqual(self._claim(plain, subject="placement").subject, "placement")
+
+    def test_form_offers_only_allowed_subjects(self):
+        deal = self._approved_published()
+        self.client.force_login(self.adv)
+        page = self.client.get(reverse("web:deal_detail", kwargs={"pk": deal.pk})).content.decode()
+        form = page[page.index('name="subject"'):]
+        form = form[:form.index("</select>")]
+        self.assertIn('value="unapproved"', form)
+        self.assertNotIn('value="placement"', form)
+
+    def test_api_refuses_other_subjects(self):
+        deal = self._approved_published()
+        api = APIClient()
+        api.force_authenticate(self.adv)
+        answer = api.post(f"/api/v1/deals/{deal.pk}/claim/", {**CLAIM_FIELDS, "subject": "placement"}, format="json")
+        self.assertEqual(answer.status_code, 400, answer.content)
+        self.assertFalse(Claim.objects.filter(deal=deal).exists())

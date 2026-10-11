@@ -159,7 +159,7 @@ def deal_detail(request, pk):
         "claim": deal.open_claim or deal.claims.filter(status=Claim.Status.RESOLVED).first(),
         "can_claim": (not user.is_staff and user in (deal.blogger, deal.advertiser)
                       and deal.status in transitions.CLAIMABLE),
-        "claim_subjects": Claim.Subject.choices,
+        "claim_subjects": transitions.claim_subjects_for(deal, user),
         "unpublished_statuses": Deal.UNPUBLISHED_STATUSES,
         "claim_demands": Claim.Demand.choices,
         "can_reschedule": can_reschedule,

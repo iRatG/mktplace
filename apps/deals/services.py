@@ -292,11 +292,28 @@ def checking_overdue(deal, now=None):
 # ── Претензия ────────────────────────────────────────────────────────────────
 
 CLAIMABLE = (S.IN_PROGRESS, S.ON_APPROVAL, S.WAITING_PUBLICATION, S.CHECKING)
+# Материал согласован и размещён: принять исполнение рекламодатель обязан, кроме этих оснований (решение 10.10.2026).
+AFTER_APPROVAL_SUBJECTS = (Claim.Subject.UNAPPROVED, Claim.Subject.RETENTION, Claim.Subject.DEADLINE)
+
+
+def _approved_and_published(deal):
+    return bool(deal.creative_approved_at) and deal.status == S.CHECKING
+
+
+def claim_subjects_for(deal, actor):
+    """Основания претензии, доступные стороне: [(value, подпись)]."""
+    if actor == deal.advertiser and _approved_and_published(deal):
+        return [(value, label) for value, label in Claim.Subject.choices if value in AFTER_APPROVAL_SUBJECTS]
+    return list(Claim.Subject.choices)
 
 
 def _claim_window_error(deal, actor, subject):
     """Срок претензии рекламодателя к размещению — 3 рабочих дня с загрузки подтверждения (или до принятия
-    публикации); претензия об удалении публикации — весь срок сохранения, пока деньги не перечислены."""
+    публикации); претензия об удалении публикации — весь срок сохранения, пока деньги не перечислены. Если материал
+    согласован и размещён — только основания AFTER_APPROVAL_SUBJECTS."""
+    if actor == deal.advertiser and _approved_and_published(deal) and subject not in AFTER_APPROVAL_SUBJECTS:
+        return ("Материал согласован и размещён — претензию можно подать, только если размещён не согласованный "
+                "материал, публикация удалена или скрыта раньше срока сохранения или нарушен срок.")
     if actor != deal.advertiser or deal.status != S.CHECKING or deal.min_retention_days is None:
         return None
     if subject == Claim.Subject.RETENTION:
