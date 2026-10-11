@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 
 from django.conf import settings
 from django.contrib import messages
@@ -61,10 +62,12 @@ def wallet_view(request):
                     messages.error(request, f"Ошибка: {e}")
 
     pending_withdrawals = []
+    expected = None
     if user.role == User.Role.BLOGGER:
         pending_withdrawals = WithdrawalRequest.objects.filter(
             blogger=user, status=WithdrawalRequest.Status.PENDING
         ).order_by("-created_at")
+        expected = _expected_payouts(user)
 
     budgets = None
     if user.role == User.Role.ADVERTISER:
@@ -74,6 +77,7 @@ def wallet_view(request):
 
     return render(request, "billing/wallet.html", {
         "budgets": budgets,
+        "expected": expected,
         "wallet": wallet,
         "transactions": transactions,
         "page_obj": transactions,
@@ -83,6 +87,17 @@ def wallet_view(request):
         "entered": entered,
         "requisites": requisites,
     })
+
+
+def _expected_payouts(blogger):
+    """Будущие выплаты блогеру по сделкам в работе: сколько получит и когда (если публикация уже есть)."""
+    from apps.deals.models import Deal
+
+    deals = list(
+        Deal.objects.filter(blogger=blogger).exclude(status__in=(Deal.Status.COMPLETED, Deal.Status.CANCELLED))
+        .select_related("campaign").order_by("created_at")
+    )
+    return {"deals": deals, "total": sum((d.blogger_earning for d in deals), Decimal("0"))}
 
 
 @login_required

@@ -79,20 +79,29 @@ class Command(BaseCommand):
             existing = User.objects.filter(email=email).first()
 
             if existing:
-                if options["reset"]:
-                    _delete_user_safely(existing)
-                    self.stdout.write(f"  Удалён: {email}")
-                else:
+                if not options["reset"]:
                     self.stdout.write(
                         self.style.WARNING(f"  Уже существует (пропущен): {email}")
                     )
                     continue
+                if data["is_staff"]:
+                    # Сотрудника не удаляем: на нём журнал доступа к ПД (PROTECT), своих кампаний и сделок у него нет.
+                    user = existing
+                    user.set_password(data["password"])
+                    user.role = data["role"]
+                    user.save(update_fields=["password", "role"])
+                    self.stdout.write(f"  Обновлён: {email}")
+                else:
+                    _delete_user_safely(existing)
+                    self.stdout.write(f"  Удалён: {email}")
+                    existing = None
 
-            user = User.objects.create_user(
-                email=email,
-                password=data["password"],
-                role=data["role"],
-            )
+            if not existing:
+                user = User.objects.create_user(
+                    email=email,
+                    password=data["password"],
+                    role=data["role"],
+                )
             user.is_staff = data["is_staff"]
             user.is_superuser = data["is_superuser"]
             user.is_email_confirmed = True

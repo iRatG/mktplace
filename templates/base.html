@@ -83,14 +83,14 @@
                 <a href="{% url 'web:deal_list' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Сделки</a>
                 <a href="{% url 'web:analytics' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Аналитика</a>
                 <a href="{% url 'web:wallet' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Кошелёк</a>
-                <a href="{% url 'web:profile' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Профиль</a>
+                <a href="{% url 'web:profile' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors" title="{{ user.email }}">Профиль</a>
                 {% elif user.role == 'blogger' %}
                 <a href="{% url 'web:blogger_dashboard' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Дашборд</a>
                 <a href="{% url 'web:catalog' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Каталог</a>
                 <a href="{% url 'web:deal_list' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Сделки</a>
                 <a href="{% url 'web:analytics' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Аналитика</a>
                 <a href="{% url 'web:wallet' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Кошелёк</a>
-                <a href="{% url 'web:profile' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Профиль</a>
+                <a href="{% url 'web:profile' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors" title="{{ user.email }}">Профиль</a>
                 <a href="{% url 'web:permit_list' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Документы</a>
                 <a href="{% url 'web:ip_application_list' %}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Статус исполнителя</a>
                 {% endif %}
@@ -110,7 +110,7 @@
                 <span class="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-xs font-bold rounded-full min-w-[1.1rem] h-[1.1rem] flex items-center justify-center px-0.5 leading-none">{{ unread_notifications_count }}</span>
                 {% endif %}
             </a>
-            <span class="hidden sm:block text-sm text-gray-500">{{ user.email }}</span>
+            {% if user.role != 'blogger' or user.is_staff %}<span class="hidden sm:block text-sm text-gray-500">{{ user.email }}</span>{% endif %}
             <form method="post" action="{% url 'web:logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="text-sm text-gray-600 hover:text-gray-900 transition-colors px-3 py-2">Выйти</button>

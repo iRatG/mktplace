@@ -126,7 +126,7 @@
         <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
             <div>
                 <div class="text-sm font-medium text-gray-900">Сделка #{{ deal.pk }} · {{ deal.campaign.name }}</div>
-                <div class="text-xs text-gray-500 mt-0.5">{{ deal.amount|money }} {{ currency.symbol }} · {{ deal.platform.get_social_type_display }}</div>
+                <div class="text-xs text-gray-500 mt-0.5">{{ deal.amount|money }} {{ currency.symbol }} · {{ deal.platform.get_social_type_display }}{% if deal.publication_date %} · <span data-publication-date>публикация {{ deal.publication_date|date:"d.m.Y" }}</span>{% endif %}</div>
                 <div class="flex flex-wrap gap-3 mt-0.5">{% include "deals/_row_notes.html" %}</div>
             </div>
             <span class="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600">

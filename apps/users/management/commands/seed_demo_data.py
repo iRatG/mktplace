@@ -247,23 +247,27 @@ class Command(BaseCommand):
 
         # ── Сценарий E: DirectOffer PENDING (advertiser → blogger) ───────────
         self.stdout.write("\n  ├─ Сценарий E: прямое предложение ожидает ответа блогера")
-        offer_e, _ = DirectOffer.objects.get_or_create(
-            advertiser=advertiser,
-            campaign=campaigns[0],
-            platform=platform,
-            defaults={
-                "blogger": blogger,
-                "content_type": "post",
-                "proposed_price": Decimal("300_000"),
-                "message": (
-                    "Здравствуйте! Ваша аудитория отлично подходит для нашего продукта FitLife. "
-                    "Предлагаем разместить пост об опыте использования приложения. "
-                    "Промокод для ваших подписчиков предоставим отдельно."
-                ),
-                "status": DirectOffer.Status.PENDING,
-            }
-        )
-        self.stdout.write(f"     DirectOffer #{offer_e.pk} → статус: {offer_e.status} (блогер видит в дашборде)")
+        # Обычным путём (send_offer): с резервом цены и комиссии и сроком акцепта — как при оферте с сайта.
+        offer_e = DirectOffer.objects.filter(advertiser=advertiser, campaign=campaigns[0], platform=platform).first()
+        if offer_e is None:
+            from apps.campaigns.services import AcceptError, send_offer
+            from apps.campaigns.validation import earliest_offer_date
+
+            try:
+                offer_e = send_offer(
+                    campaign_pk=campaigns[0].pk, advertiser=advertiser, blogger=blogger, platform=platform,
+                    publication_date=earliest_offer_date(campaigns[0]), content_type="post",
+                    price=Decimal("300_000"),
+                    message=(
+                        "Здравствуйте! Ваша аудитория отлично подходит для нашего продукта FitLife. "
+                        "Предлагаем разместить пост об опыте использования приложения. "
+                        "Промокод для ваших подписчиков предоставим отдельно."
+                    ),
+                )
+            except AcceptError as e:
+                self.stdout.write(f"     DirectOffer не создан: {e}")
+        if offer_e is not None:
+            self.stdout.write(f"     DirectOffer #{offer_e.pk} → статус: {offer_e.status} (блогер видит в дашборде)")
 
         # ── Сценарий F: DirectOffer ACCEPTED → сделка создана ────────────────
         self.stdout.write("\n  ├─ Сценарий F: прямое предложение принято → сделка")
@@ -384,7 +388,8 @@ class Command(BaseCommand):
         self.stdout.write(f"    C) Сделка #{deal_c.pk}    → CHECKING   (ждёт подтверждения)")
         self.stdout.write(f"    D) Сделка #{deal_d.pk}    → COMPLETED  (выплачено)")
         self.stdout.write("\n  Сценарии (каталог / прямые предложения):")
-        self.stdout.write(f"    E) DirectOffer #{offer_e.pk} → PENDING  (блогер видит в дашборде)")
+        if offer_e is not None:
+            self.stdout.write(f"    E) DirectOffer #{offer_e.pk} → PENDING  (блогер видит в дашборде)")
         self.stdout.write(f"    F) DirectOffer #{offer_f.pk} → ACCEPTED (сделка создана)")
         self.stdout.write(f"    G) DirectOffer #{offer_g.pk} → REJECTED (отклонено)")
         self.stdout.write("\n  Сценарии (регистрация юрлиц и ИП):")

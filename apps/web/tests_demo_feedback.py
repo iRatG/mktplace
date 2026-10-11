@@ -171,6 +171,19 @@ class DashboardTest(_Base):
         self.assertIn(expected, self.client.get(reverse("web:blogger_dashboard")).content.decode())
         self.assertIn(expected, self.client.get(reverse("web:deal_list")).content.decode())
 
+    def test_accepted_date_change_visible_in_rows(self):
+        """Живой прогон 11.10: после согласия на перенос новая дата видна в строке сделки, не только в уведомлении."""
+        deal = self._deal()
+        new_date = self.today + timedelta(days=5)
+        transitions.propose_publication_date(deal.pk, self.blogger, new_date)
+        transitions.accept_publication_date(deal.pk, self.adv)
+        expected = f"убликация {new_date:%d.%m.%Y}"
+        self.client.force_login(self.blogger)
+        self.assertIn(expected, self.client.get(reverse("web:blogger_dashboard")).content.decode())
+        self.assertIn(expected, self.client.get(reverse("web:deal_list")).content.decode())
+        self.client.force_login(self.adv)
+        self.assertIn(expected, self.client.get(reverse("web:deal_list")).content.decode())
+
     def test_dashboard_queries_do_not_grow_with_deals(self):
         self._deal()
         self.client.force_login(self.blogger)
@@ -206,3 +219,73 @@ class OfferDateMinTest(_Base):
         self.assertGreater(earliest, self.today)
         self.assertIn(f'id="pub_{resp.pk}" required class="input-dark text-xs"\n'
                       f'                                       min="{earliest.isoformat()}"', html)
+
+
+class LayoutTest(_Base):
+    """Живой прогон 11.10: шапка блогера и карточка условий кампании не вылезают за край."""
+
+    def test_blogger_navbar_has_no_email(self):
+        self.client.force_login(self.blogger)
+        html = self.client.get(reverse("web:blogger_dashboard")).content.decode()
+        self.assertNotIn(f'text-gray-500">{self.blogger.email}</span>', html)
+        self.assertIn(f'title="{self.blogger.email}">Профиль</a>', html)
+        self.client.force_login(self.adv)
+        html = self.client.get(reverse("web:advertiser_dashboard")).content.decode()
+        self.assertIn(f'text-gray-500">{self.adv.email}</span>', html)
+
+    def test_terms_rows_wrap_long_values(self):
+        Campaign.objects.filter(pk=self.campaign.pk).update(**CARD_FIELDS)
+        self.client.force_login(self.blogger)
+        html = self.client.get(reverse("web:campaign_detail", kwargs={"pk": self.campaign.pk})).content.decode()
+        terms = html[html.index("data-terms"):]
+        self.assertIn('class="flex flex-wrap justify-between', terms)
+        self.assertNotIn('<dt class="text-gray-500 shrink-0">', terms)
+
+
+class SecondPassTest(_Base):
+    """Живой прогон 11.10 (вторая часть): точная сумма резерва в оферте, будущие выплаты блогера, переход после входа."""
+
+    def test_offer_popup_shows_exact_reserve(self):
+        self._response()
+        self.client.force_login(self.adv)
+        html = self.client.get(reverse("web:campaign_detail", kwargs={"pk": self.campaign.pk})).content.decode()
+        # Новый рекламодатель — 16%: 150 000 + 24 000.
+        self.assertIn('data-offer-reserve>174 000', html)
+        self.assertIn("150 000 блогеру + 24 000 комиссия платформы 16% (ваш оборот за", html)
+
+    def test_blogger_wallet_shows_expected_payouts(self):
+        deal = self._deal()
+        self.client.force_login(self.blogger)
+        html = self.client.get(reverse("web:wallet")).content.decode()
+        self.assertIn("data-expected-payouts", html)
+        self.assertIn("Ожидается к выплате", html)
+        self.assertIn(reverse("web:deal_detail", kwargs={"pk": deal.pk}), html)
+        self.assertNotIn("Заморожено", html)
+        self.assertEqual(deal.blogger_earning, deal.amount)  # по тарифным уровням исполнитель получает цену целиком
+
+        self.client.force_login(self.adv)
+        html = self.client.get(reverse("web:wallet")).content.decode()
+        self.assertIn("Заморожено", html)
+        self.assertNotIn("data-expected-payouts", html)
+
+    def test_old_terms_earning_is_amount_minus_commission(self):
+        deal = self._deal()
+        Deal.objects.filter(pk=deal.pk).update(commission_percent=None, commission_amount=None)
+        deal.refresh_from_db()
+        self.assertEqual(deal.blogger_earning, deal.amount - deal.amount * Decimal("0.15"))
+
+    def setUp(self):
+        super().setUp()
+        User.objects.filter(pk=self.adv.pk).update(is_email_confirmed=True)
+
+    def test_login_follows_safe_next(self):
+        target = reverse("web:campaign_detail", kwargs={"pk": self.campaign.pk})
+        resp = self.client.post(reverse("web:login") + f"?next={target}",
+                                {"email": "adv@test.com", "password": "pass1234"})
+        self.assertRedirects(resp, target, fetch_redirect_response=False)
+
+    def test_login_ignores_foreign_next(self):
+        resp = self.client.post(reverse("web:login") + "?next=https://evil.example/x",
+                                {"email": "adv@test.com", "password": "pass1234"})
+        self.assertEqual(resp.status_code, 302)
+        self.assertNotIn("evil.example", resp["Location"])

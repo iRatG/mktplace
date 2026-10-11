@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.registration.services import legal_entity_login, parse_inn_login
@@ -68,6 +69,10 @@ def login_view(request):
 
         user.reset_login_attempts()
         login(request, user)
+        next_url = request.GET.get("next", "")
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()},
+                                                        require_https=request.is_secure()):
+            return redirect(next_url)
         return _redirect_dashboard(user)
 
     return render(request, "auth/login.html", {"form": form})

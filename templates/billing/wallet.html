@@ -15,17 +15,55 @@
         <div class="text-xs text-gray-500 mb-1">Доступно</div>
         <div class="text-2xl font-bold text-green-600">{{ wallet.available_balance|money }} {{ currency.symbol }}</div>
     </div>
+    {% if expected %}
+    <div class="card-dark rounded-xl p-5" data-expected-total>
+        <div class="text-xs text-gray-500 mb-1">Ожидается к выплате</div>
+        <div class="text-2xl font-bold text-yellow-700">{{ expected.total|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-gray-400 mt-1">По сделкам в работе: {{ expected.deals|length }}</div>
+    </div>
+    {% else %}
     <div class="card-dark rounded-xl p-5">
         <div class="text-xs text-gray-500 mb-1">Заморожено</div>
         <div class="text-2xl font-bold text-yellow-700">{{ wallet.reserved_balance|money }} {{ currency.symbol }}</div>
         <div class="text-xs text-gray-400 mt-1">По активным сделкам</div>
     </div>
+    {% endif %}
     <div class="card-dark rounded-xl p-5">
         <div class="text-xs text-gray-500 mb-1">На выводе</div>
         <div class="text-2xl font-bold text-blue-600">{{ wallet.on_withdrawal|money }} {{ currency.symbol }}</div>
         <div class="text-xs text-gray-400 mt-1">Заявки в обработке</div>
     </div>
 </div>
+
+{% if expected and expected.deals %}
+<!-- Будущие выплаты (блогер): по какой сделке, сколько и когда -->
+<div class="card-dark rounded-xl overflow-hidden mb-8" data-expected-payouts>
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-gray-900">Будущие выплаты</h2>
+        <p class="text-xs text-gray-500 mt-1">Деньги рекламодателя уже в резерве платформы. На баланс они придут в день выплаты, если до него не будет претензии.</p>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="text-xs text-gray-500">
+            <tr class="text-left">
+                <th class="px-6 py-3 font-medium">Сделка</th>
+                <th class="px-3 py-3 font-medium text-right">Вы получите</th>
+                <th class="px-6 py-3 font-medium text-right">Когда</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for deal in expected.deals %}
+            <tr>
+                <td class="px-6 py-3"><a href="{% url 'web:deal_detail' deal.pk %}" class="text-gray-900 hover:text-orange-700">#{{ deal.pk }} · {{ deal.campaign.name }}</a></td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">{{ deal.blogger_earning|money }}</td>
+                <td class="px-6 py-3 text-right text-xs text-gray-500">{% if deal.status == 'disputed' %}по решению претензии{% elif deal.payout_due %}{{ deal.payout_due|date:"d.m.Y" }}{% elif deal.publication_date %}после публикации {{ deal.publication_date|date:"d.m.Y" }}{% else %}после публикации{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
 
 {% if budgets and budgets.rows %}
 <!-- Бюджеты кампаний (рекламодатель): сколько денег приходится на каждую кампанию -->

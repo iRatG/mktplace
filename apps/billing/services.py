@@ -134,10 +134,7 @@ class BillingService:
             commission_percent = Decimal(
                 getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15)
             )
-            commission = (amount * commission_percent / Decimal("100")).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
-            blogger_earning = amount - commission
+            blogger_earning = deal.blogger_earning
 
         # Deduct from advertiser's reserved balance
         cls._require_reserved(advertiser_wallet, amount, deal)

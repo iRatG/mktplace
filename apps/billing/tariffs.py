@@ -78,5 +78,5 @@ def tier_description(advertiser, today=None):
     turnover = monthly_turnover(advertiser, year, month)
     from .formatting import format_money
 
-    return (f"{tier_percent(turnover).normalize()}% — по обороту за {date(year, month, 1):%m.%Y}: "
-            f"{format_money(turnover)}")
+    return (f"{tier_percent(turnover).normalize()}% (ваш оборот за {date(year, month, 1):%m.%Y} — "
+            f"{format_money(turnover)} сум)")

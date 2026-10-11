@@ -36,6 +36,7 @@
                     {% endif %}
                     <span class="text-xs text-gray-500">{{ deal.platform.get_social_type_display }}</span>
                     <span class="text-xs text-gray-500">{{ deal.created_at|date:"d.m.Y" }}</span>
+                    {% if deal.publication_date %}<span class="text-xs text-gray-500" data-publication-date>Публикация {{ deal.publication_date|date:"d.m.Y" }}</span>{% endif %}
                     {% include "deals/_row_notes.html" %}
                 </div>
             </div>

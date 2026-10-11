@@ -31,6 +31,20 @@ def _responses_with_blogger_data(campaign):
     )
 
 
+def _with_offer_amounts(campaign, responses):
+    """Сколько встанет в резерв, если по отклику направить оферту: цена (как в send_offer) + комиссия по текущей ставке."""
+    from apps.billing.tariffs import commission_amount, commission_percent_for
+
+    percent = commission_percent_for(campaign.advertiser)
+    responses = list(responses)
+    for resp in responses:
+        resp.offer_price = resp.proposed_price or campaign.fixed_price
+        if resp.offer_price:
+            resp.offer_commission = commission_amount(resp.offer_price, percent)
+            resp.offer_reserve = resp.offer_price + resp.offer_commission
+    return responses
+
+
 def _budget_context(campaign):
     """Бюджет / занято сделками / осталось — для владельца кампании (решение бизнеса 06.10.2026, вариант Б)."""
     from apps.campaigns.validation import budget_usage
@@ -155,6 +169,7 @@ def campaign_detail(request, pk):
         from apps.platforms.models import Category, Platform as PlatformModel
 
         context["commission_label"] = tier_description(campaign.advertiser)
+        context["responses"] = _with_offer_amounts(campaign, context["responses"])
         from apps.campaigns.validation import earliest_offer_date
 
         context["offer_min_date"] = earliest_offer_date(campaign)

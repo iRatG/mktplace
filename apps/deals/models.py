@@ -206,6 +206,17 @@ class Deal(models.Model):
         return self.commission_percent is not None
 
     @property
+    def blogger_earning(self):
+        """Сколько получит исполнитель при оплате без претензии: цену целиком по тарифным уровням, у старых сделок —
+        сумму за вычетом PLATFORM_COMMISSION_PERCENT."""
+        from decimal import ROUND_HALF_UP, Decimal
+
+        if self.commission_on_top:
+            return self.amount
+        percent = Decimal(getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15))
+        return self.amount - (self.amount * percent / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    @property
     def reserved_total(self):
         """Сколько зарезервировано у рекламодателя под сделку: вознаграждение + комиссия (или только сумма у старых)."""
         return self.amount + (self.commission_amount or 0) if self.commission_on_top else self.amount
