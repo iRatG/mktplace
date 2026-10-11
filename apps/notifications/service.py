@@ -514,6 +514,7 @@ class NotificationService:
                 f"Примите или отклоните на странице сделки."
             ),
             deal=deal,
+            url=reverse("web:deal_detail", kwargs={"pk": deal.pk}) + "#date-change",
         )
 
     @staticmethod
@@ -530,6 +531,7 @@ class NotificationService:
                                                   else f"отклонён. Дата остаётся {deal.publication_date:%d.%m.%Y}.")
             ),
             deal=deal,
+            url=reverse("web:deal_detail", kwargs={"pk": deal.pk}) + "#date-change",
         )
 
     # ── Кампании ──────────────────────────────────────────────────────────────

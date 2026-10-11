@@ -120,6 +120,20 @@ def campaigns_visible_to(blogger):
     ).distinct()
 
 
+def earliest_day_with_lead(today, lead_days):
+    """Самая ранняя дата публикации, при которой срок сдачи материала (lead_days рабочих дней до даты) ещё не прошёл.
+
+    Считается тем же working_days_before, что и проверка, — иначе в выходные подсказка называла дату, которую проверка
+    тут же отклоняла (воскресенье + 5 раб. дн. = пятница, а за 5 раб. дн. до пятницы — прошлая пятница).
+    """
+    from datetime import timedelta
+
+    day = today
+    while working_days_before(day, lead_days) < today:
+        day += timedelta(days=1)
+    return day
+
+
 def content_lead_error(campaign, day):
     """При обязательном согласовании срок сдачи материала (N рабочих дней до даты) не должен пройти уже при
     направлении оферты — сообщение или None."""
@@ -128,7 +142,7 @@ def content_lead_error(campaign, day):
     if not campaign.approval_required or not day:
         return None
     if working_days_before(day, campaign.content_lead_days) < timezone.localdate():
-        earliest = working_days_after(timezone.localdate(), campaign.content_lead_days)
+        earliest = earliest_day_with_lead(timezone.localdate(), campaign.content_lead_days)
         return (f"Материал сдаётся на согласование за {campaign.content_lead_days} раб. дн. до даты публикации — "
                 f"выберите дату не раньше {earliest:%d.%m.%Y}.")
     return None
@@ -220,6 +234,21 @@ def moderation_error(campaign):
         names = ", ".join(CARD_REQUIRED_FOR_MODERATION[name] for name in missing)
         return f"Заполните в карточке кампании: {names} — без них кампанию нельзя отправить на модерацию."
     return permit_error(campaign)
+
+
+def moderation_missing(campaign):
+    """Всё, чего не хватает для отправки на модерацию, — список подписей (пустой, если всё есть).
+
+    Те же проверки, что в moderation_error, но списком — чтобы показать рекламодателю заранее, а не по одной при отправке.
+    """
+    missing = []
+    if not campaign.start_date or not campaign.end_date:
+        missing.append("даты начала и окончания кампании")
+    empty = card_required_errors({name: getattr(campaign, name) for name in CARD_REQUIRED_FOR_MODERATION})
+    missing += [CARD_REQUIRED_FOR_MODERATION[name] for name in CARD_REQUIRED_FOR_MODERATION if name in empty]
+    if permit_error(campaign):
+        missing.append(f"подтверждённый разрешительный документ для категории «{campaign.category.name}»")
+    return missing
 
 
 def moderation_dates_error(campaign):

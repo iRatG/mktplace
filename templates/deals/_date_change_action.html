@@ -1,0 +1,8 @@
+{% comment %}Строка «Требует действия»: вторая сторона предлагает перенести дату публикации.{% endcomment %}
+<a href="{% url 'web:deal_detail' change.deal.pk %}#date-change" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors" data-action-date-change>
+    <div class="min-w-0">
+        <div class="text-sm font-medium text-gray-900 truncate">Сделка #{{ change.deal.pk }} · {{ change.deal.campaign.name }}</div>
+        <div class="text-xs text-orange-700 mt-0.5">{{ change.proposed_by.public_name }} предлагает перенести публикацию с {{ change.old_date|date:"d.m.Y" }} на {{ change.new_date|date:"d.m.Y" }} — ответьте</div>
+    </div>
+    <span class="text-orange-600 text-sm flex-shrink-0">Ответить →</span>
+</a>

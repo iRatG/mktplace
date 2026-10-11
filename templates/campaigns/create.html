@@ -53,7 +53,7 @@
             </div>
 
             <div>
-                <label for="id_subject" class="block text-sm text-gray-700 mb-1">Что рекламируем <span class="text-xs text-gray-500">(нужно для модерации)</span></label>
+                <label for="id_subject" class="block text-sm text-gray-700 mb-1">Что рекламируем <span class="text-xs text-gray-500" data-for-moderation>(нужно для модерации)</span></label>
                 <input type="text" name="subject" id="id_subject" value="{{ form.subject.value|default:'' }}" maxlength="255"
                     {% if form.subject.errors %}aria-invalid="true" {% endif %}class="input-dark" placeholder="Например: крем для лица SPF 50, новый филиал салона" spellcheck="true" lang="ru">
                 <p class="text-xs text-gray-500 mt-1">Товар, услуга или бренд — помогает блогерам и модератору понять задачу.</p>
@@ -61,7 +61,7 @@
             </div>
 
             <div>
-                <label for="id_description" class="block text-sm text-gray-700 mb-1">Описание задания <span class="text-xs text-gray-500">(нужно для модерации)</span></label>
+                <label for="id_description" class="block text-sm text-gray-700 mb-1">Описание задания <span class="text-xs text-gray-500" data-for-moderation>(нужно для модерации)</span></label>
                 <textarea name="description" id="id_description" rows="4"
                     {% if form.description.errors %}aria-invalid="true" {% endif %}class="input-dark resize-none" spellcheck="true" lang="ru"
                     placeholder="Опишите задачу, требования к контенту, целевую аудиторию...">{{ form.description.value|default:'' }}</textarea>
@@ -140,7 +140,7 @@
 
             <div>
                 {% with label="Общий бюджет ("|add:currency.symbol|add:") *" %}
-                {% include "partials/number_input.html" with field=form.budget label=label step=10000 placeholder="например, 1 500 000" %}
+                {% include "partials/number_input.html" with field=form.budget label=label step=100000 placeholder="например, 1 500 000" %}
                 {% endwith %}
                 <p class="text-xs text-gray-600 mt-1" data-bloggers-hint aria-live="polite"></p>
             </div>
@@ -152,13 +152,13 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label for="id_start_date" class="block text-sm text-gray-700 mb-1">Начало кампании</label>
-                    <input type="date" name="start_date" id="id_start_date" value="{{ form.start_date.value|default:''|stringformat:'s' }}" {% if form.start_date.errors %}aria-invalid="true" {% endif %}class="input-dark">
+                    <label for="id_start_date" class="block text-sm text-gray-700 mb-1">Начало кампании <span class="text-xs text-gray-500" data-for-moderation>(нужно для модерации)</span></label>
+                    <input type="date" name="start_date" id="id_start_date" min="{% now 'Y-m-d' %}" data-date-pair-start="end_date" value="{{ form.start_date.value|default:''|stringformat:'s' }}" {% if form.start_date.errors %}aria-invalid="true" {% endif %}class="input-dark">
                     {% for error in form.start_date.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="start_date">{{ error }}</p>{% endfor %}
                 </div>
                 <div>
-                    <label for="id_end_date" class="block text-sm text-gray-700 mb-1">Конец кампании</label>
-                    <input type="date" name="end_date" id="id_end_date" value="{{ form.end_date.value|default:''|stringformat:'s' }}" {% if form.end_date.errors %}aria-invalid="true" {% endif %}class="input-dark">
+                    <label for="id_end_date" class="block text-sm text-gray-700 mb-1">Конец кампании <span class="text-xs text-gray-500" data-for-moderation>(нужно для модерации)</span></label>
+                    <input type="date" name="end_date" id="id_end_date" min="{% now 'Y-m-d' %}" value="{{ form.end_date.value|default:''|stringformat:'s' }}" {% if form.end_date.errors %}aria-invalid="true" {% endif %}class="input-dark">
                     {% for error in form.end_date.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="end_date">{{ error }}</p>{% endfor %}
                 </div>
             </div>
@@ -166,12 +166,12 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label for="id_content_start" class="block text-sm text-gray-700 mb-1">Приём контента с</label>
-                    <input type="date" name="content_start" id="id_content_start" value="{{ form.content_start.value|default:''|stringformat:'s' }}" {% if form.content_start.errors %}aria-invalid="true" {% endif %}class="input-dark">
+                    <input type="date" name="content_start" id="id_content_start" min="{% now 'Y-m-d' %}" data-date-pair-start="deadline" value="{{ form.content_start.value|default:''|stringformat:'s' }}" {% if form.content_start.errors %}aria-invalid="true" {% endif %}class="input-dark">
                     {% for error in form.content_start.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="content_start">{{ error }}</p>{% endfor %}
                 </div>
                 <div>
                     <label for="id_deadline" class="block text-sm text-gray-700 mb-1">Приём контента до</label>
-                    <input type="date" name="deadline" id="id_deadline" value="{{ form.deadline.value|default:''|stringformat:'s' }}" {% if form.deadline.errors %}aria-invalid="true" {% endif %}class="input-dark">
+                    <input type="date" name="deadline" id="id_deadline" min="{% now 'Y-m-d' %}" value="{{ form.deadline.value|default:''|stringformat:'s' }}" {% if form.deadline.errors %}aria-invalid="true" {% endif %}class="input-dark">
                     {% for error in form.deadline.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="deadline">{{ error }}</p>{% endfor %}
                 </div>
             </div>
@@ -213,7 +213,7 @@
             <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Форматы и площадки</h2>
 
             <div>
-                <label class="block text-sm text-gray-700 mb-2">Форматы контента</label>
+                <label class="block text-sm text-gray-700 mb-2">Форматы контента <span class="text-xs text-gray-500" data-for-moderation>(нужно для модерации)</span></label>
                 <div class="flex flex-wrap gap-2">
                     {% for value, label in form.fields.content_types.choices %}
                     <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 cursor-pointer hover:border-orange-300 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50 text-sm text-gray-700">
@@ -227,7 +227,7 @@
             </div>
 
             <div>
-                <label class="block text-sm text-gray-700 mb-2">Площадки</label>
+                <label class="block text-sm text-gray-700 mb-2">Площадки <span class="text-xs text-gray-500" data-for-moderation>(нужно для модерации)</span></label>
                 <div class="flex flex-wrap gap-2">
                     {% for value, label in form.fields.allowed_socials.choices %}
                     <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 cursor-pointer hover:border-orange-300 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50 text-sm text-gray-700">
@@ -324,6 +324,17 @@
 <script src="{% static 'js/number-input.js' %}"></script>
 <script src="{% static 'js/form-errors.js' %}"></script>
 <script>
+(function () {
+    // Календарь: конец не раньше начала (кампания, окно приёма контента). Сохранённые даты не трогаем — проверяет сервер.
+    document.querySelectorAll("[data-date-pair-start]").forEach(function (start) {
+        var end = document.getElementById("id_" + start.dataset.datePairStart);
+        if (!end) return;
+        var today = end.getAttribute("min");
+        function sync() { end.min = start.value && start.value > today ? start.value : today; }
+        start.addEventListener("change", sync);
+        sync();
+    });
+})();
 (function () {
     // Тип оплаты: показать цену за размещение или блок CPA.
     var fixedRow = document.getElementById("fixed_price_row");

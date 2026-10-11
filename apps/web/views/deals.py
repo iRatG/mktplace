@@ -56,6 +56,10 @@ def deal_list(request):
         qs = qs.filter(status=status_filter)
     else:
         status_filter = ""
+    if not user.is_staff:
+        from apps.web.views.pages import with_own_date_change
+
+        qs = with_own_date_change(qs, user)
     page_obj = Paginator(qs, 20).get_page(request.GET.get("page", 1))
     return render(request, "deals/list.html", {
         "deals": page_obj, "page_obj": page_obj, "status_filter": status_filter,

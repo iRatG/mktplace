@@ -45,12 +45,13 @@
 </div>
 
 <!-- Needs action -->
-{% if action_deals or action_campaigns %}
+{% if action_date_changes or action_deals or action_campaigns %}
 <div class="card-dark rounded-xl overflow-hidden mb-6 border border-orange-200">
     <div class="px-6 py-4 border-b border-gray-200">
         <h2 class="font-semibold text-gray-900">Требует действия</h2>
     </div>
     <div class="divide-y divide-gray-100">
+        {% for change in action_date_changes %}{% include "deals/_date_change_action.html" %}{% endfor %}
         {% for deal in action_deals %}
         <a href="{% url 'web:deal_detail' deal.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
             <div class="min-w-0">

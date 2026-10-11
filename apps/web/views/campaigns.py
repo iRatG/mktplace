@@ -149,6 +149,10 @@ def campaign_detail(request, pk):
         from apps.platforms.models import Category, Platform as PlatformModel
 
         context["commission_label"] = tier_description(campaign.advertiser)
+        if campaign.status in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
+            from apps.campaigns.validation import moderation_missing
+
+            context["moderation_missing"] = moderation_missing(campaign)
         if campaign.visibility == Campaign.Visibility.CLOSED:
             context["invitations"] = campaign.invitations.select_related("blogger__blogger_profile")
             context["invite_socials"] = PlatformModel.SocialType.choices

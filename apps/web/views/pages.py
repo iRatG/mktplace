@@ -1,14 +1,14 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
 from apps.billing.formatting import format_money
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
-from apps.deals.models import Deal
+from apps.deals.models import Deal, PublicationDateChange
 from apps.platforms.models import Platform
 from apps.profiles.models import BloggerProfile
 from apps.users.models import User
@@ -122,6 +122,25 @@ def oferta_view(request):
     return render(request, "legal/oferta.html")
 
 
+
+def date_changes_to_answer(user, limit=10):
+    """Ожидающие ответа пользователя предложения перенести дату публикации (предложила вторая сторона сделки)."""
+    return (
+        PublicationDateChange.objects.filter(status=PublicationDateChange.Status.PENDING)
+        .filter(Q(deal__advertiser=user) | Q(deal__blogger=user)).exclude(proposed_by=user)
+        .select_related("deal__campaign", "proposed_by").order_by("-created_at")[:limit]
+    )
+
+
+def with_own_date_change(deals, user):
+    """Подгрузить к сделкам своё ожидающее предложение переноса: deal.own_date_change — список из 0 или 1 элемента."""
+    return deals.prefetch_related(Prefetch(
+        "date_changes",
+        queryset=PublicationDateChange.objects.filter(status=PublicationDateChange.Status.PENDING, proposed_by=user),
+        to_attr="own_date_change",
+    ))
+
+
 @login_required
 def advertiser_dashboard(request):
     user = request.user
@@ -151,6 +170,7 @@ def advertiser_dashboard(request):
             Campaign.objects.filter(advertiser=user, responses__status=CampaignResponse.Status.PENDING)
             .annotate(pending=Count("responses")).order_by("-pending")[:10]
         ),
+        "action_date_changes": date_changes_to_answer(user),
     }
     return render(request, "dashboard/advertiser.html", context)
 
@@ -197,7 +217,7 @@ def blogger_dashboard(request):
     active_deals_qs = Deal.objects.filter(blogger=user).exclude(
         status__in=[Deal.Status.COMPLETED, Deal.Status.CANCELLED]
     )
-    active_deals = active_deals_qs.select_related("campaign", "platform")[:10]
+    active_deals = with_own_date_change(active_deals_qs.select_related("campaign", "platform"), user)[:10]
     profile, _ = BloggerProfile.objects.get_or_create(user=user)
 
     incoming_offers = (
@@ -233,5 +253,6 @@ def blogger_dashboard(request):
             ).select_related("campaign").order_by("-updated_at")[:10]
         ),
         "rejected_responses": rejected_responses_to_retry(user),
+        "action_date_changes": date_changes_to_answer(user),
     }
     return render(request, "dashboard/blogger.html", context)

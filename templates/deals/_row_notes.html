@@ -1,0 +1,3 @@
+{% comment %}Пометки в строке сделки: свой ожидающий перенос даты (deal.own_date_change — prefetch) и, у блогера, принятая публикация.{% endcomment %}
+{% for change in deal.own_date_change %}<span class="text-xs text-orange-700" data-own-date-change>Перенос на {{ change.new_date|date:"d.m.Y" }} — ждём ответа</span>{% endfor %}
+{% if deal.publication_accepted_at and user.role == 'blogger' and deal.status == 'checking' %}<span class="text-xs text-green-700" data-publication-accepted-row>Публикация принята — оплата {{ deal.payout_due|date:"d.m.Y" }}</span>{% endif %}

@@ -15,7 +15,7 @@ from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.services import AcceptError, accept_response
 from apps.campaigns.testing import deal_from_response, publication_day
-from apps.campaigns.validation import working_days_after, working_days_before
+from apps.campaigns.validation import earliest_day_with_lead, working_days_after, working_days_before
 from apps.deals import services as transitions
 from apps.deals.models import Deal, DealStatusLog
 from apps.deals.services import TransitionError
@@ -88,12 +88,24 @@ class ContentApprovalTest(TestCase):
         deal = accept_direct_offer(offer.pk, self.blogger)
         self.assertFalse(deal.approval_required)
 
+    def test_earliest_day_with_lead_on_weekend(self):
+        """В воскресенье подсказанная дата сама проходит проверку (раньше подсказка давала пятницу, а проверка её
+        отклоняла)."""
+        from datetime import date
+
+        sunday = date(2026, 10, 11)
+        earliest = earliest_day_with_lead(sunday, 5)
+        self.assertEqual(earliest, date(2026, 10, 17))
+        self.assertGreaterEqual(working_days_before(earliest, 5), sunday)
+        self.assertLess(working_days_before(earliest - timedelta(days=1), 5), sunday)
+        self.assertEqual(earliest_day_with_lead(date(2026, 10, 13), 5), date(2026, 10, 20))  # вторник → вторник
+
     def test_offer_date_leaves_time_for_content(self):
-        too_soon = working_days_after(self.today, 4)
+        earliest = earliest_day_with_lead(self.today, 5)
         resp = self._response()
-        with self.assertRaisesMessage(AcceptError, "за 5 раб. дн. до даты публикации"):
-            accept_response(resp.pk, self.adv, too_soon)
-        offer = accept_response(resp.pk, self.adv, working_days_after(self.today, 5))
+        with self.assertRaisesMessage(AcceptError, f"не раньше {earliest:%d.%m.%Y}"):
+            accept_response(resp.pk, self.adv, earliest - timedelta(days=1))
+        offer = accept_response(resp.pk, self.adv, earliest)
         self.assertTrue(offer.pk)
         # без обязательного согласования — любая дата в пределах кампании
         Campaign.objects.filter(pk=self.campaign.pk).update(approval_required=False)

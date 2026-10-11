@@ -66,7 +66,8 @@ WAITING_PUBLICATION; рекламодатель отменяет сделку и
 сделки и оферты до правила — без обязательного согласования). При `deal.approval_required` публикация — только после
 согласования, автоодобрения нет (`auto_approve_creative` берёт только сделки без него), истёкший срок рассмотрения —
 уведомление обеим сторонам (`notify_overdue_reviews`). Тестам с датой в оферте — `apps.campaigns.testing.publication_day`
-(учитывает срок сдачи). Дата публикации меняется только переносом по согласию сторон (`propose/accept/
+(учитывает срок сдачи); самая ранняя дата при сроке сдачи — `earliest_day_with_lead` (не `working_days_after` от
+сегодня: в выходные они расходятся). Дата публикации меняется только переносом по согласию сторон (`propose/accept/
 decline_publication_date`, #33); просрочка — `Deal.overdue_days`, без автоотмены.
 
 ### Денежные итоги — только через `apps/billing/metrics.py`
@@ -203,7 +204,9 @@ apps/web/           — Django Templates frontend
   проверяет одна функция `apps/campaigns/validation.py` — и в веб-форме, и в API; суммы вводятся с
   пробелами по разрядам (`SpacedDecimalField`, `static/js/number-input.js`, кнопки −/+ в `partials/number_input.html`),
   выводятся фильтром `money` (`{% load money %}`), в Python-текстах — `apps.billing.formatting.format_money`; не
-  `floatformat` и не `:,.0f` (тест-страж `tests_display_consistency`). Форма кампании — `novalidate`, ошибки даёт сервер. Карточка кампании для модератора `/panel/campaigns/<pk>/`, причина отклонения
+  `floatformat` и не `:,.0f` (тест-страж `tests_display_consistency`). Форма кампании — `novalidate`, ошибки даёт сервер;
+  у дат `min` = сегодня (только календарь), шаг бюджета — 100 000; чего не хватает для модерации — списком
+  `moderation_missing` (блок на странице черновика), отправку проверяет `moderation_error`. Карточка кампании для модератора `/panel/campaigns/<pk>/`, причина отклонения
   обязательна, отклонённую кампанию рекламодатель отправляет повторно. CPA-кампания создаётся через веб.
 - Вход юрлица по ИНН: поле «Логин» принимает email или ИНН (9 цифр, пробелы игнорируются). Формат ИНН —
   `apps.registration.validators.validate_inn` (на поле модели, в публичной форме, при выдаче доступа). Аккаунт юрлица
@@ -219,7 +222,10 @@ apps/web/           — Django Templates frontend
   кликабельны целиком, `deal_list?status=active|<статус>`; «Мои отклики» блогера `/my/responses/`
   (`web:my_responses`); в откликах у рекламодателя — данные блогера (ник, соцсеть, подписчики, ER, рейтинг,
   `deals_count`) без N+1; цена отклика вводится с разрядами и разбирается на сервере. Русская подпись статуса
-  сделки — `templates/deals/_status_label.html`. Подсветка при наведении — только у `a.card-dark`.
+  сделки — `templates/deals/_status_label.html`. Подсветка при наведении — только у `a.card-dark`. У блогера в
+  «Требует действия» первыми — оферты; у обеих сторон — перенос даты от второй стороны (`date_changes_to_answer`,
+  ссылка на `#date-change`); пометки в строке сделки (свой перенос «ждём ответа», «Публикация принята — оплата») —
+  `deals/_row_notes.html` с `with_own_date_change`.
 - Правки модератора: в карточке кампании на модерации — «Предложить правки» (`/panel/campaigns/<pk>/propose/`,
   форма кампании в режиме `proposal_mode`). Предложение — `CampaignEditProposal` (одно PENDING на кампанию),
   значения хранятся «сырыми» данными `CampaignForm` и при принятии проходят ту же форму и проверку
