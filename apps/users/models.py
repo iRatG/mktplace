@@ -195,3 +195,31 @@ class BlockedIP(models.Model):
     @property
     def is_active(self):
         return self.blocked_until is None or self.blocked_until > timezone.now()
+
+
+class PersonalDataAccess(models.Model):
+    """Журнал: сотрудник открыл или выгрузил чужие персональные данные (документы, реквизиты, заявки юрлиц).
+
+    Пишется только через apps.users.pd_access.log_access; правка и удаление записей не предусмотрены.
+    """
+
+    staff = models.ForeignKey(
+        "users.User", on_delete=models.PROTECT, related_name="pd_accesses",
+        help_text="Сотрудник, открывший данные",
+    )
+    subject = models.ForeignKey(
+        "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="pd_accessed",
+        help_text="Чьи данные (если известно)",
+    )
+    action = models.CharField(max_length=255, help_text="Что открыто или выгружено")
+    path = models.CharField(max_length=500, blank=True, help_text="Адрес страницы или файла")
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Доступ к персональным данным"
+        verbose_name_plural = "Журнал доступа к персональным данным"
+
+    def __str__(self):
+        return f"{self.created_at:%d.%m.%Y %H:%M} {self.staff} — {self.action}"

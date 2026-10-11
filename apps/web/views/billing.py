@@ -13,6 +13,7 @@ from apps.billing.payout_requisites import (
 )
 from apps.billing.services import BillingService
 from apps.users.models import User
+from apps.users.pd_access import log_access
 
 from django.views.decorators.http import require_POST
 
@@ -123,6 +124,7 @@ def admin_payout_requisites(request):
         .select_related("user", "user__blogger_profile")
         .order_by("created_at")
     )
+    log_access(request, f"Очередь реквизитов выплаты, заявок: {len(applications)}")
     return render(request, "admin_panel/payout_requisites.html", {"applications": applications})
 
 

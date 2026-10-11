@@ -1,8 +1,9 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
-from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+from apps.web.views.media import media_file
 
 handler404 = "config.urls.page_not_found_view"
 handler500 = "config.urls.server_error_view"
@@ -27,6 +28,8 @@ urlpatterns = [
 
     # Web frontend
     path('', include('apps.web.urls')),
+    # Загруженные файлы — через проверку прав (apps/web/views/media.py), во всех окружениях.
+    path('media/<path:path>', media_file, name='media'),
 
     # API docs
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
@@ -46,4 +49,3 @@ urlpatterns = [
 if settings.DEBUG:
     import debug_toolbar
     urlpatterns = [path('__debug__/', include(debug_toolbar.urls))] + urlpatterns
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

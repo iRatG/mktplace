@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 
-from .models import BlockedIP, EmailConfirmationToken, PasswordResetToken, User
+from .models import BlockedIP, EmailConfirmationToken, PasswordResetToken, PersonalDataAccess, User
 
 
 @admin.register(User)
@@ -115,3 +115,28 @@ class BlockedIPAdmin(admin.ModelAdmin):
         if not change:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(PersonalDataAccess)
+class PersonalDataAccessAdmin(admin.ModelAdmin):
+    """Журнал доступа сотрудников к персональным данным — только чтение и только суперпользователю."""
+
+    list_display = ("created_at", "staff", "subject", "action", "ip")
+    list_filter = ("staff",)
+    search_fields = ("staff__email", "subject__email", "action")
+    date_hierarchy = "created_at"
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_active and request.user.is_superuser
+
+    def has_module_permission(self, request):
+        return self.has_view_permission(request)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

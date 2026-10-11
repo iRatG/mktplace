@@ -42,6 +42,7 @@ from apps.registration.tasks import send_blogger_sms_credentials
 from apps.registration.validators import INN_ERROR, is_valid_inn
 from apps.users import security
 from apps.users.models import User
+from apps.users.pd_access import log_access
 
 from ..forms import (
     AdminIPApplicationRejectForm,
@@ -233,7 +234,9 @@ def admin_legal_entity_registry(request):
 
     applications = _legal_entity_registry_qs(request.GET)
     if request.GET.get("export") == "xlsx":
+        log_access(request, f"Выгрузка реестра юрлиц в Excel, заявок: {applications.count()}")
         return _legal_entities_xlsx(applications)
+    log_access(request, "Просмотр реестра юрлиц")
 
     querystring = request.GET.copy()
     querystring.pop("page", None)
@@ -258,6 +261,7 @@ def admin_legal_entity_detail(request, pk):
         LegalEntityApplication.objects.select_related("user", "assigned_to", "reviewed_by"), pk=pk,
     )
     profile = AdvertiserProfile.objects.filter(user=application.user).first() if application.user else None
+    log_access(request, f"Карточка заявки юрлица #{application.pk} (ИНН {application.inn})", subject=application.user)
     return render(request, "admin_panel/legal_entity_detail.html", {
         "app": application,
         "profile": profile,
@@ -526,6 +530,7 @@ def admin_ip_applications(request):
         .select_related("user", "identity_verification")
         .order_by("created_at")
     )
+    log_access(request, f"Очередь документов исполнителей, заявок: {len(applications)}")
     return render(request, "admin_panel/ip_applications.html", {"applications": applications})
 
 
