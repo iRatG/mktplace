@@ -197,9 +197,11 @@ def rejected_responses_to_retry(blogger, limit=10):
         .select_related("campaign")
         .order_by("-updated_at")
     )
+    from apps.campaigns.validation import responses_closed_error
+
     result, seen = [], set()
     for resp in candidates:
-        if resp.campaign_id in seen:
+        if resp.campaign_id in seen or responses_closed_error(resp.campaign):
             continue
         seen.add(resp.campaign_id)
         result.append(resp)

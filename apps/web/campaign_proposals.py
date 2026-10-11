@@ -172,6 +172,9 @@ def save_campaign_form(form):
     campaign.allowed_socials = form.cleaned_data.get("allowed_socials", [])
     campaign.evidence_required = form.cleaned_data.get("evidence_required", [])
     campaign.save()
+    from apps.campaigns.validation import refresh_response_deadlines
+
+    refresh_response_deadlines(campaign)
     return campaign
 
 

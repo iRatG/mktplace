@@ -10,6 +10,7 @@ from apps.campaigns.services import AcceptError, accept_response, expired_error,
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.validation import (
     EDITABLE_STATUSES, active_response, budget_committed, budget_remaining, publication_calendar,
+    refresh_response_deadlines,
 )
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
@@ -123,7 +124,7 @@ def campaign_detail(request, pk):
             "publication_calendar": publication_calendar(campaign),
         }
     else:
-        from apps.campaigns.validation import campaigns_visible_to
+        from apps.campaigns.validation import campaigns_visible_to, response_last_day, responses_closed_error
 
         campaign = get_object_or_404(campaigns_visible_to(user), pk=pk)
         already_responded = active_response(campaign, user) is not None
@@ -140,6 +141,8 @@ def campaign_detail(request, pk):
             "already_responded": already_responded,
             "last_rejected": last_rejected,
             "my_platforms": my_platforms,
+            "responses_until": response_last_day(campaign),
+            "responses_closed": responses_closed_error(campaign),
         }
     from apps.web.campaign_proposals import CARD_TERMS_FIELDS, campaign_snapshot, describe_terms
 
@@ -198,6 +201,7 @@ def campaign_edit(request, pk):
             # Решение бизнеса 04.10.2026: идущую кампанию меняют только через повторную модерацию.
             campaign.status = Campaign.Status.MODERATION
         campaign.save()
+        refresh_response_deadlines(campaign)
         if was_paused:
             NotificationService.notify_campaign_moderation_requested(
                 campaign, NotificationService.MODERATION_AFTER_PAUSE_EDIT
@@ -314,6 +318,12 @@ def campaign_respond(request, pk):
     if active_response(campaign, request.user) is not None:
         messages.error(request, "Вы уже откликнулись на эту кампанию — дождитесь решения рекламодателя.")
         return redirect("web:campaign_detail", pk=pk)
+    from apps.campaigns.validation import response_deadline_for, responses_closed_error
+
+    closed = responses_closed_error(campaign)
+    if closed:
+        messages.error(request, closed)
+        return redirect("web:campaign_detail", pk=pk)
 
     platform_id = request.POST.get("platform")
     content_type = request.POST.get("content_type", "")
@@ -333,6 +343,7 @@ def campaign_respond(request, pk):
         content_type=content_type,
         proposed_price=proposed_price,
         message=message,
+        expires_at=response_deadline_for(campaign),
     )
     NotificationService.notify_new_response(campaign.advertiser, campaign, request.user)
     messages.success(request, "Отклик успешно отправлен!")

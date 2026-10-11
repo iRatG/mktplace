@@ -269,6 +269,56 @@ def advertiser_verification_error(advertiser):
     return "Чтобы отправить кампанию на модерацию, подтвердите аккаунт — обратитесь в поддержку."
 
 
+RESPONSE_DAYS_BEFORE_CONTENT_END = 2  # отклик ждёт ответа до «окончание приёма контента − 2 рабочих дня»
+
+
+def response_last_day(campaign):
+    """Последний день, когда отклик по кампании ждёт ответа и новые отклики принимаются, — или None без даты окончания.
+
+    Окончание приёма контента (или самый поздний допустимый его день) минус 2 рабочих дня (решение 10.10.2026).
+    """
+    content_end = campaign.deadline or (latest_content_end(campaign.end_date) if campaign.end_date else None)
+    if content_end is None:
+        return None
+    return working_days_before(content_end, RESPONSE_DAYS_BEFORE_CONTENT_END)
+
+
+def response_deadline_for(campaign):
+    """Срок ответа на новый отклик: конец последнего дня приёма заявок; у кампании без дат — прежние 7 дней."""
+    from datetime import datetime, time
+
+    from django.utils import timezone
+
+    from .models import response_deadline
+
+    day = response_last_day(campaign)
+    if day is None:
+        return response_deadline()
+    return timezone.make_aware(datetime.combine(day, time(23, 59, 59)))
+
+
+def responses_closed_error(campaign):
+    """Почему отклик по кампании уже не принять — сообщение или None."""
+    from django.utils import timezone
+
+    day = response_last_day(campaign)
+    if day is not None and day < timezone.localdate():
+        return f"Приём заявок по кампании закончился {day:%d.%m.%Y}."
+    return None
+
+
+def refresh_response_deadlines(campaign):
+    """Пересчитать срок ожидающих откликов после смены дат кампании или окна приёма контента. Возвращает число строк.
+
+    Если срок сдвинулся позже, напоминание «остались сутки» отправится заново."""
+    from .models import Response
+
+    deadline = response_deadline_for(campaign)
+    pending = Response.objects.filter(campaign=campaign, status=Response.Status.PENDING).exclude(expires_at=deadline)
+    later = pending.filter(expires_at__lt=deadline).update(expires_at=deadline, reminder_sent_at=None)
+    return later + pending.update(expires_at=deadline)
+
+
 def latest_content_end(end_date):
     """Последний допустимый день окна приёма контента для кампании, заканчивающейся end_date."""
     return working_days_before(end_date, CONTENT_END_WORKING_DAYS_BEFORE_END)

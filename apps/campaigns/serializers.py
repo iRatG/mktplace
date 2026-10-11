@@ -253,9 +253,18 @@ class ResponseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"campaign": "You already have a pending or accepted response to this campaign."}
             )
+        from .validation import responses_closed_error
+
+        closed = campaign and responses_closed_error(campaign)
+        if closed:
+            raise serializers.ValidationError({"campaign": closed})
 
         return attrs
 
     def create(self, validated_data):
         request = self.context["request"]
-        return Response.objects.create(blogger=request.user, **validated_data)
+        from .validation import response_deadline_for
+
+        return Response.objects.create(
+            blogger=request.user, expires_at=response_deadline_for(validated_data["campaign"]), **validated_data,
+        )

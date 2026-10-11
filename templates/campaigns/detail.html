@@ -272,7 +272,10 @@
             <div class="alert-info text-sm rounded-lg px-4 py-3">
                 Вы уже откликнулись на эту кампанию.
             </div>
+            {% elif responses_closed %}
+            <div class="alert-info text-sm rounded-lg px-4 py-3" data-responses-closed>{{ responses_closed }}</div>
             {% else %}
+            {% if responses_until %}<p class="text-xs text-gray-500 mb-3" data-responses-until>Заявки принимаются до {{ responses_until|date:"d.m.Y" }} включительно — после этого дня рекламодатель не сможет их рассмотреть.</p>{% endif %}
             {% if last_rejected %}
             <div class="alert-error text-sm mb-3">
                 Ваш прошлый отклик отклонён{% if last_rejected.rejection_reason %}. Комментарий рекламодателя: {{ last_rejected.rejection_reason }}{% endif %}.

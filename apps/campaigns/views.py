@@ -46,6 +46,9 @@ class CampaignViewSet(viewsets.ModelViewSet):
         if instance.status not in EDITABLE_STATUSES:
             raise PermissionDenied("Only draft, rejected or paused campaigns can be edited.")
         campaign = serializer.save()
+        from .validation import refresh_response_deadlines
+
+        refresh_response_deadlines(campaign)
         # Правка приостановленной кампании — только через повторную модерацию.
         if instance.status == Campaign.Status.PAUSED:
             campaign.status = Campaign.Status.MODERATION

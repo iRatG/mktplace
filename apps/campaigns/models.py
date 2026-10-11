@@ -6,7 +6,8 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-# Срок ответа на отклик и прямое предложение (решение бизнеса 07.10.2026, BZ-3): потом — EXPIRED.
+# Запасной срок ответа (7 дней): default поля expires_at. Отклику срок ставит validation.response_deadline_for
+# (по окну приёма контента), оферте — направление (3 рабочих дня); 7 дней остаются у кампании без дат.
 RESPONSE_TTL = timedelta(days=7)
 # За сколько до срока напомнить тому, кто должен ответить.
 RESPONSE_REMINDER_BEFORE = timedelta(hours=24)
