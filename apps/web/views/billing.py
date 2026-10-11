@@ -65,7 +65,14 @@ def wallet_view(request):
             blogger=user, status=WithdrawalRequest.Status.PENDING
         ).order_by("-created_at")
 
+    budgets = None
+    if user.role == User.Role.ADVERTISER:
+        from apps.campaigns.validation import advertiser_budgets
+
+        budgets = advertiser_budgets(user)
+
     return render(request, "billing/wallet.html", {
+        "budgets": budgets,
         "wallet": wallet,
         "transactions": transactions,
         "page_obj": transactions,

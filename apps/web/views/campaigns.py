@@ -33,9 +33,12 @@ def _responses_with_blogger_data(campaign):
 
 def _budget_context(campaign):
     """Бюджет / занято сделками / осталось — для владельца кампании (решение бизнеса 06.10.2026, вариант Б)."""
+    from apps.campaigns.validation import budget_usage
+
     return {
         "budget_committed": budget_committed(campaign),
         "budget_remaining": budget_remaining(campaign),
+        "budget_usage": budget_usage([campaign])[campaign.pk],
     }
 
 

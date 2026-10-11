@@ -124,6 +124,6 @@ class CampaignBudgetTest(TestCase):
         self._accept_web(self._response(self.b1, "200000"))
         self._response(self.b2, "160000")
         page = self.client.get(reverse("web:campaign_detail", kwargs={"pk": self.campaign.pk}))
-        self.assertContains(page, "занято сделками 200 000")
+        self.assertContains(page, "в сделках 200 000")
         self.assertContains(page, "не хватает остатка бюджета")
         self.assertContains(page, "выше цены кампании")

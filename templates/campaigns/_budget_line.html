@@ -1,0 +1,2 @@
+{% load money %}{% comment %}Строка бюджета кампании: в офертах / в сделках / выплачено / осталось (budget_usage).{% endcomment %}
+<p class="text-xs text-gray-600{% if mb %} mb-2{% else %} mt-1{% endif %}" data-budget-line>Бюджет {{ campaign.budget|money }} · в офертах {{ budget_usage.offers|money }} · в сделках {{ budget_usage.deals|money }} · выплачено {{ budget_usage.paid|money }} · осталось <span class="font-semibold text-gray-900">{{ budget_remaining|money }}</span> {{ currency.symbol }}</p>

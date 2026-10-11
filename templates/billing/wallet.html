@@ -27,6 +27,57 @@
     </div>
 </div>
 
+{% if budgets and budgets.rows %}
+<!-- Бюджеты кампаний (рекламодатель): сколько денег приходится на каждую кампанию -->
+<div class="card-dark rounded-xl overflow-hidden mb-8" data-campaign-budgets>
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-gray-900">Бюджеты кампаний</h2>
+        <p class="text-xs text-gray-500 mt-1">Бюджет — предел трат кампании, деньги под него не замораживаются: резерв ставится при направлении оферты (цена + комиссия).</p>
+    </div>
+    {% if budgets.shortage %}
+    <div class="alert-error mx-6 mt-4" data-budget-shortage>
+        Остатки бюджетов кампаний с комиссией {{ budgets.percent }}% — {{ budgets.need|money }} {{ currency.symbol }}, свободно {{ budgets.free|money }} {{ currency.symbol }}: не хватает {{ budgets.shortage|money }} {{ currency.symbol }}. Пополните баланс или уменьшите бюджет кампании.
+    </div>
+    {% endif %}
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="text-xs text-gray-500">
+            <tr class="text-left">
+                <th class="px-6 py-3 font-medium">Кампания</th>
+                <th class="px-3 py-3 font-medium text-right">Бюджет</th>
+                <th class="px-3 py-3 font-medium text-right">В офертах</th>
+                <th class="px-3 py-3 font-medium text-right">В сделках</th>
+                <th class="px-3 py-3 font-medium text-right">Выплачено</th>
+                <th class="px-6 py-3 font-medium text-right">Осталось</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for row in budgets.rows %}
+            <tr>
+                <td class="px-6 py-3"><a href="{% url 'web:campaign_detail' row.campaign.pk %}" class="text-gray-900 hover:text-orange-700">{{ row.campaign.name }}</a></td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">{{ row.budget|money }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">{{ row.offers|money }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">{{ row.deals|money }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">{{ row.paid|money }}</td>
+                <td class="px-6 py-3 text-right whitespace-nowrap font-semibold text-gray-900">{{ row.remaining|money }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="border-t border-gray-200 font-semibold text-gray-900">
+            <tr data-budget-total>
+                <td class="px-6 py-3">Итого, {{ currency.symbol }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">{{ budgets.total.budget|money }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">{{ budgets.total.offers|money }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">{{ budgets.total.deals|money }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">{{ budgets.total.paid|money }}</td>
+                <td class="px-6 py-3 text-right whitespace-nowrap">{{ budgets.total.remaining|money }}</td>
+            </tr>
+        </tfoot>
+    </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- Withdrawal form (bloggers only) -->
 {% if user.role == 'blogger' %}
 <div class="card-dark rounded-xl p-6 mb-8">

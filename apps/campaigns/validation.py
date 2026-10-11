@@ -417,6 +417,68 @@ def budget_committed(campaign):
     return deals + cpa + offers
 
 
+def budget_usage(campaigns):
+    """Разбивка бюджета по кампаниям — {campaign.pk: {budget, offers, deals, paid, remaining}} за три запроса.
+
+    offers — цены в ожидающих офертах (резерв), deals — сделки в работе, paid — завершённые сделки (оплаченная часть)
+    и зачтённые CPA-конверсии. offers + deals + paid = budget_committed; remaining = budget_remaining. Суммы — цены
+    без комиссии: бюджет ограничивает вознаграждения исполнителям.
+    """
+    from django.db.models import Sum
+    from django.db.models.functions import Coalesce
+
+    from apps.deals.models import Conversion, Deal
+
+    from .models import DirectOffer
+
+    campaigns = [c for c in campaigns if c.pk]
+    ids = [c.pk for c in campaigns]
+    zero = Decimal("0")
+    usage = {c.pk: {"budget": c.budget or zero, "offers": zero, "deals": zero, "paid": zero} for c in campaigns}
+    for row in (DirectOffer.objects.filter(campaign_id__in=ids, status=DirectOffer.Status.PENDING,
+                                           reserved_at__isnull=False)
+                .values("campaign_id").annotate(total=Sum("reserved_amount"))):
+        usage[row["campaign_id"]]["offers"] += row["total"] or zero
+    for row in (Deal.objects.filter(campaign_id__in=ids).exclude(status=Deal.Status.CANCELLED)
+                .values("campaign_id", "status").annotate(total=Sum(Coalesce("paid_amount", "amount")))):
+        key = "paid" if row["status"] == Deal.Status.COMPLETED else "deals"
+        usage[row["campaign_id"]][key] += row["total"] or zero
+    for row in (Conversion.objects.filter(tracking_link__deal__campaign_id__in=ids, credited=True)
+                .values("tracking_link__deal__campaign_id").annotate(total=Sum("amount"))):
+        usage[row["tracking_link__deal__campaign_id"]]["paid"] += row["total"] or zero
+    for item in usage.values():
+        item["remaining"] = max(zero, item["budget"] - item["offers"] - item["deals"] - item["paid"])
+    return usage
+
+
+def advertiser_budgets(advertiser):
+    """Кошелёк рекламодателя: кампании на модерации / активные / на паузе с разбивкой бюджета, итог и нехватка денег.
+
+    need — сколько нужно свободных денег, чтобы потратить остатки бюджетов (с комиссией по текущей ставке);
+    shortage — сколько не хватает (0, если хватает)."""
+    from apps.billing.tariffs import commission_amount, commission_percent_for
+
+    from .models import Campaign
+
+    campaigns = list(
+        Campaign.objects.filter(
+            advertiser=advertiser,
+            status__in=(Campaign.Status.MODERATION, Campaign.Status.ACTIVE, Campaign.Status.PAUSED),
+        ).order_by("-created_at")
+    )
+    usage = budget_usage(campaigns)
+    rows = [{"campaign": c, **usage[c.pk]} for c in campaigns]
+    keys = ("budget", "offers", "deals", "paid", "remaining")
+    total = {key: sum((row[key] for row in rows), Decimal("0")) for key in keys}
+    percent = commission_percent_for(advertiser)
+    need = total["remaining"] + commission_amount(total["remaining"], percent)
+    from apps.billing.models import Wallet
+
+    free = Wallet.objects.filter(user=advertiser).values_list("available_balance", flat=True).first() or Decimal("0")
+    return {"rows": rows, "total": total, "percent": percent, "need": need, "free": free,
+            "shortage": max(Decimal("0"), need - free)}
+
+
 def budget_remaining(campaign):
     return max(Decimal("0"), (campaign.budget or Decimal("0")) - budget_committed(campaign))
 
