@@ -31,14 +31,9 @@ CARD_POST = {**CARD_FIELDS}
 def publication_day(campaign):
     """Ближайшая допустимая дата публикации: не раньше начала кампании, а при обязательном согласовании — с запасом
     на сдачу материала (content_lead_days рабочих дней)."""
-    from .validation import earliest_day_with_lead
+    from .validation import earliest_offer_date
 
-    day = timezone.localdate()
-    if campaign.approval_required:
-        day = earliest_day_with_lead(day, campaign.content_lead_days)
-    if campaign.start_date and campaign.start_date > day:
-        return campaign.start_date
-    return day
+    return earliest_offer_date(campaign)
 
 
 def accept_web(client, advertiser, response, publication_date=None):

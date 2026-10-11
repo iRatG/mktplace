@@ -134,6 +134,19 @@ def earliest_day_with_lead(today, lead_days):
     return day
 
 
+def earliest_offer_date(campaign):
+    """Самая ранняя дата публикации, которую можно назначить в оферте: не раньше сегодня и начала кампании, а при
+    обязательном согласовании — с запасом на сдачу материала. Для min календаря — те же правила, что у проверки."""
+    from django.utils import timezone
+
+    day = timezone.localdate()
+    if campaign.approval_required:
+        day = earliest_day_with_lead(day, campaign.content_lead_days)
+    if campaign.start_date and campaign.start_date > day:
+        day = campaign.start_date
+    return day
+
+
 def content_lead_error(campaign, day):
     """При обязательном согласовании срок сдачи материала (N рабочих дней до даты) не должен пройти уже при
     направлении оферты — сообщение или None."""

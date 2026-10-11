@@ -190,3 +190,19 @@ class DashboardTest(_Base):
 
     def _deal_on(self, response):
         return deal_from_response(response, self.adv, publication_date=self.today + timedelta(days=2))
+
+
+class OfferDateMinTest(_Base):
+    def test_offer_calendar_starts_at_earliest_allowed_day(self):
+        """Календарь даты в оферте не предлагает дни, которые отклонит срок сдачи материала."""
+        from apps.campaigns.validation import earliest_offer_date
+
+        Campaign.objects.filter(pk=self.campaign.pk).update(approval_required=True)
+        self.campaign.refresh_from_db()
+        resp = self._response()
+        self.client.force_login(self.adv)
+        html = self.client.get(reverse("web:campaign_detail", kwargs={"pk": self.campaign.pk})).content.decode()
+        earliest = earliest_offer_date(self.campaign)
+        self.assertGreater(earliest, self.today)
+        self.assertIn(f'id="pub_{resp.pk}" required class="input-dark text-xs"\n'
+                      f'                                       min="{earliest.isoformat()}"', html)

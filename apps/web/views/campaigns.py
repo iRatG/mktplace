@@ -155,6 +155,9 @@ def campaign_detail(request, pk):
         from apps.platforms.models import Category, Platform as PlatformModel
 
         context["commission_label"] = tier_description(campaign.advertiser)
+        from apps.campaigns.validation import earliest_offer_date
+
+        context["offer_min_date"] = earliest_offer_date(campaign)
         if campaign.status in (Campaign.Status.DRAFT, Campaign.Status.REJECTED):
             from apps.campaigns.validation import moderation_missing
 

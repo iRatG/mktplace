@@ -153,7 +153,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label for="id_start_date" class="block text-sm text-gray-700 mb-1">Начало кампании <span class="text-xs text-gray-500" data-for-moderation>(нужно для модерации)</span></label>
-                    <input type="date" name="start_date" id="id_start_date" min="{% now 'Y-m-d' %}" data-date-pair-start="end_date" value="{{ form.start_date.value|default:''|stringformat:'s' }}" {% if form.start_date.errors %}aria-invalid="true" {% endif %}class="input-dark">
+                    <input type="date" name="start_date" id="id_start_date" min="{% now 'Y-m-d' %}" value="{{ form.start_date.value|default:''|stringformat:'s' }}" {% if form.start_date.errors %}aria-invalid="true" {% endif %}class="input-dark">
                     {% for error in form.start_date.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="start_date">{{ error }}</p>{% endfor %}
                 </div>
                 <div>
@@ -166,7 +166,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label for="id_content_start" class="block text-sm text-gray-700 mb-1">Приём контента с</label>
-                    <input type="date" name="content_start" id="id_content_start" min="{% now 'Y-m-d' %}" data-date-pair-start="deadline" value="{{ form.content_start.value|default:''|stringformat:'s' }}" {% if form.content_start.errors %}aria-invalid="true" {% endif %}class="input-dark">
+                    <input type="date" name="content_start" id="id_content_start" min="{% now 'Y-m-d' %}" value="{{ form.content_start.value|default:''|stringformat:'s' }}" {% if form.content_start.errors %}aria-invalid="true" {% endif %}class="input-dark">
                     {% for error in form.content_start.errors %}<p class="text-red-600 text-xs mt-1" data-error-for="content_start">{{ error }}</p>{% endfor %}
                 </div>
                 <div>
@@ -325,17 +325,6 @@
 <script src="{% static 'js/form-errors.js' %}"></script>
 <script>
 (function () {
-    // Календарь: конец не раньше начала (кампания, окно приёма контента). Сохранённые даты не трогаем — проверяет сервер.
-    document.querySelectorAll("[data-date-pair-start]").forEach(function (start) {
-        var end = document.getElementById("id_" + start.dataset.datePairStart);
-        if (!end) return;
-        var today = end.getAttribute("min");
-        function sync() { end.min = start.value && start.value > today ? start.value : today; }
-        start.addEventListener("change", sync);
-        sync();
-    });
-})();
-(function () {
     // Тип оплаты: показать цену за размещение или блок CPA.
     var fixedRow = document.getElementById("fixed_price_row");
     var cpaBlock = document.getElementById("cpa_block");
@@ -364,9 +353,12 @@
         var m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
         return d.getFullYear() + "-" + m + "-" + day;
     }
+    // Нижняя граница — сегодня (min из разметки), а если выбрано начало позже — начало.
+    var today = end.getAttribute("min") || "";
+    function notBefore(value) { return value && value > today ? value : today; }
     function syncDates() {
-        end.min = start.value || "";
-        deadline.min = contentStart.value || "";
+        end.min = notBefore(start.value);
+        deadline.min = notBefore(contentStart.value);
         deadline.max = end.value ? workingDaysBefore(end.value, 5) : "";
         contentStart.max = deadline.value || "";
     }

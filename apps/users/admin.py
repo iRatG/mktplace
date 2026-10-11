@@ -122,7 +122,6 @@ class PersonalDataAccessAdmin(admin.ModelAdmin):
     """Журнал доступа сотрудников к персональным данным — только чтение и только суперпользователю."""
 
     list_display = ("created_at", "staff", "subject", "action", "ip")
-    list_filter = ("staff",)
     search_fields = ("staff__email", "subject__email", "action")
     date_hierarchy = "created_at"
 

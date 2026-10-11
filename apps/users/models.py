@@ -204,17 +204,16 @@ class PersonalDataAccess(models.Model):
     """
 
     staff = models.ForeignKey(
-        "users.User", on_delete=models.PROTECT, related_name="pd_accesses",
-        help_text="Сотрудник, открывший данные",
+        "users.User", on_delete=models.PROTECT, related_name="pd_accesses", verbose_name="Сотрудник",
     )
     subject = models.ForeignKey(
         "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="pd_accessed",
-        help_text="Чьи данные (если известно)",
+        verbose_name="Чьи данные", help_text="Если известно",
     )
-    action = models.CharField(max_length=255, help_text="Что открыто или выгружено")
-    path = models.CharField(max_length=500, blank=True, help_text="Адрес страницы или файла")
-    ip = models.GenericIPAddressField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    action = models.CharField("Что открыто", max_length=255)
+    path = models.CharField("Адрес", max_length=500, blank=True)
+    ip = models.GenericIPAddressField("IP", null=True, blank=True)
+    created_at = models.DateTimeField("Когда", auto_now_add=True, db_index=True)
 
     class Meta:
         ordering = ["-created_at"]
