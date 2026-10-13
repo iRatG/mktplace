@@ -111,7 +111,7 @@ class CommissionTest(TestCase):
         t.submit_publication(deal.pk, self.blogger, "https://instagram.com/p/1")
         Deal.objects.filter(pk=deal.pk).update(publication_at=timezone.now() - timedelta(days=10))
         t.auto_complete_overdue()
-        self.assertEqual(Wallet.objects.get(user=self.blogger).available_balance, Decimal("100000"))
+        self.assertEqual(Wallet.objects.get(user=self.blogger).on_withdrawal, Decimal("100000"))  # выплата в реестре
         adv = Wallet.objects.get(user=self.adv)
         self.assertEqual((adv.available_balance, adv.reserved_balance), (Decimal("884000"), Decimal("0")))
         self.assertEqual(Transaction.objects.get(deal=deal, type=Transaction.Type.PAYMENT).amount, Decimal("-116000"))
@@ -126,7 +126,7 @@ class CommissionTest(TestCase):
         )
         BillingService.reserve_funds(deal)
         BillingService.complete_deal_payment(deal)
-        self.assertEqual(Wallet.objects.get(user=self.blogger).available_balance, Decimal("85000"))
+        self.assertEqual(Wallet.objects.get(user=self.blogger).on_withdrawal, Decimal("85000"))
         self.assertEqual(metrics.platform_revenue(), Decimal("15000"))
 
     def test_insufficient_balance_message_includes_commission(self):

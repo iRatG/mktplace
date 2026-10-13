@@ -1,4 +1,4 @@
-from rest_framework import generics, status
+from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
 from rest_framework.views import APIView
@@ -10,7 +10,6 @@ from .serializers import (
     WalletSerializer,
     WithdrawalRequestSerializer,
 )
-from .services import BillingService
 
 
 class WalletView(APIView):
@@ -39,7 +38,9 @@ class TransactionListView(generics.ListAPIView):
         return queryset
 
 
-class WithdrawalRequestView(generics.ListCreateAPIView):
+class WithdrawalRequestView(generics.ListAPIView):
+    """Выплаты исполнителя — только чтение: с 13.10.2026 выплаты формирует платформа по сделкам."""
+
     serializer_class = WithdrawalRequestSerializer
     permission_classes = [IsAuthenticated]
 
@@ -47,27 +48,7 @@ class WithdrawalRequestView(generics.ListCreateAPIView):
         user = self.request.user
         if user.role != User.Role.BLOGGER:
             return WithdrawalRequest.objects.none()
-        return WithdrawalRequest.objects.filter(blogger=user)
-
-    def create(self, request, *args, **kwargs):
-        if request.user.role != User.Role.BLOGGER:
-            return DRFResponse(
-                {"detail": "Only bloggers can request withdrawals."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        if request.user.is_demo:
-            return DRFResponse(
-                {"detail": "Withdrawals are disabled for demo accounts."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        # Заявка и списание в «на выводе» — вместе или никак.
-        from django.db import transaction as db_transaction
-        try:
-            with db_transaction.atomic():
-                withdrawal = serializer.save()
-                BillingService.process_withdrawal(withdrawal)
-        except ValueError as e:
-            return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        return DRFResponse(serializer.data, status=status.HTTP_201_CREATED)
+        return (
+            WithdrawalRequest.objects.filter(blogger=user).select_related("deal")
+            .prefetch_related("deal__einvoices")
+        )

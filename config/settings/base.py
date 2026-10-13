@@ -144,6 +144,11 @@ CURRENCY_MIN_WITHDRAWAL  = env.int('CURRENCY_MIN_WITHDRAWAL',  default=65000)
 CURRENCY_MIN_DEPOSIT     = env.int('CURRENCY_MIN_DEPOSIT',     default=130000)
 # Минимальная цена за размещение в FIXED-кампании (решение бизнеса 04.10.2026).
 CAMPAIGN_MIN_FIXED_PRICE = env.int('CAMPAIGN_MIN_FIXED_PRICE', default=10000)
+# ЭСФ исполнителя как условие выплаты — для каких категорий исполнителя (ответ бизнеса 13.10.2026);
+# самозанятый — до ответа бухгалтерии. Категории — BloggerProfile.Category.
+ESF_REQUIRED_CATEGORIES = env.list('ESF_REQUIRED_CATEGORIES', default=['ip', 'legal_entity', 'self_employed'])
+# Через сколько дней без подтверждения ЭСФ напомнить рекламодателю (один раз).
+ESF_REMINDER_DAYS = env.int('ESF_REMINDER_DAYS', default=3)
 
 # Redis
 REDIS_URL = env('REDIS_URL', default='redis://redis:6379/0')
@@ -195,6 +200,14 @@ CELERY_BEAT_SCHEDULE = {
     'auto-expire-responses-and-offers': {
         'task': 'apps.campaigns.tasks.auto_expire_responses_and_offers',
         'schedule': 3600,  # every hour — срок ответа 7 дней, напоминание за сутки (BZ-3)
+    },
+    'einvoice-reminders': {
+        'task': 'apps.billing.tasks.einvoice_reminders',
+        'schedule': 86400,  # daily — напоминание рекламодателю подтвердить ЭСФ (#61)
+    },
+    'sync-einvoices': {
+        'task': 'apps.billing.tasks.sync_einvoices',
+        'schedule': 3600,  # every hour — статусы ЭСФ у внешнего провайдера (ручной — пусто)
     },
     'cleanup-old-notifications': {
         'task': 'apps.notifications.tasks.cleanup_old_notifications',

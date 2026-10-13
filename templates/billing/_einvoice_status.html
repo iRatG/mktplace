@@ -1,0 +1,27 @@
+{% load money %}
+{# Выплата и ЭСФ по оплаченной сделке (#60, #61). Контекст: deal, payout, einvoice, user, currency. #}
+<div class="card-dark rounded-xl p-6" data-payout-status>
+    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Выплата и ЭСФ</h2>
+    <dl class="space-y-2 text-sm text-gray-700">
+        <div><dt class="text-xs text-gray-500">Договор</dt><dd class="text-gray-900 font-medium" data-contract-number>№ {{ deal.contract_number }} от {{ deal.created_at|date:"d.m.Y" }}</dd></div>
+        <div><dt class="text-xs text-gray-500">Сумма исполнителю</dt><dd class="text-gray-900">{{ payout.amount|money }} {{ currency.symbol }}</dd></div>
+        <div><dt class="text-xs text-gray-500">ЭСФ исполнителя</dt>
+            <dd data-einvoice-status>{% if einvoice %}{{ einvoice.get_status_display }}{% if einvoice.number %} · № {{ einvoice.number }}{% endif %}{% else %}—{% endif %}</dd></div>
+        <div><dt class="text-xs text-gray-500">Выплата</dt>
+            <dd data-payout-state>{% if payout.status == 'completed' %}проведена {{ payout.processed_at|date:"d.m.Y" }}{% elif payout.status == 'rejected' %}не проведена{% if payout.admin_comment %}: {{ payout.admin_comment }}{% endif %}{% else %}{% with reasons=payout.blocked_reasons %}{% if reasons %}ждёт: {{ reasons|join:", " }}{% else %}в реестре — ждёт проведения бухгалтером{% endif %}{% endwith %}{% endif %}</dd></div>
+    </dl>
+    {% if einvoice and einvoice.status == 'waiting' %}
+        {% if user == deal.blogger %}
+        <p class="mt-3 text-xs text-orange-700" data-einvoice-hint>Выставьте рекламодателю ЭСФ на {{ einvoice.amount|money }} {{ currency.symbol }}: договор № {{ einvoice.contract_number }} от {{ deal.created_at|date:"d.m.Y" }}. Выплата — после того, как рекламодатель подтвердит ЭСФ.</p>
+        {% elif user == deal.advertiser %}
+        <p class="mt-3 text-xs text-orange-700" data-einvoice-hint>Подтвердите ЭСФ исполнителя на {{ einvoice.amount|money }} {{ currency.symbol }} в системе электронного документооборота — после этого платформа проведёт выплату.</p>
+        {% endif %}
+    {% elif einvoice and einvoice.status == 'not_required' %}
+        <p class="mt-3 text-xs text-gray-500" data-einvoice-hint>ЭСФ не требуется: исполнитель — физлицо.</p>
+    {% elif einvoice and einvoice.status == 'rejected' or einvoice and einvoice.status == 'mismatch' %}
+        <p class="mt-3 text-xs text-red-600" data-einvoice-hint>ЭСФ {{ einvoice.get_status_display|lower }}{% if einvoice.note %}: {{ einvoice.note }}{% endif %}. Выплата заблокирована до исправления.</p>
+    {% endif %}
+    {% if user.is_staff %}
+    <a href="{% url 'web:admin_withdrawals' %}?deal={{ deal.pk }}&status=all&demo=1" class="inline-block mt-3 text-xs text-orange-600 hover:text-orange-700">Открыть в реестре выплат →</a>
+    {% endif %}
+</div>

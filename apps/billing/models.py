@@ -85,11 +85,22 @@ class Transaction(models.Model):
 
 
 class WithdrawalRequest(models.Model):
+    """Выплата исполнителю (с 13.10.2026 — формируется системой по сделке, не заявкой блогера).
+
+    Одна строка реестра выплат для бухгалтера: сумма уже «к выплате» (on_withdrawal), сотрудник проводит
+    перевод в банке и отмечает «проведена» (PAYOUT) или отклоняет с причиной (деньги — обратно на баланс).
+    kind=MANUAL остаётся для остатков на балансе до перехода (ставит в реестр сотрудник).
+    """
+
     class Status(models.TextChoices):
-        PENDING = "pending", "На рассмотрении"
-        APPROVED = "approved", "Одобрена"
+        PENDING = "pending", "К выплате"
+        APPROVED = "approved", "Одобрена"  # не используется, значение оставлено для старых строк
         REJECTED = "rejected", "Отклонена"
-        COMPLETED = "completed", "Выплачена"
+        COMPLETED = "completed", "Проведена"
+
+    class Kind(models.TextChoices):
+        MANUAL = "manual", "Остаток на балансе"
+        DEAL = "deal", "Выплата по сделке"
 
     blogger = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -97,11 +108,21 @@ class WithdrawalRequest(models.Model):
         related_name="withdrawal_requests",
         limit_choices_to={"role": "blogger"},
     )
+    deal = models.ForeignKey(
+        "deals.Deal",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payouts",
+        help_text="Сделка, по которой сформирована выплата",
+    )
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.MANUAL)
     amount = models.DecimalField(
         max_digits=14, decimal_places=2, validators=[MinValueValidator(1)]
     )
     requisites = models.JSONField(
-        help_text="Payment details, e.g. {'type': 'bank_card', 'card_number': '...'}"
+        default=dict, blank=True,
+        help_text="Снимок подтверждённых реквизитов; пустой — заполняется при подтверждении реквизитов или проведении",
     )
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING
@@ -112,12 +133,111 @@ class WithdrawalRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Withdrawal Request"
-        verbose_name_plural = "Withdrawal Requests"
+        verbose_name = "Выплата"
+        verbose_name_plural = "Выплаты"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["deal"],
+                condition=~models.Q(status="rejected") & models.Q(deal__isnull=False),
+                name="one_open_payout_per_deal",
+            ),
+        ]
 
     def __str__(self):
         return f"WithdrawalRequest({self.blogger.email}, {self.amount}, {self.status})"
+
+    @property
+    def is_deal_payout(self):
+        return self.kind == self.Kind.DEAL
+
+    def effective_requisites(self):
+        """Снимок реквизитов для проведения: свой, а если пустой — текущие подтверждённые реквизиты блогера."""
+        if self.requisites:
+            return self.requisites
+        from .payout_requisites import current_requisites
+
+        current = current_requisites(self.blogger)
+        return current.as_snapshot() if current else {}
+
+    @property
+    def blocked_reasons(self):
+        """Почему выплату нельзя провести: нет реквизитов, ЭСФ исполнителя не подтверждена. Пусто — можно."""
+        reasons = []
+        if not self.effective_requisites():
+            reasons.append("нет подтверждённых реквизитов")
+        if self.deal_id:
+            einvoice = next(
+                (e for e in self.deal.einvoices.all() if e.kind == EInvoice.Kind.PERFORMER), None,
+            )
+            if einvoice is not None:
+                if einvoice.status == EInvoice.Status.WAITING:
+                    reasons.append("ждёт ЭСФ исполнителя")
+                elif einvoice.status == EInvoice.Status.REJECTED:
+                    reasons.append("ЭСФ отклонена")
+                elif einvoice.status == EInvoice.Status.MISMATCH:
+                    reasons.append("ЭСФ: расхождение")
+        return reasons
+
+    @property
+    def is_ready(self):
+        return not self.blocked_reasons
+
+
+class EInvoice(models.Model):
+    """ЭСФ (электронная счёт-фактура) по оплаченной сделке — без денег, только документ и его статус.
+
+    PERFORMER — ЭСФ исполнителя рекламодателю на вознаграждение: условие выплаты для ИП, юрлица и самозанятого
+    (ESF_REQUIRED_CATEGORIES); PLATFORM — ЭСФ платформы рекламодателю на комиссию, «к выставлению» после проведения
+    выплаты. Статус пока вносит сотрудник (provider «manual»); оператор ЭДО — отдельный провайдер (apps/billing/esf.py).
+    """
+
+    class Kind(models.TextChoices):
+        PERFORMER = "performer", "ЭСФ исполнителя рекламодателю"
+        PLATFORM = "platform", "ЭСФ платформы за комиссию"
+
+    class Status(models.TextChoices):
+        NOT_REQUIRED = "not_required", "Не требуется"
+        TO_ISSUE = "to_issue", "К выставлению"
+        WAITING = "waiting", "Ждёт подтверждения"
+        CONFIRMED = "confirmed", "Подтверждена"
+        REJECTED = "rejected", "Отклонена"
+        MISMATCH = "mismatch", "Расхождение"
+
+    deal = models.ForeignKey("deals.Deal", on_delete=models.PROTECT, related_name="einvoices")
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    status = models.CharField(max_length=15, choices=Status.choices)
+    contract_number = models.CharField(max_length=30, help_text="Номер договора (оферты) на момент создания")
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    number = models.CharField(max_length=64, blank=True, help_text="Номер ЭСФ у оператора ЭДО")
+    provider = models.CharField(max_length=20, default="manual")
+    external_id = models.CharField(max_length=64, blank=True)
+    note = models.TextField(blank=True)
+    checked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="checked_einvoices",
+    )
+    status_changed_at = models.DateTimeField(null=True, blank=True)
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "ЭСФ"
+        verbose_name_plural = "ЭСФ"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["deal", "kind"], name="one_einvoice_per_deal_kind"),
+        ]
+
+    def __str__(self):
+        return f"EInvoice({self.get_kind_display()}, deal #{self.deal_id}, {self.status})"
+
+    @property
+    def is_blocking(self):
+        return self.kind == self.Kind.PERFORMER and self.status in (
+            self.Status.WAITING, self.Status.REJECTED, self.Status.MISMATCH,
+        )
 
 
 class TestBalanceGrant(models.Model):

@@ -267,6 +267,8 @@ docker logs mktplace-celery-1 --tail 20
 # брокером без единой видимой пользователю ошибки.
 docker inspect -f '{{.Name}} {{.Image}}' mktplace-web-1 mktplace-celery-1 mktplace-celery-beat-1
 docker exec mktplace-celery-1 celery -A config inspect registered
+# С 13.10.2026 в списке должны быть apps.billing.tasks.einvoice_reminders и
+# apps.billing.tasks.sync_einvoices (реестр выплат и ЭСФ, #60/#61).
 
 # Миграции и collectstatic выполняет только web (у celery/celery-beat в
 # docker-compose.vps.yml задан SKIP_MIGRATIONS=1). Применённые миграции —

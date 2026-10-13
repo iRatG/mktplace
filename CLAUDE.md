@@ -148,6 +148,22 @@ honeypot `hp_note` → капча Turnstile, если заданы `TURNSTILE_*`
 файл не откроется никому. Сотрудник открыл чужой документ, карточку или реестр юрлиц, очередь документов или реквизитов —
 `apps.users.pd_access.log_access` (журнал `PersonalDataAccess`, Django admin, только чтение, суперпользователю).
 
+### Выплаты по сделкам, ЭСФ и выгрузка для бухгалтерии (13.10.2026, #59–#61)
+Платёжного партнёра и карт нет — деньги ходят только через банковский счёт оператора. Блогер заявку на вывод не
+подаёт: при каждой оплате сделки (`complete`, платящие ветки `resolve_claim`) `BillingService` после EARNING сразу
+создаёт выплату по сделке — `WithdrawalRequest(kind=DEAL, deal=…)` — и переводит сумму в `on_withdrawal`
+(`_open_deal_payout`); «Доступно» у исполнителя всегда 0, остаток до перехода ставит в реестр сотрудник. Реестр выплат —
+`/panel/withdrawals/` (демо скрыты по умолчанию, `?demo=1`): «Проведено» = `complete_withdrawal` (PAYOUT, отказ при
+`blocked_reasons`: «нет подтверждённых реквизитов», «ждёт ЭСФ исполнителя»), «Отклонить» — причина обязательна, REFUND
+на баланс, «Выплатить повторно» — `reissue_deal_payout`; одна не отклонённая выплата на сделку (constraint). ЭСФ —
+модель `EInvoice` и `apps/billing/esf.py` (без денег): `open_for_deal` в `deals.services._after_payout` (WAITING для
+категорий `ESF_REQUIRED_CATEGORIES`, иначе NOT_REQUIRED), статус ставит сотрудник через `esf.set_status` (отклонение/
+расхождение → уведомление сотрудникам), ЭСФ платформы на комиссию заводится при проведении выплаты; оператор ЭДО —
+новый класс `EsfProvider` (#63), вызывающие не меняются. Номер договора — `Deal.contract_number` («UB-<id>»). Итоги и
+выгрузка для бухгалтерии — `/panel/finance/` (`metrics.period_totals` / `daily_totals`, `apps/billing/exports.py`,
+журнал ПД). Удержание НДФЛ (#47) добавится полем `tax_amount` выплаты и типом транзакции TAX — не хардкодить
+«PAYOUT = сумма выплаты». API `POST /api/v1/billing/withdrawals/` убран.
+
 ## Структура приложений
 ```
 apps/users/         — Auth, роли, is_demo; security.py / throttling.py / blocklist.py /

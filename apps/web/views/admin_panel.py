@@ -64,6 +64,10 @@ def admin_dashboard(request):
         "platforms_pending": Platform.objects.filter(status=Platform.Status.PENDING).count(),
         "deals_disputed": Deal.objects.filter(status=Deal.Status.DISPUTED).count(),
         "withdrawals_pending": WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING).count(),
+        "payouts_ready": sum(
+            1 for p in WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING)
+            .select_related("blogger").prefetch_related("deal__einvoices") if p.is_ready
+        ),
         "permits_pending": PermitDocument.objects.filter(status=PermitDocument.Status.PENDING).count(),
         "reviews_pending": _pending_platform_reviews(),
         "users_total": User.objects.count(),
@@ -291,12 +295,75 @@ def admin_dispute_resolve(request, pk):
 
 @_staff_required
 def admin_withdrawals(request):
-    withdrawals = (
-        WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING)
-        .select_related("blogger")
-        .order_by("created_at")
+    """Реестр выплат (#60): выплаты по сделкам и остатки, причины блокировки, ЭСФ (#61), выгрузка в Excel.
+
+    GET: status (pending по умолчанию, all — все), kind, deal, ready (1/0), date_from, date_to, demo=1 (показать
+    демо-аккаунты), export=xlsx. Реквизиты — персональные данные: просмотр и выгрузка пишутся в журнал.
+    """
+    from apps.billing.esf import ALLOWED_STATUSES
+    from apps.billing.exports import payouts_workbook, xlsx_response
+    from apps.billing.models import EInvoice, Wallet
+    from apps.users.pd_access import log_access
+
+    from .finance import parse_date
+
+    status = request.GET.get("status", WithdrawalRequest.Status.PENDING)
+    kind = request.GET.get("kind", "")
+    deal_id = request.GET.get("deal", "").strip()
+    ready = request.GET.get("ready", "")
+    show_demo = request.GET.get("demo") == "1"
+    date_from = parse_date(request.GET.get("date_from"))
+    date_to = parse_date(request.GET.get("date_to"))
+
+    qs = (
+        WithdrawalRequest.objects.select_related("blogger__blogger_profile", "deal__campaign")
+        .prefetch_related("deal__einvoices").order_by("created_at")
     )
-    return render(request, "admin_panel/withdrawals.html", {"withdrawals": withdrawals})
+    if status != "all":
+        qs = qs.filter(status=status)
+    if kind:
+        qs = qs.filter(kind=kind)
+    if deal_id.isdigit():
+        qs = qs.filter(deal_id=int(deal_id))
+    if not show_demo:
+        qs = qs.filter(blogger__is_demo=False)
+    if date_from:
+        qs = qs.filter(created_at__gte=metrics.period_bounds(date_from, date_from)[0])
+    if date_to:
+        qs = qs.filter(created_at__lt=metrics.period_bounds(date_to, date_to)[1])
+    payouts = list(qs)
+    if ready == "1":
+        payouts = [p for p in payouts if p.is_ready]
+    elif ready == "0":
+        payouts = [p for p in payouts if not p.is_ready]
+
+    if request.GET.get("export") == "xlsx":
+        log_access(request, f"Выгрузка реестра выплат, строк: {len(payouts)}")
+        return xlsx_response(payouts_workbook(payouts), f"payouts_{timezone.localdate():%Y-%m-%d}.xlsx")
+
+    legacy_wallets = (
+        Wallet.objects.filter(user__role=User.Role.BLOGGER, available_balance__gt=0).select_related("user")
+        .order_by("-available_balance")
+    )
+    if not show_demo:
+        legacy_wallets = legacy_wallets.filter(user__is_demo=False)
+    platform_einvoices = (
+        EInvoice.objects.filter(kind=EInvoice.Kind.PLATFORM, status=EInvoice.Status.TO_ISSUE)
+        .select_related("deal__campaign", "deal__advertiser").order_by("created_at")
+    )
+    log_access(request, f"Реестр выплат, строк: {len(payouts)}")
+    return render(request, "admin_panel/withdrawals.html", {
+        "withdrawals": payouts,
+        "ready_count": sum(1 for p in payouts if p.is_ready),
+        "filters": {"status": status, "kind": kind, "deal": deal_id, "ready": ready, "demo": show_demo,
+                    "date_from": date_from, "date_to": date_to},
+        "status_choices": WithdrawalRequest.Status.choices,
+        "kind_choices": WithdrawalRequest.Kind.choices,
+        "performer_statuses": [(v, EInvoice.Status(v).label) for v in ALLOWED_STATUSES[EInvoice.Kind.PERFORMER]],
+        "legacy_wallets": legacy_wallets,
+        "platform_einvoices": platform_einvoices,
+        "query": request.GET.urlencode(),
+    })
 
 
 @_staff_required
@@ -325,10 +392,71 @@ def admin_withdrawal_approve(request, pk):
         wr = BillingService.complete_withdrawal(wr, comment=request.POST.get("comment", "").strip())
     except ValueError as e:
         messages.error(request, f"Выплата не проведена: {e}")
-        return redirect("web:admin_withdrawals")
-    NotificationService.notify_withdrawal_approved(wr.blogger, wr.amount)
-    messages.success(request, f"Выплата {format_money(wr.amount)} для {wr.blogger.email} подтверждена.")
+        return _back_to_register(request)
+    NotificationService.notify_withdrawal_approved(wr.blogger, wr.amount, deal=wr.deal)
+    messages.success(request, f"Выплата {format_money(wr.amount)} для {wr.blogger.login_display} проведена.")
+    return _back_to_register(request)
+
+
+def _back_to_register(request):
+    """Назад в реестр с теми же фильтрами (скрытое поле next, только свой путь)."""
+    nxt = request.POST.get("next", "")
+    if nxt.startswith("/panel/withdrawals/"):
+        return redirect(nxt)
     return redirect("web:admin_withdrawals")
+
+
+@_staff_required
+@require_POST
+def admin_withdrawal_reissue(request, pk):
+    """Отклонённую выплату по сделке выпустить повторно (банк вернул перевод, реквизиты исправлены)."""
+    wr = get_object_or_404(WithdrawalRequest, pk=pk, status=WithdrawalRequest.Status.REJECTED, deal__isnull=False)
+    try:
+        payout = BillingService.reissue_deal_payout(wr.deal)
+    except ValueError as e:
+        messages.error(request, f"Повторная выплата не создана: {e}")
+        return _back_to_register(request)
+    messages.success(request, f"Выплата {format_money(payout.amount)} по сделке #{wr.deal_id} снова в реестре.")
+    return _back_to_register(request)
+
+
+@_staff_required
+@require_POST
+def admin_withdrawal_legacy_balance(request, user_pk):
+    """Остаток на доступном балансе исполнителя (до перехода на выплаты по сделке) — в реестр одной кнопкой."""
+    from apps.billing.models import Wallet
+    from apps.billing.payout_requisites import PayoutRequisitesError, create_withdrawal_request
+
+    blogger = get_object_or_404(User, pk=user_pk, role=User.Role.BLOGGER)
+    wallet = Wallet.objects.filter(user=blogger).first()
+    if wallet is None or wallet.available_balance <= 0:
+        messages.error(request, "На балансе нет остатка.")
+        return _back_to_register(request)
+    try:
+        payout = create_withdrawal_request(blogger, wallet.available_balance)
+    except (PayoutRequisitesError, ValueError) as e:
+        messages.error(request, f"Остаток не поставлен в реестр: {e}")
+        return _back_to_register(request)
+    messages.success(request, f"Остаток {format_money(payout.amount)} для {blogger.login_display} — в реестре.")
+    return _back_to_register(request)
+
+
+@_staff_required
+@require_POST
+def admin_einvoice_update(request, pk):
+    """Сотрудник вносит номер и статус ЭСФ (#61); отклонение и расхождение уведомляют сотрудников."""
+    from apps.billing import esf
+
+    try:
+        einvoice = esf.set_status(
+            pk, request.user, status=request.POST.get("status", ""), number=request.POST.get("number", ""),
+            note=request.POST.get("note", ""),
+        )
+    except esf.EsfError as e:
+        messages.error(request, str(e))
+        return _back_to_register(request)
+    messages.success(request, f"ЭСФ по сделке #{einvoice.deal_id}: {einvoice.get_status_display().lower()}.")
+    return _back_to_register(request)
 
 
 @_staff_required
@@ -340,10 +468,10 @@ def admin_withdrawal_reject(request, pk):
         wr = BillingService.reject_withdrawal(wr, comment=comment)
     except ValueError as e:
         messages.error(request, f"Отказ не проведён: {e}")
-        return redirect("web:admin_withdrawals")
-    NotificationService.notify_withdrawal_rejected(wr.blogger, wr.amount, comment)
-    messages.success(request, f"Заявка отклонена, средства возвращены на баланс {wr.blogger.email}.")
-    return redirect("web:admin_withdrawals")
+        return _back_to_register(request)
+    NotificationService.notify_withdrawal_rejected(wr.blogger, wr.amount, comment, deal=wr.deal)
+    messages.success(request, f"Выплата отклонена, сумма возвращена на баланс {wr.blogger.login_display}.")
+    return _back_to_register(request)
 
 
 @_staff_required

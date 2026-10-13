@@ -1,7 +1,7 @@
 """
-QA camp_test_3 (07.10.2026), шаг 14 + T7/#39 (09.10.2026): сумма вывода — с разрядами и кнопками −/+;
-запрет вывода для демо-аккаунта виден сразу; с 09.10 вывод работает только по подтверждённым реквизитам —
-номер карты больше не вводится в самой форме вывода (см. apps.billing.payout_requisites).
+#60 (13.10.2026): у исполнителя нет формы вывода — выплаты формируются по сделкам. Кошелёк показывает
+«К выплате», «Выплачено», список выплат с причинами блокировки; остаток до перехода — отдельной карточкой.
+История: QA camp_test_3 шаг 14 и T7/#39 (сумма с разрядами, реквизиты снимком) — форма убрана.
 """
 from decimal import Decimal
 
@@ -9,10 +9,11 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.billing.models import PayoutRequisites, Wallet, WithdrawalRequest
+from apps.billing.services import BillingService
 from apps.users.models import User
 
 
-def _blogger(is_demo=False, balance="500000"):
+def _blogger(is_demo=False, balance="0"):
     user = User.objects.create_user(
         email="bl@test.com", password="pass1234", role=User.Role.BLOGGER, status=User.Status.ACTIVE,
     )
@@ -31,74 +32,69 @@ def _approved_card(user, number="8600123456789012", holder="Test Bloggerov"):
     )
 
 
-class WithdrawalFormTest(TestCase):
-    def test_withdrawal_uses_confirmed_requisites_snapshot(self):
-        user = _blogger()
+def _payout(user, amount="100000", requisites=None):
+    Wallet.objects.filter(user=user).update(available_balance=Decimal(amount))
+    wr = WithdrawalRequest.objects.create(blogger=user, amount=Decimal(amount), requisites=requisites or {})
+    BillingService.process_withdrawal(wr)
+    return wr
+
+
+class WalletPayoutsTest(TestCase):
+    def test_no_withdrawal_form_and_post_ignored(self):
+        user = _blogger(balance="500000")
         _approved_card(user)
         self.client.force_login(user)
+        html = self.client.get(reverse("web:wallet")).content.decode()
+        self.assertNotIn('name="amount"', html)
+        self.assertNotIn("number-input.js", html)
         self.client.post(reverse("web:wallet"), {"amount": "100 000"})
-        wr = WithdrawalRequest.objects.get(blogger=user)
-        self.assertEqual(wr.amount, Decimal("100000"))
-        self.assertEqual(wr.requisites["card_number"], "8600123456789012")
-
-    def test_withdrawal_unavailable_without_requisites(self):
-        user = _blogger()
-        self.client.force_login(user)
-        resp = self.client.post(reverse("web:wallet"), {"amount": "100 000"})
         self.assertFalse(WithdrawalRequest.objects.exists())
-        self.assertIn("Ошибка", resp.content.decode()) if resp.status_code == 200 else None
 
-    def test_no_requisites_message_and_no_form(self):
-        self.client.force_login(_blogger())
-        html = self.client.get(reverse("web:wallet")).content.decode()
-        self.assertIn("подтвердите реквизиты выплаты", html)
-        self.assertNotIn('name="amount"', html)
-
-    def test_form_markup_with_confirmed_requisites(self):
+    def test_cards_to_pay_and_paid_out(self):
         user = _blogger()
-        _approved_card(user)
+        wr = _payout(user, "150000", {"type": "card", "card_number": "8600"})
         self.client.force_login(user)
         html = self.client.get(reverse("web:wallet")).content.decode()
-        start = html.index('name="amount"')
-        self.assertIn('data-number-input', html[start - 300:start + 300])
-        self.assertIn('data-step="10000"', html[start - 300:start + 300])
-        self.assertIn("novalidate", html)
-        self.assertNotIn('name="card_number"', html)
+        self.assertIn("К выплате", html)
+        self.assertIn("150 000", html)
+        self.assertIn("в реестре — ждёт проведения", html)
+        self.assertNotIn("data-legacy-available", html)
+        BillingService.complete_withdrawal(wr, comment="п/п 1")
+        html = self.client.get(reverse("web:wallet")).content.decode()
+        self.assertIn("Выплачено", html)
+        self.assertIn("проведена", html)
 
-    def test_demo_sees_notice_and_no_form(self):
+    def test_blocked_reason_links_to_requisites(self):
+        user = _blogger()
+        _payout(user)
+        self.client.force_login(user)
+        html = self.client.get(reverse("web:wallet")).content.decode()
+        self.assertIn("нет подтверждённых реквизитов", html)
+        self.assertIn(reverse("web:payout_requisites"), html)
+        self.assertIn("data-no-requisites", html)
+
+    def test_legacy_available_card_only_when_positive(self):
+        user = _blogger(balance="70000")
+        self.client.force_login(user)
+        html = self.client.get(reverse("web:wallet")).content.decode()
+        self.assertIn("data-legacy-available", html)
+        self.assertIn("70 000", html)
+
+    def test_demo_blogger_sees_same_wallet(self):
         user = _blogger(is_demo=True)
-        _approved_card(user)
         self.client.force_login(user)
         html = self.client.get(reverse("web:wallet")).content.decode()
-        self.assertIn("Вывод средств недоступен для демо-аккаунтов.", html)
-        self.assertNotIn('name="amount"', html)
-
-    def test_regular_blogger_form_enabled(self):
-        user = _blogger()
-        _approved_card(user)
-        self.client.force_login(user)
-        html = self.client.get(reverse("web:wallet")).content.decode()
+        self.assertIn("data-blogger-cards", html)
         self.assertNotIn("недоступен для демо-аккаунтов", html)
 
-    def test_pending_count_text(self):
+    def test_api_withdrawals_read_only(self):
+        from rest_framework.test import APIClient
+
         user = _blogger()
-        _approved_card(user)
-        self.client.force_login(user)
-        self.client.post(reverse("web:wallet"), {"amount": "100000"})
-        html = self.client.get(reverse("web:wallet")).content.decode()
-        self.assertIn("Заявок в обработке: 1", html)
-
-    def test_changing_requisites_does_not_affect_existing_withdrawal_snapshot(self):
-        user = _blogger()
-        old = _approved_card(user, number="1111222233334444")
-        self.client.force_login(user)
-        self.client.post(reverse("web:wallet"), {"amount": "100000"})
-        wr = WithdrawalRequest.objects.get(blogger=user)
-        self.assertEqual(wr.requisites["card_number"], "1111222233334444")
-
-        old.status = PayoutRequisites.Status.PENDING
-        old.save(update_fields=["status"])
-        _approved_card(user, number="9999888877776666")
-
-        wr.refresh_from_db()
-        self.assertEqual(wr.requisites["card_number"], "1111222233334444")
+        _payout(user)
+        api = APIClient()
+        api.force_authenticate(user)
+        r = api.get(reverse("billing:withdrawal-list"))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["results"][0]["blocked_reasons"], ["нет подтверждённых реквизитов"])
+        self.assertEqual(api.post(reverse("billing:withdrawal-list"), {"amount": "1"}, format="json").status_code, 405)

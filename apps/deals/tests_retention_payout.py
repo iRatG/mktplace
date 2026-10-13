@@ -72,7 +72,9 @@ class RetentionPayoutTest(TestCase):
         return deal
 
     def _balance(self, user):
-        return Wallet.objects.get(user=user).available_balance
+        # Начисление исполнителю сразу уходит «к выплате» (реестр выплат, 13.10.2026).
+        wallet = Wallet.objects.get(user=user)
+        return wallet.available_balance + wallet.on_withdrawal
 
     # ── Условия оферты в сделке ──────────────────────────────────────────────
 
@@ -121,7 +123,7 @@ class RetentionPayoutTest(TestCase):
         deal.refresh_from_db()
         self.assertEqual(deal.status, S.COMPLETED)
         self.assertGreater(self._balance(self.blogger), before)
-        note = Notification.objects.filter(user=self.blogger, title="Деньги зачислены на баланс").latest("created_at")
+        note = Notification.objects.filter(user=self.blogger, title="Выплата поставлена в реестр").latest("created_at")
         self.assertIn("Сроки претензии и сохранения истекли", note.body)
 
     def test_accepted_then_retention_ends_pays_with_accepted_text(self):
@@ -129,7 +131,7 @@ class RetentionPayoutTest(TestCase):
         t.confirm_publication(deal.pk, self.adv)
         self._age(deal, days=8)
         t.auto_complete_overdue()
-        note = Notification.objects.filter(user=self.blogger, title="Деньги зачислены на баланс").latest("created_at")
+        note = Notification.objects.filter(user=self.blogger, title="Выплата поставлена в реестр").latest("created_at")
         self.assertIn("Публикация принята, срок сохранения истёк", note.body)
 
     def test_dispute_possible_until_payout(self):

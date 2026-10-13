@@ -32,10 +32,10 @@
         <div class="text-xs text-gray-600 mt-1">Отзывов о платформе на проверке</div>
         {% if reviews_pending %}<div class="text-xs text-orange-600 mt-1">Требует действия</div>{% endif %}
     </a>
-    <a href="{% url 'web:admin_withdrawals' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block">
-        <div class="text-2xl font-bold {% if withdrawals_pending %}text-yellow-700{% else %}text-gray-900{% endif %}">{{ withdrawals_pending }}</div>
-        <div class="text-xs text-gray-600 mt-1">Заявок на вывод</div>
-        {% if withdrawals_pending %}<div class="text-xs text-yellow-700 mt-1">Требует действия</div>{% endif %}
+    <a href="{% url 'web:admin_withdrawals' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block" data-payouts-tile>
+        <div class="text-2xl font-bold {% if payouts_ready %}text-yellow-700{% else %}text-gray-900{% endif %}">{{ payouts_ready }}</div>
+        <div class="text-xs text-gray-600 mt-1">Выплат к проведению</div>
+        {% if withdrawals_pending %}<div class="text-xs text-gray-500 mt-1">В реестре: {{ withdrawals_pending }}</div>{% endif %}
     </a>
     <a href="{% url 'web:admin_permits' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block">
         <div class="text-2xl font-bold {% if permits_pending %}text-blue-600{% else %}text-gray-900{% endif %}">{{ permits_pending|default:0 }}</div>
@@ -77,6 +77,7 @@
 <div class="mt-8 mb-4 flex items-center gap-3">
     <h2 class="text-base font-semibold text-gray-900">Финансовая аналитика</h2>
     <span class="text-xs text-gray-500">период указан на каждой карточке</span>
+    <a href="{% url 'web:admin_finance' %}" class="ml-auto text-sm text-orange-600 hover:text-orange-700 font-medium" data-finance-link>Финансы: движения за день и Excel →</a>
 </div>
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
     <div class="card-dark rounded-xl p-5">

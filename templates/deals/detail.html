@@ -11,7 +11,7 @@
             <a href="{% url 'web:deal_list' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Сделки</a>
         </div>
         <h1 class="text-2xl font-bold text-gray-900">Сделка #{{ deal.pk }}</h1>
-        <p class="text-gray-600 text-sm mt-1">{{ deal.campaign.name }}</p>
+        <p class="text-gray-600 text-sm mt-1">{{ deal.campaign.name }} · <span data-contract-number-header>договор № {{ deal.contract_number }}</span></p>
     </div>
     <!-- Status badge -->
     <div class="shrink-0 mt-1">
@@ -163,6 +163,10 @@
             </dl>
             {% endif %}
         </div>
+        {% endif %}
+
+        {% if payout %}
+        {% include "billing/_einvoice_status.html" %}
         {% endif %}
 
         <!-- ═══════════════════════════════════════════════════════

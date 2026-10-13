@@ -39,41 +39,22 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 
 class WithdrawalRequestSerializer(serializers.ModelSerializer):
+    deal_id = serializers.IntegerField(source="deal.id", read_only=True, default=None)
+    blocked_reasons = serializers.ListField(child=serializers.CharField(), read_only=True)
+
     class Meta:
         model = WithdrawalRequest
         fields = (
             "id",
+            "kind",
+            "deal_id",
             "amount",
             "requisites",
             "status",
+            "blocked_reasons",
             "processed_at",
             "admin_comment",
             "created_at",
             "updated_at",
         )
-        read_only_fields = (
-            "id",
-            "status",
-            "processed_at",
-            "admin_comment",
-            "created_at",
-            "updated_at",
-        )
-
-    def validate_amount(self, value):
-        request = self.context["request"]
-        try:
-            wallet = request.user.wallet
-        except Wallet.DoesNotExist:
-            raise serializers.ValidationError("Wallet not found.")
-        if value > wallet.available_balance:
-            raise serializers.ValidationError(
-                "Withdrawal amount exceeds available balance."
-            )
-        return value
-
-    def create(self, validated_data):
-        request = self.context["request"]
-        return WithdrawalRequest.objects.create(
-            blogger=request.user, **validated_data
-        )
+        read_only_fields = fields

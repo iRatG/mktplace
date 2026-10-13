@@ -155,7 +155,7 @@ class ClaimsTest(TestCase):
         deal = self._published()
         self._claim(deal)
         adv_before = Wallet.objects.get(user=self.adv).available_balance
-        bl_before = Wallet.objects.get(user=self.blogger).available_balance
+        bl_before = Wallet.objects.get(user=self.blogger).on_withdrawal
         with self.assertRaisesMessage(TransitionError, "меньше суммы сделки"):
             t.resolve_claim(deal.pk, self.staff, "split", "Раздел", deal.amount)
         t.resolve_claim(deal.pk, self.staff, "split", "Частично выполнено", "40 000")
@@ -164,7 +164,7 @@ class ClaimsTest(TestCase):
         # резерв 116 000 (100 000 + 16%): исполнителю 40 000 целиком, комиссия 16% с его части = 6 400,
         # рекламодателю возврат 116 000 − 46 400 = 69 600
         self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, adv_before + Decimal("69600"))
-        self.assertEqual(Wallet.objects.get(user=self.blogger).available_balance, bl_before + Decimal("40000"))
+        self.assertEqual(Wallet.objects.get(user=self.blogger).on_withdrawal, bl_before + Decimal("40000"))
         payment = Transaction.objects.get(deal=deal, type=Transaction.Type.PAYMENT)
         self.assertEqual(payment.amount, Decimal("-46400"))
         self.assertEqual(budget_committed(self.campaign), Decimal("40000"))

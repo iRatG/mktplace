@@ -1,7 +1,5 @@
-import re
 from decimal import Decimal
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -9,10 +7,9 @@ from django.shortcuts import redirect, render
 from apps.billing.formatting import format_money
 from apps.billing.models import PayoutRequisites, Transaction, Wallet, WithdrawalRequest
 from apps.billing.payout_requisites import (
-    PayoutRequisitesError, approve_payout_requisites, create_withdrawal_request, current_requisites,
+    PayoutRequisitesError, approve_payout_requisites, current_requisites,
     expected_requisite_type, reject_payout_requisites, submit_payout_requisites,
 )
-from apps.billing.services import BillingService
 from apps.users.models import User
 from apps.users.pd_access import log_access
 
@@ -22,6 +19,7 @@ from .admin_panel import _staff_required
 
 @login_required
 def wallet_view(request):
+    """Кошелёк. У исполнителя формы вывода нет (с 13.10.2026): выплаты формируются по сделкам, здесь — их состояние."""
     user = request.user
     wallet, _ = Wallet.objects.get_or_create(user=user)
     from django.core.paginator import Paginator
@@ -29,45 +27,19 @@ def wallet_view(request):
     txn_page = Paginator(txn_qs, 20).get_page(request.GET.get("page", 1))
     transactions = txn_page
 
-    min_withdrawal = getattr(settings, "CURRENCY_MIN_WITHDRAWAL", 500)
-    entered = {"amount": ""}
     requisites = current_requisites(user) if user.role == User.Role.BLOGGER else None
-
-    if request.method == "POST" and user.role == User.Role.BLOGGER and user.is_demo:
-        messages.error(request, "Вывод средств недоступен для демо-аккаунтов.")
-        return redirect("web:wallet")
-    if request.method == "POST" and user.role == User.Role.BLOGGER:
-        amount_str = request.POST.get("amount", "").strip()
-        entered = {"amount": amount_str}
-        from decimal import Decimal as D, InvalidOperation
-        try:
-            amount = D(re.sub(r"\s", "", amount_str))  # «100 000» — пробелы между разрядами
-            if not amount.is_finite():
-                raise ValueError(amount_str)
-        except (InvalidOperation, ValueError):
-            messages.error(request, "Некорректная сумма — введите число.")
-            amount = None
-
-        if amount is not None:
-            if amount < D(str(min_withdrawal)):
-                messages.error(request, f"Минимальная сумма вывода: {format_money(min_withdrawal)} {getattr(settings, 'CURRENCY_SYMBOL', '')}.")
-            elif amount > wallet.available_balance:
-                messages.error(request, "Недостаточно средств на балансе.")
-            else:
-                try:
-                    create_withdrawal_request(user, amount)
-                    messages.success(request, f"Заявка на вывод {format_money(amount)} {getattr(settings, 'CURRENCY_SYMBOL', '')} подана.")
-                    return redirect("web:wallet")
-                except (ValueError, PayoutRequisitesError) as e:
-                    messages.error(request, f"Ошибка: {e}")
-
-    pending_withdrawals = []
+    payouts = []
     expected = None
+    paid_out = None
     if user.role == User.Role.BLOGGER:
-        pending_withdrawals = WithdrawalRequest.objects.filter(
-            blogger=user, status=WithdrawalRequest.Status.PENDING
-        ).order_by("-created_at")
+        from apps.billing import metrics
+
+        payouts = list(
+            WithdrawalRequest.objects.filter(blogger=user).select_related("deal__campaign")
+            .prefetch_related("deal__einvoices").order_by("-created_at")[:50]
+        )
         expected = _expected_payouts(user)
+        paid_out = metrics.blogger_paid_out(user)
 
     budgets = None
     if user.role == User.Role.ADVERTISER:
@@ -81,10 +53,10 @@ def wallet_view(request):
         "wallet": wallet,
         "transactions": transactions,
         "page_obj": transactions,
-        "pending_withdrawals": pending_withdrawals,
-        "min_withdrawal": min_withdrawal,
-        "min_withdrawal_text": format_money(min_withdrawal),
-        "entered": entered,
+        "payouts": payouts,
+        "pending_payouts": [p for p in payouts if p.status == WithdrawalRequest.Status.PENDING],
+        "paid_out": paid_out,
+        "legacy_available": user.role == User.Role.BLOGGER and wallet.available_balance > 0,
         "requisites": requisites,
     })
 

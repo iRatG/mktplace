@@ -276,10 +276,23 @@ def complete(pk, actor=None):
             how = "timer"
             comment = "Претензий не поступило, срок претензии и срок сохранения истекли. Оплата выполнена."
         BillingService.complete_deal_payment(deal)
+        _after_payout(deal)
         _move(deal, S.COMPLETED, actor, comment, last_distributed_at=timezone.now())
         _chat(deal, comment)
     _after_commit(NotificationService.notify_deal_completed, deal.blogger, deal, how=how)
     return deal
+
+
+def _after_payout(deal):
+    """Оплата исполнителю прошла (внутри транзакции): ЭСФ исполнителя по сделке — «ждёт подтверждения» для ИП,
+    юрлица и самозанятого, иначе «не требуется»; после коммита — уведомления обеим сторонам (#61)."""
+    from apps.billing import esf
+
+    payout = deal.payout
+    einvoice, created = esf.open_for_deal(deal, amount=payout.amount if payout else deal.blogger_earning)
+    if created and einvoice.status == einvoice.Status.WAITING:
+        _after_commit(NotificationService.notify_esf_required, deal.blogger, deal, einvoice)
+        _after_commit(NotificationService.notify_esf_to_confirm, deal.advertiser, deal, einvoice)
 
 
 def checking_overdue(deal, now=None):
@@ -453,6 +466,7 @@ def resolve_claim(pk, staff, decision, comment, blogger_part=None):
         label = Claim.Decision(decision).label
         if decision == Claim.Decision.TO_BLOGGER:
             BillingService.complete_deal_payment(deal)
+            _after_payout(deal)
             _move(deal, S.COMPLETED, staff, f"Решение по претензии: {label}. {comment}",
                   last_distributed_at=now, paid_amount=amount, **fields)
         elif decision == Claim.Decision.TO_ADVERTISER:
@@ -460,6 +474,7 @@ def resolve_claim(pk, staff, decision, comment, blogger_part=None):
             _move(deal, S.CANCELLED, staff, f"Решение по претензии: {label}. {comment}", paid_amount=Decimal("0"), **fields)
         else:
             BillingService.split_deal_payment(deal, part)
+            _after_payout(deal)
             _move(deal, S.COMPLETED, staff, f"Решение по претензии: {label} — исполнителю {part}. {comment}",
                   last_distributed_at=now, paid_amount=part, **fields)
         if claim is not None:

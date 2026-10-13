@@ -88,6 +88,12 @@ def approve_payout_requisites(application_pk, staff):
     application.reviewed_at = timezone.now()
     application.rejection_reason = ""
     application.save(update_fields=["status", "reviewed_by", "reviewed_at", "rejection_reason", "updated_at"])
+    # Выплаты, созданные до подтверждения реквизитов, ждали снимка — заполняем, чтобы реестр их разблокировал.
+    for payout in WithdrawalRequest.objects.filter(
+        blogger=application.user, status=WithdrawalRequest.Status.PENDING, requisites={},
+    ):
+        payout.requisites = application.as_snapshot()
+        payout.save(update_fields=["requisites", "updated_at"])
     NotificationService.notify_payout_requisites_approved(application.user, application)
     return application
 
@@ -112,7 +118,8 @@ def reject_payout_requisites(application_pk, staff, reason):
 
 @db_transaction.atomic
 def create_withdrawal_request(blogger, amount):
-    """Заявка на вывод — реквизиты берутся снимком из подтверждённых, не из ввода пользователя."""
+    """Выплата остатка на балансе (до перехода на выплаты по сделке) — ставит в реестр сотрудник; реквизиты —
+    снимком из подтверждённых."""
     from .services import BillingService
 
     requisites = current_requisites(blogger)

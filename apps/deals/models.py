@@ -9,6 +9,10 @@ def _generate_slug():
     return _uuid.uuid4().hex[:16]
 
 
+# Префикс номера договора сделки (для ЭСФ исполнителя рекламодателю): UB-<id>.
+DEAL_CONTRACT_PREFIX = "UB-"
+
+
 class Deal(models.Model):
     class Status(models.TextChoices):
         WAITING_PAYMENT = "waiting_payment", "Ожидает оплаты"
@@ -220,6 +224,21 @@ class Deal(models.Model):
     def reserved_total(self):
         """Сколько зарезервировано у рекламодателя под сделку: вознаграждение + комиссия (или только сумма у старых)."""
         return self.amount + (self.commission_amount or 0) if self.commission_on_top else self.amount
+
+    @property
+    def contract_number(self):
+        """Номер договора для ЭСФ и документов: «UB-<номер сделки>» (решено 13.10.2026)."""
+        return f"{DEAL_CONTRACT_PREFIX}{self.pk}"
+
+    @property
+    def payout(self):
+        """Действующая выплата по сделке (не отклонённая) — или None."""
+        return next((p for p in self.payouts.all() if p.status != "rejected"), None)
+
+    @property
+    def performer_einvoice(self):
+        """ЭСФ исполнителя рекламодателю по этой сделке — или None, пока сделка не оплачена."""
+        return next((e for e in self.einvoices.all() if e.kind == "performer"), None)
 
     @property
     def on_package_terms(self):

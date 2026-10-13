@@ -80,13 +80,14 @@ class WithdrawalTest(TestCase):
         self.client.post(reverse("web:wallet"), {"amount": "100000", "card": "8600 0000 0000 0000"})
         self.assertFalse(WithdrawalRequest.objects.filter(blogger=demo).exists())
 
-    def test_api_withdrawal_atomic(self):
+    def test_api_withdrawal_create_removed(self):
+        # С 13.10.2026 выплаты формирует платформа по сделкам — создать заявку через API нельзя (405).
         poor = _user("poor@test.com")
         api = APIClient()
         api.force_authenticate(poor)
         r = api.post(reverse("billing:withdrawal-list"),
                      {"amount": "100000", "requisites": {"type": "card", "details": "x"}}, format="json")
-        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.status_code, 405)
         self.assertFalse(WithdrawalRequest.objects.filter(blogger=poor).exists())
 
 

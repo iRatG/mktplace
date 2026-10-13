@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from .models import SpecialTariff, TestBalanceGrant, Transaction, Wallet, WithdrawalRequest
+from .models import EInvoice, SpecialTariff, TestBalanceGrant, Transaction, Wallet, WithdrawalRequest
 from .services import BillingService
 
 
@@ -65,11 +65,11 @@ class TransactionAdmin(admin.ModelAdmin):
 
 @admin.register(WithdrawalRequest)
 class WithdrawalRequestAdmin(admin.ModelAdmin):
-    list_display = ("blogger", "amount", "status", "created_at", "processed_at")
-    list_filter = ("status",)
+    list_display = ("blogger", "deal", "kind", "amount", "status", "created_at", "processed_at")
+    list_filter = ("status", "kind")
     search_fields = ("blogger__email",)
     # Статус и сумма меняются только действиями ниже — через BillingService (выплата пишет PAYOUT).
-    readonly_fields = ("blogger", "amount", "status", "created_at", "updated_at", "processed_at")
+    readonly_fields = ("blogger", "deal", "kind", "amount", "status", "created_at", "updated_at", "processed_at")
     actions = ["complete_withdrawals", "reject_withdrawals"]
 
     def _process(self, request, queryset, method, done_label):
@@ -111,3 +111,22 @@ class TestBalanceGrantAdmin(admin.ModelAdmin):
 class SpecialTariffAdmin(admin.ModelAdmin):
     list_display = ("advertiser", "percent", "valid_until", "note")
     search_fields = ("advertiser__email",)
+
+
+@admin.register(EInvoice)
+class EInvoiceAdmin(admin.ModelAdmin):
+    """ЭСФ — только просмотр: статус ставится через apps.billing.esf.set_status (панель сотрудника)."""
+
+    list_display = ("deal", "kind", "status", "contract_number", "amount", "number", "provider", "status_changed_at")
+    list_filter = ("kind", "status", "provider")
+    search_fields = ("contract_number", "number", "deal__id")
+    readonly_fields = [f.name for f in EInvoice._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

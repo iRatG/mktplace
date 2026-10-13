@@ -140,8 +140,8 @@
                 <div class="text-xs text-gray-500">Минимальное пополнение<br>баланса</div>
             </div>
             <div class="card-dark rounded-xl p-4 text-center">
-                <div class="text-2xl font-bold text-orange-600 mb-1">{{ currency.min_withdrawal|money }} {{ currency.symbol }}</div>
-                <div class="text-xs text-gray-500">Минимальный вывод<br>для блогера</div>
+                <div class="text-2xl font-bold text-orange-600 mb-1">По сделке</div>
+                <div class="text-xs text-gray-500">Выплата исполнителю<br>формируется автоматически</div>
             </div>
         </div>
 
@@ -158,11 +158,11 @@
         {% include "partials/faq_item.html" with question="Как работает комиссия?" answer="Ставка — 8%, 13% или 16% в зависимости от оборота рекламодателя за прошлый календарный месяц (новый рекламодатель начинает с 16%, сотрудник может установить специальный тариф). Комиссия начисляется на цену блогера и платится рекламодателем сверх неё — блогер получает цену целиком. Ставка фиксируется в момент направления оферты и не меняется до завершения сделки. Например: цена блогеру 100 000, тариф 16% — с рекламодателя резервируется 116 000, блогер получает 100 000." %}
         <div class="card-dark rounded-xl overflow-hidden">
             <button onclick="toggleFaq(this)" class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 transition-colors">
-                <span class="font-medium text-gray-900 pr-4">Как вывести деньги (блогер)?</span>
+                <span class="font-medium text-gray-900 pr-4">Как блогер получает деньги?</span>
                 <svg class="faq-arrow w-5 h-5 text-gray-600 flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
             <div class="hidden px-6 pb-5 text-sm text-gray-600 leading-relaxed border-t border-gray-200 pt-4">
-                «Кошелёк» → «Вывод средств». Укажите сумму (от {{ currency.min_withdrawal|money }} {{ currency.symbol }}, не более доступного баланса) и реквизиты. Обработка — до 3 рабочих дней.
+                Заявку подавать не нужно: в день оплаты сделки выплата формируется автоматически и уходит на подтверждённые реквизиты («Профиль» → «Реквизиты выплаты») после проверки бухгалтером. ИП, юрлицу и самозанятому — после того, как рекламодатель подтвердит ЭСФ исполнителя (договор № UB-<номер сделки>). Состояние каждой выплаты — в «Кошельке».
             </div>
         </div>
         {% include "partials/faq_item.html" with question="Что происходит с деньгами при отмене сделки?" answer="Зарезервированная сумма полностью возвращается на доступный баланс рекламодателя. Штрафов нет." %}

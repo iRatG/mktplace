@@ -195,10 +195,10 @@ class NotificationService:
         NotificationService.notify(
             user=blogger,
             notification_type=Notification.Type.PAYMENT_RECEIVED,
-            title="Деньги зачислены на баланс",
+            title="Выплата поставлена в реестр",
             body=(
-                f"{reason} #{deal.pk} "
-                f"«{deal.campaign.name}». Средства переведены на ваш баланс."
+                f"{reason} #{deal.pk} «{deal.campaign.name}». Сумма {format_money(deal.blogger_earning)} "
+                f"поставлена в реестр выплат — перевод проведёт бухгалтер после проверки условий выплаты."
             ),
             deal=deal,
             url=reverse("web:wallet"),
@@ -812,27 +812,75 @@ class NotificationService:
     # ── Вывод средств ─────────────────────────────────────────────────────────
 
     @staticmethod
-    def notify_withdrawal_approved(blogger, amount):
-        """Заявка на вывод одобрена → блогеру."""
+    def notify_withdrawal_approved(blogger, amount, deal=None):
+        """Выплата проведена → исполнителю."""
+        where = f" по сделке #{deal.pk}" if deal is not None else ""
         NotificationService.notify(
             user=blogger,
             notification_type=Notification.Type.WITHDRAWAL_APPROVED,
-            title="Выплата подтверждена",
-            body=f"Ваша заявка на вывод {format_money(amount)} одобрена и обработана.",
+            title="Выплата проведена",
+            body=f"Выплата {format_money(amount)}{where} проведена — деньги отправлены на ваши реквизиты.",
             url=reverse("web:wallet"),
         )
 
     @staticmethod
-    def notify_withdrawal_rejected(blogger, amount, comment=""):
-        """Заявка на вывод отклонена → блогеру."""
+    def notify_withdrawal_rejected(blogger, amount, comment="", deal=None):
+        """Выплата не проведена → исполнителю."""
         reason = f" Причина: {comment}" if comment else ""
+        where = f" по сделке #{deal.pk}" if deal is not None else ""
         NotificationService.notify(
             user=blogger,
             notification_type=Notification.Type.WITHDRAWAL_REJECTED,
-            title="Заявка на вывод отклонена",
-            body=f"Ваша заявка на вывод {format_money(amount)} отклонена.{reason} Средства возвращены на баланс.",
+            title="Выплата не проведена",
+            body=(f"Выплата {format_money(amount)}{where} не проведена.{reason} Сумма осталась на вашем балансе — "
+                  f"сотрудник проведёт выплату повторно после исправления."),
             url=reverse("web:wallet"),
         )
+
+    # ── ЭСФ по сделке (#61) ──────────────────────────────────────────────────
+
+    @staticmethod
+    def notify_esf_required(blogger, deal, einvoice):
+        """Сделка оплачена, нужна ЭСФ исполнителя → исполнителю (договор №, сумма)."""
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.ESF_REQUIRED,
+            title="Выставьте ЭСФ рекламодателю",
+            body=(f"По сделке #{deal.pk} «{deal.campaign.name}» выставьте рекламодателю ЭСФ: договор № "
+                  f"{einvoice.contract_number}, сумма {format_money(einvoice.amount)}. Выплата — после того, как "
+                  f"рекламодатель подтвердит ЭСФ."),
+            deal=deal,
+            url=reverse("web:deal_detail", args=[deal.pk]),
+        )
+
+    @staticmethod
+    def notify_esf_to_confirm(advertiser, deal, einvoice, reminder=False):
+        """Подтвердите ЭСФ исполнителя → рекламодателю (при оплате сделки и одно напоминание)."""
+        NotificationService.notify(
+            user=advertiser,
+            notification_type=Notification.Type.ESF_TO_CONFIRM,
+            title="Подтвердите ЭСФ исполнителя" + (" — напоминание" if reminder else ""),
+            body=(f"Исполнитель по сделке #{deal.pk} «{deal.campaign.name}» выставляет вам ЭСФ на "
+                  f"{format_money(einvoice.amount)} (договор № {einvoice.contract_number}). Подтвердите её в системе "
+                  f"электронного документооборота — после этого платформа проведёт выплату."),
+            deal=deal,
+            url=reverse("web:deal_detail", args=[deal.pk]),
+        )
+
+    @staticmethod
+    def notify_esf_problem(einvoice):
+        """ЭСФ отклонена или расходится со сделкой → всем активным сотрудникам (выплата заблокирована)."""
+        deal = einvoice.deal
+        note = f" {einvoice.note}" if einvoice.note else ""
+        for staff in NotificationService._staff():
+            NotificationService.notify(
+                user=staff,
+                notification_type=Notification.Type.ESF_PROBLEM,
+                title=f"ЭСФ: {einvoice.get_status_display().lower()}",
+                body=(f"По сделке #{deal.pk} «{deal.campaign.name}» ЭСФ исполнителя — "
+                      f"{einvoice.get_status_display().lower()}.{note} Выплата заблокирована до исправления."),
+                url=reverse("web:admin_withdrawals") + f"?deal={deal.pk}",
+            )
 
     # ── Регистрация юрлиц ─────────────────────────────────────────────────────
 

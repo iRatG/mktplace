@@ -110,6 +110,11 @@ urlpatterns = [
     path("panel/withdrawals/", views.admin_withdrawals, name="admin_withdrawals"),
     path("panel/withdrawals/<int:pk>/approve/", views.admin_withdrawal_approve, name="admin_withdrawal_approve"),
     path("panel/withdrawals/<int:pk>/reject/", views.admin_withdrawal_reject, name="admin_withdrawal_reject"),
+    path("panel/withdrawals/<int:pk>/reissue/", views.admin_withdrawal_reissue, name="admin_withdrawal_reissue"),
+    path("panel/withdrawals/legacy/<int:user_pk>/", views.admin_withdrawal_legacy_balance,
+         name="admin_withdrawal_legacy_balance"),
+    path("panel/einvoices/<int:pk>/", views.admin_einvoice_update, name="admin_einvoice_update"),
+    path("panel/finance/", views.admin_finance, name="admin_finance"),
     path("panel/users/", views.admin_users, name="admin_users"),
 
     # Notifications (Module 11)

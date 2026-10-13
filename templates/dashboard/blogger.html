@@ -19,9 +19,9 @@
 <!-- Stats -->
 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
     <a href="{% url 'web:wallet' %}" class="card-dark rounded-xl p-5 block">
-        <div class="text-sm text-gray-600">Баланс</div>
-        <div class="text-2xl font-bold text-gray-900 mt-1">{{ wallet.available_balance|default:0|money }} {{ currency.symbol }}</div>
-        <div class="text-xs text-gray-500 mt-1">На выводе: {{ wallet.on_withdrawal|default:0|money }} {{ currency.symbol }}</div>
+        <div class="text-sm text-gray-600">К выплате</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ wallet.on_withdrawal|default:0|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-gray-500 mt-1">Выплаты формируются по сделкам</div>
     </a>
     <a href="{% url 'web:my_responses' %}" class="card-dark rounded-xl p-5 block">
         <div class="text-sm text-gray-600">Откликов</div>

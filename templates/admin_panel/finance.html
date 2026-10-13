@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Финансы — UBlogers!{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center gap-3">
+    <a href="{% url 'web:admin_dashboard' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Панель</a>
+    <h1 class="text-2xl font-bold text-gray-900">Финансы</h1>
+    <span class="text-sm text-gray-500">движения денег за {{ period }}</span>
+</div>
+
+<form method="get" class="card-dark rounded-xl p-4 mb-6 flex flex-wrap items-end gap-3 text-sm" data-finance-filters>
+    <label class="block"><span class="text-xs text-gray-500">С</span>
+        <input type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" class="input-dark mt-1"></label>
+    <label class="block"><span class="text-xs text-gray-500">По</span>
+        <input type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" class="input-dark mt-1"></label>
+    <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">Показать</button>
+    <a href="{% url 'web:admin_finance' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}&export=xlsx" class="ml-auto text-sm text-orange-600 hover:text-orange-700 font-medium" data-finance-export>Скачать Excel ↓</a>
+</form>
+
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8" data-finance-totals>
+    {% for label, value in total_rows %}
+    <div class="card-dark rounded-xl p-4">
+        <div class="text-xs text-gray-500 mb-1">{{ label }}</div>
+        <div class="text-lg font-bold text-gray-900">{{ value|money }} {{ currency.symbol }}</div>
+    </div>
+    {% endfor %}
+    <div class="card-dark rounded-xl p-4">
+        <div class="text-xs text-gray-500 mb-1">Операций</div>
+        <div class="text-lg font-bold text-gray-900">{{ totals.count }}</div>
+    </div>
+</div>
+
+{% if days|length > 1 %}
+<div class="card-dark rounded-xl overflow-hidden mb-8" data-finance-days>
+    <div class="px-6 py-4 border-b border-gray-200"><h2 class="font-semibold text-gray-900">По дням</h2></div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-xs">
+        <thead class="text-gray-500"><tr class="text-left"><th class="px-4 py-2 font-medium">День</th>{% for key, label in columns %}<th class="px-3 py-2 font-medium text-right">{{ label }}</th>{% endfor %}</tr></thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for day, values in days %}
+            <tr><td class="px-4 py-2 whitespace-nowrap">{{ day|date:"d.m.Y" }}</td>{% for v in values %}<td class="px-3 py-2 text-right whitespace-nowrap">{{ v|money }}</td>{% endfor %}</tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="card-dark rounded-xl overflow-hidden" data-finance-transactions>
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-gray-900">Операции</h2>
+        <p class="text-xs text-gray-500 mt-1">Показано {{ shown }} из {{ totals.count }}; все — в Excel.</p>
+    </div>
+    {% if transactions %}
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="text-xs text-gray-500">
+            <tr class="text-left">
+                <th class="px-4 py-2 font-medium">Время</th><th class="px-3 py-2 font-medium">Тип</th><th class="px-3 py-2 font-medium">Пользователь</th>
+                <th class="px-3 py-2 font-medium text-right">Сумма</th><th class="px-3 py-2 font-medium text-right">Баланс после</th><th class="px-3 py-2 font-medium">Сделка</th><th class="px-4 py-2 font-medium">Описание</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for tx in transactions %}
+            <tr>
+                <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-500">{{ tx.created_at|date:"d.m.Y H:i" }}</td>
+                <td class="px-3 py-2 whitespace-nowrap">{{ tx.get_type_display }}</td>
+                <td class="px-3 py-2">{{ tx.wallet.user.login_display }}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap {% if tx.amount > 0 %}text-green-600{% else %}text-red-600{% endif %}">{% if tx.amount > 0 %}+{% endif %}{{ tx.amount|money }}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap text-gray-500">{{ tx.balance_after|money }}</td>
+                <td class="px-3 py-2 whitespace-nowrap">{% if tx.deal_id %}<a href="{% url 'web:deal_detail' tx.deal_id %}" class="text-orange-600 hover:text-orange-700">#{{ tx.deal_id }}</a>{% elif tx.offer_id %}оферта #{{ tx.offer_id }}{% endif %}</td>
+                <td class="px-4 py-2 text-xs text-gray-500">{{ tx.description }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="px-6 py-10 text-center text-gray-500 text-sm">Операций за период нет.</div>
+    {% endif %}
+</div>
+{% endblock %}

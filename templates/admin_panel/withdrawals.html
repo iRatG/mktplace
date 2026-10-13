@@ -1,74 +1,191 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}Заявки на вывод — UBlogers!{% endblock %}
+{% block title %}Реестр выплат — UBlogers!{% endblock %}
 
 {% block content %}
-<div class="mb-6 flex items-center gap-3">
+<div class="mb-6 flex flex-wrap items-center gap-3">
     <a href="{% url 'web:admin_dashboard' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Панель</a>
-    <h1 class="text-2xl font-bold text-gray-900">Заявки на вывод</h1>
-    <span class="text-sm text-gray-500">({{ withdrawals|length }})</span>
+    <h1 class="text-2xl font-bold text-gray-900">Реестр выплат</h1>
+    <span class="text-sm text-gray-500" data-register-count>({{ withdrawals|length }}, готовы к проведению: {{ ready_count }})</span>
+    <a href="{% url 'web:admin_withdrawals' %}?{{ query }}{% if query %}&{% endif %}export=xlsx" class="ml-auto text-sm text-orange-600 hover:text-orange-700 font-medium">Скачать Excel ↓</a>
 </div>
 
+<p class="text-sm text-gray-600 mb-4">Выплата по сделке формируется автоматически при её оплате. Проведите перевод в банке и отметьте «Проведено» с номером платёжного документа; заблокированную выплату провести нельзя. Выплата ИП, юрлицу и самозанятому — после подтверждения ЭСФ исполнителя рекламодателем.</p>
+
+<form method="get" class="card-dark rounded-xl p-4 mb-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 text-sm" data-register-filters>
+    <label class="block"><span class="text-xs text-gray-500">Статус</span>
+        <select name="status" class="input-dark mt-1">
+            {% for value, label in status_choices %}{% if value != 'approved' %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}
+            <option value="all" {% if filters.status == 'all' %}selected{% endif %}>Все</option>
+        </select></label>
+    <label class="block"><span class="text-xs text-gray-500">Готовность</span>
+        <select name="ready" class="input-dark mt-1">
+            <option value="">Любая</option>
+            <option value="1" {% if filters.ready == '1' %}selected{% endif %}>Готовы к проведению</option>
+            <option value="0" {% if filters.ready == '0' %}selected{% endif %}>Заблокированы</option>
+        </select></label>
+    <label class="block"><span class="text-xs text-gray-500">Вид</span>
+        <select name="kind" class="input-dark mt-1">
+            <option value="">Любой</option>
+            {% for value, label in kind_choices %}<option value="{{ value }}" {% if filters.kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select></label>
+    <label class="block"><span class="text-xs text-gray-500">Сделка №</span>
+        <input type="text" name="deal" value="{{ filters.deal }}" class="input-dark mt-1" inputmode="numeric"></label>
+    <label class="block"><span class="text-xs text-gray-500">Создана с</span>
+        <input type="date" name="date_from" value="{{ filters.date_from|date:'Y-m-d' }}" class="input-dark mt-1"></label>
+    <label class="block"><span class="text-xs text-gray-500">по</span>
+        <input type="date" name="date_to" value="{{ filters.date_to|date:'Y-m-d' }}" class="input-dark mt-1"></label>
+    <div class="flex flex-col justify-end gap-2">
+        <label class="text-xs text-gray-600"><input type="checkbox" name="demo" value="1" {% if filters.demo %}checked{% endif %}> показать демо</label>
+        <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">Показать</button>
+    </div>
+</form>
+
 {% if withdrawals %}
-<div class="card-dark rounded-xl overflow-hidden">
+<div class="card-dark rounded-xl overflow-hidden mb-8">
     <div class="divide-y divide-gray-100">
         {% for wr in withdrawals %}
-        <div class="p-6">
-            <div class="flex items-start justify-between gap-4 mb-4">
+        <div class="p-6" data-payout-row="{{ wr.pk }}">
+            <div class="flex items-start justify-between gap-4 mb-3">
                 <div>
-                    <div class="text-gray-900 font-semibold mb-0.5">{{ wr.blogger.email }}</div>
+                    <div class="text-gray-900 font-semibold mb-0.5">
+                        Выплата №{{ wr.pk }} · {{ wr.blogger.login_display }}
+                        {% if wr.blogger.is_demo %}<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">демо</span>{% endif %}
+                    </div>
                     <div class="text-xs text-gray-500">
-                        Подана: {{ wr.created_at|date:"d.m.Y H:i" }}
+                        {{ wr.get_kind_display }}{% if wr.deal %} · <a href="{% url 'web:deal_detail' wr.deal.pk %}" class="text-orange-600 hover:text-orange-700">сделка #{{ wr.deal.pk }}</a> · договор № {{ wr.deal.contract_number }} · {{ wr.deal.campaign.name }}{% endif %}
+                        · категория: {{ wr.blogger.blogger_profile.get_category_display|default:"—" }}
+                        · создана {{ wr.created_at|date:"d.m.Y H:i" }}
                     </div>
                 </div>
                 <div class="text-right shrink-0">
                     <div class="text-xl font-bold text-green-600">{{ wr.amount|money }} {{ currency.symbol }}</div>
+                    <div class="text-xs mt-1">
+                        {% if wr.status == 'pending' %}{% with reasons=wr.blocked_reasons %}{% if reasons %}<span class="px-2 py-0.5 rounded-full bg-red-50 text-red-600" data-blocked>{{ reasons|join:", " }}</span>{% else %}<span class="px-2 py-0.5 rounded-full bg-green-50 text-green-700" data-ready>готова к проведению</span>{% endif %}{% endwith %}
+                        {% elif wr.status == 'completed' %}<span class="px-2 py-0.5 rounded-full bg-green-50 text-green-700">проведена {{ wr.processed_at|date:"d.m.Y" }}</span>
+                        {% elif wr.status == 'rejected' %}<span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">отклонена {{ wr.processed_at|date:"d.m.Y" }}</span>{% endif %}
+                    </div>
                 </div>
             </div>
 
-            {% if wr.requisites %}
-            <div class="bg-gray-50 rounded-lg p-3 mb-4">
-                <div class="text-xs text-gray-500 mb-1">Реквизиты</div>
+            {% with req=wr.effective_requisites %}
+            <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                <div class="text-xs text-gray-500 mb-1">Реквизиты{% if not wr.requisites and req %} (текущие подтверждённые — снимок при проведении){% endif %}</div>
                 <div class="text-sm text-gray-900 font-mono">
-                    {% if wr.requisites.type %}{{ wr.requisites.type }}: {% endif %}{{ wr.requisites.details|default:wr.requisites }}
+                    {% if not req %}нет подтверждённых реквизитов
+                    {% elif req.type == 'card' %}Карта {{ req.card_number }} · {{ req.card_holder_name }}
+                    {% else %}Счёт {{ req.account_number }} · МФО {{ req.bank_mfo }} · {{ req.bank_name }}{% if req.bank_inn %} · ИНН банка {{ req.bank_inn }}{% endif %}{% endif %}
                 </div>
             </div>
-            {% endif %}
+            {% endwith %}
 
-            <div class="flex flex-col sm:flex-row gap-3">
-                <form method="post" action="{% url 'web:admin_withdrawal_approve' wr.pk %}">
+            {% if wr.deal %}{% with einvoice=wr.deal.performer_einvoice %}{% if einvoice %}
+            <div class="bg-gray-50 rounded-lg p-3 mb-3" data-einvoice="{{ einvoice.pk }}">
+                <div class="text-xs text-gray-500 mb-1">ЭСФ исполнителя рекламодателю на {{ einvoice.amount|money }} {{ currency.symbol }} — <span class="text-gray-900">{{ einvoice.get_status_display }}</span>{% if einvoice.number %} · № {{ einvoice.number }}{% endif %}{% if einvoice.note %} · {{ einvoice.note }}{% endif %}</div>
+                {% if wr.status == 'pending' %}
+                <form method="post" action="{% url 'web:admin_einvoice_update' einvoice.pk %}" class="flex flex-wrap gap-2 items-end mt-2">
                     {% csrf_token %}
-                    <input type="hidden" name="comment" value="Выплата подтверждена">
-                    <button type="submit"
-                            onclick="return confirm('Подтвердить выплату {{ wr.amount|money }} {{ currency.symbol }}?')"
-                            class="btn-orange px-5 py-2 text-sm rounded-xl">
-                        ✅ Подтвердить выплату
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <label class="block text-xs text-gray-500">Номер ЭСФ<input type="text" name="number" value="{{ einvoice.number }}" class="input-dark mt-1" style="max-width: 14rem"></label>
+                    <label class="block text-xs text-gray-500">Статус<select name="status" class="input-dark mt-1">
+                        {% for value, label in performer_statuses %}<option value="{{ value }}" {% if einvoice.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select></label>
+                    <label class="block text-xs text-gray-500">Примечание<input type="text" name="note" value="{{ einvoice.note }}" class="input-dark mt-1" style="max-width: 18rem"></label>
+                    <button type="submit" class="px-4 py-2 text-sm rounded-xl border border-gray-300 hover:bg-gray-100 transition-colors">Сохранить ЭСФ</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}{% endwith %}{% endif %}
+
+            {% if wr.status == 'pending' %}
+            <div class="flex flex-col sm:flex-row gap-3">
+                <form method="post" action="{% url 'web:admin_withdrawal_approve' wr.pk %}" class="flex flex-wrap gap-2 items-center">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <input type="text" name="comment" placeholder="№ платёжного документа" class="input-dark" style="max-width: 16rem">
+                    <button type="submit" {% if not wr.is_ready %}disabled title="Выплата заблокирована"{% endif %}
+                            onclick="return confirm('Отметить выплату {{ wr.amount|money }} {{ currency.symbol }} проведённой?')"
+                            class="btn-orange px-5 py-2 text-sm rounded-xl {% if not wr.is_ready %}opacity-50 cursor-not-allowed{% endif %}">
+                        ✅ Проведено
                     </button>
                 </form>
-
                 <details>
-                    <summary class="cursor-pointer px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors inline-block">
-                        ❌ Отклонить
-                    </summary>
-                    <form method="post" action="{% url 'web:admin_withdrawal_reject' wr.pk %}" class="mt-3">
+                    <summary class="cursor-pointer px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors inline-block">❌ Отклонить</summary>
+                    <form method="post" action="{% url 'web:admin_withdrawal_reject' wr.pk %}" class="mt-3 flex flex-wrap gap-2 items-center">
                         {% csrf_token %}
-                        <input type="text" name="comment" placeholder="Причина отклонения"
-                               class="input-dark mb-2">
-                        <button type="submit" class="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">
-                            Подтвердить отклонение (средства вернутся)
-                        </button>
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <input type="text" name="comment" placeholder="Причина (обязательно)" required class="input-dark" style="max-width: 20rem">
+                        <button type="submit" class="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">Отклонить — сумма вернётся на баланс</button>
                     </form>
                 </details>
+            </div>
+            {% elif wr.status == 'rejected' and wr.deal %}
+            <div class="flex flex-wrap items-center gap-3">
+                {% if wr.admin_comment %}<span class="text-xs text-gray-500">Причина: {{ wr.admin_comment }}</span>{% endif %}
+                <form method="post" action="{% url 'web:admin_withdrawal_reissue' wr.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="px-4 py-2 text-sm rounded-xl border border-gray-300 hover:bg-gray-100 transition-colors">↻ Выплатить повторно</button>
+                </form>
+            </div>
+            {% elif wr.status == 'completed' and wr.admin_comment %}
+            <div class="text-xs text-gray-500">Платёжный документ: {{ wr.admin_comment }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="card-dark rounded-xl px-6 py-12 text-center mb-8">
+    <div class="text-4xl mb-3">✅</div>
+    <p class="text-gray-600 text-sm">Выплат по этим условиям нет.</p>
+</div>
+{% endif %}
+
+{% if legacy_wallets %}
+<div class="card-dark rounded-xl overflow-hidden mb-8" data-legacy-balances>
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-gray-900">Остатки на балансах исполнителей</h2>
+        <p class="text-xs text-gray-500 mt-1">Накоплены до перехода на выплаты по сделке. Поставьте остаток в реестр — реквизиты возьмутся из подтверждённых.</p>
+    </div>
+    <div class="divide-y divide-gray-100">
+        {% for w in legacy_wallets %}
+        <div class="px-6 py-3 flex items-center justify-between gap-4 text-sm">
+            <div class="text-gray-900">{{ w.user.login_display }}{% if w.user.is_demo %} <span class="text-xs text-gray-500">демо</span>{% endif %}</div>
+            <div class="flex items-center gap-3">
+                <span class="font-semibold">{{ w.available_balance|money }} {{ currency.symbol }}</span>
+                <form method="post" action="{% url 'web:admin_withdrawal_legacy_balance' w.user.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="px-3 py-1.5 text-xs rounded-xl border border-gray-300 hover:bg-gray-100 transition-colors">Сформировать выплату остатка</button>
+                </form>
             </div>
         </div>
         {% endfor %}
     </div>
 </div>
+{% endif %}
 
-{% else %}
-<div class="card-dark rounded-xl px-6 py-16 text-center">
-    <div class="text-4xl mb-4">✅</div>
-    <p class="text-gray-600 text-sm">Нет заявок на вывод.</p>
+{% if platform_einvoices %}
+<div class="card-dark rounded-xl overflow-hidden" data-platform-einvoices>
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-gray-900">ЭСФ платформы на комиссию — к выставлению</h2>
+        <p class="text-xs text-gray-500 mt-1">По проведённым выплатам. Выставьте ЭСФ рекламодателю и внесите номер.</p>
+    </div>
+    <div class="divide-y divide-gray-100">
+        {% for e in platform_einvoices %}
+        <div class="px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+            <div class="text-gray-900">Сделка #{{ e.deal.pk }} · договор № {{ e.contract_number }} · {{ e.deal.advertiser.login_display }} · комиссия <span class="font-semibold">{{ e.amount|money }} {{ currency.symbol }}</span></div>
+            <form method="post" action="{% url 'web:admin_einvoice_update' e.pk %}" class="flex gap-2 items-center">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <input type="hidden" name="status" value="confirmed">
+                <input type="text" name="number" placeholder="Номер ЭСФ" required class="input-dark" style="max-width: 14rem">
+                <button type="submit" class="px-3 py-1.5 text-xs rounded-xl border border-gray-300 hover:bg-gray-100 transition-colors">Выставлена</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 {% endif %}
 {% endblock %}

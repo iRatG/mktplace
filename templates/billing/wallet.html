@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load money static %}
+{% load money %}
 
 {% block title %}Кошелёк — UBlogers!{% endblock %}
 
@@ -10,37 +10,55 @@
 </div>
 
 <!-- Balance cards -->
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-    <div class="card-dark rounded-xl p-5">
-        <div class="text-xs text-gray-500 mb-1">Доступно</div>
-        <div class="text-2xl font-bold text-green-600">{{ wallet.available_balance|money }} {{ currency.symbol }}</div>
+{% if user.role == 'blogger' %}
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8" data-blogger-cards>
+    <div class="card-dark rounded-xl p-5" data-to-pay>
+        <div class="text-xs text-gray-500 mb-1">К выплате</div>
+        <div class="text-2xl font-bold text-blue-600">{{ wallet.on_withdrawal|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-gray-400 mt-1">В реестре выплат: {{ pending_payouts|length }}</div>
     </div>
-    {% if expected %}
+    <div class="card-dark rounded-xl p-5" data-paid-out>
+        <div class="text-xs text-gray-500 mb-1">Выплачено</div>
+        <div class="text-2xl font-bold text-green-600">{{ paid_out|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-gray-400 mt-1">Проведённые выплаты</div>
+    </div>
     <div class="card-dark rounded-xl p-5" data-expected-total>
         <div class="text-xs text-gray-500 mb-1">Ожидается к выплате</div>
         <div class="text-2xl font-bold text-yellow-700">{{ expected.total|money }} {{ currency.symbol }}</div>
         <div class="text-xs text-gray-400 mt-1">По сделкам в работе: {{ expected.deals|length }}</div>
     </div>
-    {% else %}
+    {% if legacy_available %}
+    <div class="card-dark rounded-xl p-5" data-legacy-available>
+        <div class="text-xs text-gray-500 mb-1">Доступно</div>
+        <div class="text-2xl font-bold text-gray-900">{{ wallet.available_balance|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-gray-400 mt-1">Остаток до перехода на выплаты по сделке — поставит в реестр сотрудник</div>
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+    <div class="card-dark rounded-xl p-5">
+        <div class="text-xs text-gray-500 mb-1">Доступно</div>
+        <div class="text-2xl font-bold text-green-600">{{ wallet.available_balance|money }} {{ currency.symbol }}</div>
+    </div>
     <div class="card-dark rounded-xl p-5">
         <div class="text-xs text-gray-500 mb-1">Заморожено</div>
         <div class="text-2xl font-bold text-yellow-700">{{ wallet.reserved_balance|money }} {{ currency.symbol }}</div>
-        <div class="text-xs text-gray-400 mt-1">По активным сделкам</div>
+        <div class="text-xs text-gray-400 mt-1">По активным сделкам и офертам</div>
     </div>
-    {% endif %}
     <div class="card-dark rounded-xl p-5">
         <div class="text-xs text-gray-500 mb-1">На выводе</div>
         <div class="text-2xl font-bold text-blue-600">{{ wallet.on_withdrawal|money }} {{ currency.symbol }}</div>
-        <div class="text-xs text-gray-400 mt-1">Заявки в обработке</div>
     </div>
 </div>
+{% endif %}
 
 {% if expected and expected.deals %}
 <!-- Будущие выплаты (блогер): по какой сделке, сколько и когда -->
 <div class="card-dark rounded-xl overflow-hidden mb-8" data-expected-payouts>
     <div class="px-6 py-4 border-b border-gray-200">
         <h2 class="font-semibold text-gray-900">Будущие выплаты</h2>
-        <p class="text-xs text-gray-500 mt-1">Деньги рекламодателя уже в резерве платформы. На баланс они придут в день выплаты, если до него не будет претензии.</p>
+        <p class="text-xs text-gray-500 mt-1">Деньги рекламодателя уже в резерве платформы. В день выплаты сумма встанет в реестр выплат, если до него не будет претензии.</p>
     </div>
     <div class="overflow-x-auto">
     <table class="w-full text-sm">
@@ -116,53 +134,39 @@
 </div>
 {% endif %}
 
-<!-- Withdrawal form (bloggers only) -->
+<!-- Выплаты исполнителя (с 13.10.2026 формируются по сделке, заявки нет) -->
 {% if user.role == 'blogger' %}
-<div class="card-dark rounded-xl p-6 mb-8">
-    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Вывод средств</h2>
-    {% if pending_withdrawals %}
-    <div class="rounded-xl p-4 bg-yellow-50 border border-yellow-200 mb-4">
-        {% with n=pending_withdrawals|length %}
-        <p class="text-yellow-700 text-sm font-medium">Заявок в обработке: {{ n }}</p>
-        {% endwith %}
-        <ul class="mt-2 space-y-1">
-            {% for wr in pending_withdrawals %}
-            <li class="text-xs text-yellow-700">{{ wr.amount|money }} {{ currency.symbol }} — подана {{ wr.created_at|date:"d.m.Y" }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
-
-    {% if user.is_demo %}
-    {# Демо-аккаунт не выводит деньги — говорим сразу, а не после отправки (QA camp_test_3, шаг 14). #}
-    <div class="rounded-xl p-4 bg-gray-50 border border-gray-200 mb-4 text-sm text-gray-700">
-        Вывод средств недоступен для демо-аккаунтов.
-    </div>
-    {% elif not requisites %}
-    {# Без подтверждённых реквизитов форма вывода недоступна (T7/#39) — сначала их нужно подтвердить. #}
-    <div class="rounded-xl p-4 bg-gray-50 border border-gray-200 mb-4 text-sm text-gray-700">
-        Чтобы выводить деньги, сначала подтвердите реквизиты выплаты.
-        <a href="{% url 'web:payout_requisites' %}" class="text-orange-600 hover:text-orange-700 font-medium">Подтвердить реквизиты →</a>
-    </div>
-    {% endif %}
-    {% if not user.is_demo and requisites %}
-    <p class="text-xs text-gray-500 mb-3">Выплата уйдёт на: {{ requisites.masked_number }}
+<div class="card-dark rounded-xl p-6 mb-8" data-payouts>
+    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Выплаты</h2>
+    <p class="text-xs text-gray-500 mb-4">Выплата по сделке формируется автоматически в день оплаты и уходит на ваши подтверждённые реквизиты после проверки условий бухгалтером. Для ИП, юрлица и самозанятого — после того, как рекламодатель подтвердит вашу ЭСФ.</p>
+    {% if requisites %}
+    <p class="text-xs text-gray-500 mb-4">Выплаты уходят на: {{ requisites.masked_number }}
         (<a href="{% url 'web:payout_requisites' %}" class="text-orange-600 hover:text-orange-700">изменить реквизиты</a>)</p>
-    {# novalidate: сумму проверяет сервер, ошибки — в сообщении над страницей. #}
-    <form method="post" action="{% url 'web:wallet' %}" novalidate>
-        {% csrf_token %}
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+    {% else %}
+    <div class="rounded-xl p-4 bg-yellow-50 border border-yellow-200 mb-4 text-sm text-yellow-800" data-no-requisites>
+        Чтобы получать выплаты, подтвердите реквизиты выплаты.
+        <a href="{% url 'web:payout_requisites' %}" class="font-medium underline">Подтвердить реквизиты →</a>
+    </div>
+    {% endif %}
+    {% if payouts %}
+    <div class="divide-y divide-gray-100">
+        {% for p in payouts %}
+        <div class="py-3 flex items-start justify-between gap-4 text-sm" data-payout="{{ p.pk }}">
             <div>
-                {% with label="Сумма ("|add:currency.symbol|add:")" placeholder="Минимум "|add:min_withdrawal_text %}
-                {% include "partials/number_input.html" with name="amount" value=entered.amount label=label step=10000 placeholder=placeholder %}
-                {% endwith %}
+                <div class="text-gray-900">{% if p.deal %}<a href="{% url 'web:deal_detail' p.deal.pk %}" class="hover:text-orange-700">#{{ p.deal.pk }} · {{ p.deal.campaign.name }}</a>{% else %}Остаток на балансе{% endif %}</div>
+                <div class="text-xs text-gray-500 mt-0.5">
+                    {% if p.status == 'completed' %}проведена {{ p.processed_at|date:"d.m.Y" }}
+                    {% elif p.status == 'rejected' %}не проведена{% if p.admin_comment %}: {{ p.admin_comment }}{% endif %}
+                    {% else %}{% with reasons=p.blocked_reasons %}{% if reasons %}ждёт: {{ reasons|join:", " }}{% if not requisites %} — <a href="{% url 'web:payout_requisites' %}" class="text-orange-600 hover:text-orange-700">подтвердить реквизиты</a>{% endif %}{% else %}в реестре — ждёт проведения{% endif %}{% endwith %}{% endif %}
+                    · создана {{ p.created_at|date:"d.m.Y" }}
+                </div>
             </div>
+            <div class="font-semibold whitespace-nowrap {% if p.status == 'completed' %}text-green-600{% elif p.status == 'rejected' %}text-gray-400{% else %}text-blue-600{% endif %}">{{ p.amount|money }} {{ currency.symbol }}</div>
         </div>
-        <button type="submit" class="btn-orange px-5 py-2.5 text-sm rounded-xl">
-            Подать заявку
-        </button>
-        <p class="text-xs text-gray-400 mt-3">Минимальная сумма: {{ min_withdrawal|money }} {{ currency.symbol }}. Обработка: 3 рабочих дня.</p>
-    </form>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-500">Выплат пока нет.</p>
     {% endif %}
 </div>
 {% endif %}
@@ -196,7 +200,8 @@
                         {% elif tx.type == 'reserve' %}Резервирование
                         {% elif tx.type == 'release' %}Возврат резерва
                         {% elif tx.type == 'payment' %}Оплата по сделке
-                        {% elif tx.type == 'withdrawal' %}Вывод средств
+                        {% elif tx.type == 'withdrawal' %}В реестр выплат
+                        {% elif tx.type == 'payout' %}Выплата проведена
                         {% elif tx.type == 'refund' %}Возврат
                         {% else %}{{ tx.get_type_display }}{% endif %}
                     </div>
@@ -223,8 +228,4 @@
     {% endif %}
 </div>
 {% include "partials/pagination.html" %}
-{% endblock %}
-
-{% block extra_scripts %}
-<script src="{% static 'js/number-input.js' %}"></script>
 {% endblock %}

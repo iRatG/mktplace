@@ -36,6 +36,9 @@ class Notification(models.Model):
         IP_APPLICATION_REJECTED = "ip_application_rejected", "IP Application Rejected"
         PAYOUT_REQUISITES_APPROVED = "payout_requisites_approved", "Payout Requisites Approved"
         PAYOUT_REQUISITES_REJECTED = "payout_requisites_rejected", "Payout Requisites Rejected"
+        ESF_REQUIRED = "esf_required", "E-Invoice Required"
+        ESF_TO_CONFIRM = "esf_to_confirm", "E-Invoice To Confirm"
+        ESF_PROBLEM = "esf_problem", "E-Invoice Problem"
         SYSTEM = "system", "System"
 
     user = models.ForeignKey(

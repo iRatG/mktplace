@@ -162,6 +162,7 @@ class BillingService:
             deal=deal,
             description=f"Earning for completed deal #{deal.pk} (after {commission_percent}% commission)",
         )
+        cls._open_deal_payout(deal, blogger_wallet, blogger_earning)
 
         # Update blogger profile stats
         profile = getattr(deal.blogger, "blogger_profile", None)
@@ -253,11 +254,44 @@ class BillingService:
             balance_after=blogger_wallet.available_balance, deal=deal,
             description=f"Earning (claim decision) for deal #{deal.pk} (after {commission_percent}% commission)",
         )
+        cls._open_deal_payout(deal, blogger_wallet, earning)
         profile = getattr(deal.blogger, "blogger_profile", None)
         if profile is not None:
             profile.deals_count += 1
             profile.save(update_fields=["deals_count"])
         return advertiser_wallet, blogger_wallet
+
+    @classmethod
+    def _open_deal_payout(cls, deal, blogger_wallet, earning):
+        """Начисление по сделке сразу становится выплатой в реестре: сумма «к выплате», блогер заявку не подаёт
+        (решение бизнеса 13.10.2026, #60). Реквизиты — снимок подтверждённых, если они уже есть. Вызывать только
+        внутри транзакции оплаты сделки, под блокировкой кошелька."""
+        if earning <= 0:
+            return None
+        from .payout_requisites import current_requisites
+
+        current = current_requisites(deal.blogger)
+        payout = WithdrawalRequest.objects.create(
+            blogger=deal.blogger, deal=deal, kind=WithdrawalRequest.Kind.DEAL, amount=earning,
+            requisites=current.as_snapshot() if current else {},
+        )
+        cls.process_withdrawal(payout)
+        blogger_wallet.refresh_from_db(fields=["available_balance", "on_withdrawal"])
+        return payout
+
+    @classmethod
+    @db_transaction.atomic
+    def reissue_deal_payout(cls, deal):
+        """Отклонённую выплату по сделке (банк вернул перевод) выпустить повторно — на ту же сумму."""
+        wallet = cls._get_or_create_wallet(deal.blogger)
+        if deal.payouts.exclude(status=WithdrawalRequest.Status.REJECTED).exists():
+            raise ValueError("По этой сделке уже есть выплата.")
+        last = deal.payouts.filter(status=WithdrawalRequest.Status.REJECTED).order_by("-created_at").first()
+        if last is None:
+            raise ValueError("Отклонённой выплаты по сделке нет.")
+        if wallet.available_balance < last.amount:
+            raise ValueError("На балансе исполнителя меньше суммы выплаты.")
+        return cls._open_deal_payout(deal, wallet, last.amount)
 
     @classmethod
     @db_transaction.atomic
@@ -276,12 +310,17 @@ class BillingService:
         wallet.on_withdrawal += amount
         wallet.save(update_fields=["available_balance", "on_withdrawal", "updated_at"])
 
+        if withdrawal.deal_id:
+            description = f"Выплата по сделке #{withdrawal.deal_id} — в реестр (№{withdrawal.pk})"
+        else:
+            description = f"Withdrawal request #{withdrawal.pk}"
         Transaction.objects.create(
             wallet=wallet,
             type=Transaction.Type.WITHDRAWAL,
             amount=-amount,
             balance_after=wallet.available_balance,
-            description=f"Withdrawal request #{withdrawal.pk}",
+            deal=withdrawal.deal,
+            description=description,
         )
         return wallet
 
@@ -297,6 +336,9 @@ class BillingService:
         withdrawal = WithdrawalRequest.objects.select_for_update().get(pk=withdrawal.pk)
         if withdrawal.status != WithdrawalRequest.Status.PENDING:
             raise ValueError(f"Withdrawal #{withdrawal.pk} is not pending.")
+        reasons = withdrawal.blocked_reasons
+        if reasons:
+            raise ValueError("Выплата заблокирована: " + ", ".join(reasons) + ".")
         wallet = cls._get_or_create_wallet(withdrawal.blogger)
         amount = withdrawal.amount
         if wallet.on_withdrawal < amount:
@@ -309,12 +351,20 @@ class BillingService:
             type=Transaction.Type.PAYOUT,
             amount=-amount,
             balance_after=wallet.available_balance,
+            deal=withdrawal.deal,
             description=f"Payout for withdrawal request #{withdrawal.pk}",
         )
+        if not withdrawal.requisites:
+            # Снимок реквизитов на момент проведения — по ним бухгалтер и отправил перевод.
+            withdrawal.requisites = withdrawal.effective_requisites()
         withdrawal.status = WithdrawalRequest.Status.COMPLETED
         withdrawal.processed_at = timezone.now()
         withdrawal.admin_comment = comment
-        withdrawal.save(update_fields=["status", "processed_at", "admin_comment", "updated_at"])
+        withdrawal.save(update_fields=["status", "processed_at", "admin_comment", "requisites", "updated_at"])
+        if withdrawal.deal_id:
+            from .esf import open_platform_einvoice
+
+            open_platform_einvoice(withdrawal)
         return withdrawal
 
     @classmethod
@@ -326,6 +376,8 @@ class BillingService:
         withdrawal = WithdrawalRequest.objects.select_for_update().get(pk=withdrawal.pk)
         if withdrawal.status != WithdrawalRequest.Status.PENDING:
             raise ValueError(f"Withdrawal #{withdrawal.pk} is not pending.")
+        if withdrawal.kind == WithdrawalRequest.Kind.DEAL and not (comment or "").strip():
+            raise ValueError("Укажите причину отклонения выплаты.")
         cls.refund(withdrawal)
         withdrawal.status = WithdrawalRequest.Status.REJECTED
         withdrawal.processed_at = timezone.now()
@@ -354,6 +406,7 @@ class BillingService:
             type=Transaction.Type.REFUND,
             amount=amount,
             balance_after=wallet.available_balance,
+            deal=withdrawal.deal,
             description=f"Refund for rejected withdrawal request #{withdrawal.pk}",
         )
         return wallet

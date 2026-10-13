@@ -151,8 +151,13 @@ def deal_detail(request, pk):
     evidence_labels = dict(EVIDENCE_CHOICES)
     evidence_fields = [(kind, evidence_labels.get(kind, kind)) for kind in deal.evidence_required]
 
+    payout = deal.payout if deal.status == Deal.Status.COMPLETED else None
+    einvoice = deal.performer_einvoice if deal.status == Deal.Status.COMPLETED else None
+
     return render(request, "deals/detail.html", {
         "deal": deal,
+        "payout": payout,
+        "einvoice": einvoice,
         "offer_terms_rows": offer_terms_rows,
         "evidence_fields": evidence_fields,
         "evidence_items": deal.evidence.all(),
