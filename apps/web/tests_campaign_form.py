@@ -189,7 +189,8 @@ class CampaignCreatePageTest(TestCase):
 
     def test_page_has_number_inputs_and_script(self):
         r = self.client.get(reverse("web:campaign_create"))
-        self.assertContains(r, "js/number-input.js")
+        # На проде статика с хэшем в имени (number-input.<hash>.js) — проверяем по регулярному выражению.
+        self.assertRegex(r.content.decode(), r"js/number-input(\.[0-9a-f]+)?\.js")
         self.assertContains(r, 'name="budget"')
         self.assertContains(r, "data-number-input", count=9)
         self.assertContains(r, 'name="cpa_type"')

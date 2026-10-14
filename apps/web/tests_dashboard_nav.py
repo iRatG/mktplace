@@ -244,7 +244,7 @@ class ResponsePriceTest(TestCase):
         field = html[html.index('name="proposed_price"') - 300:html.index('name="proposed_price"') + 300]
         self.assertIn("data-number-input", field)
         self.assertIn('data-step="10000"', field)
-        self.assertContains(r, "js/number-input.js")
+        self.assertRegex(html, r"js/number-input(\.[0-9a-f]+)?\.js")  # на проде имя файла с хэшем
 
 
 class NotificationTargetsTest(TestCase):

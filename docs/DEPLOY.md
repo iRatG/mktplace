@@ -270,6 +270,14 @@ docker exec mktplace-celery-1 celery -A config inspect registered
 # С 13.10.2026 в списке должны быть apps.billing.tasks.einvoice_reminders и
 # apps.billing.tasks.sync_einvoices (реестр выплат и ЭСФ, #60/#61).
 
+# Полный прогон тестов на сервере (~11 минут на 1 ядре, сайту не мешает). Обязательно:
+# -l autoheal=false — иначе autoheal считает одноразовый контейнер «нездоровым» (healthcheck
+# сервиса web) и перезапускает его каждые 2 минуты, тесты крутятся с нуля бесконечно
+# (14.10.2026 — 73 перезапуска за 2,5 часа); PYTHONUNBUFFERED=1 — иначе точки прогресса
+# не видны до конца; отдельная база Redis — тесты делают cache.clear(), на общей базе это
+# выбросило бы всех пользователей из входа; SKIP_MIGRATIONS=1 — entrypoint не гоняет migrate.
+cd /opt/mktplace && docker compose -f docker-compose.vps.yml run --rm -T -l autoheal=false   -e SKIP_MIGRATIONS=1 -e PYTHONUNBUFFERED=1 -e REDIS_URL=redis://redis:6379/9   -e CELERY_BROKER_URL=redis://redis:6379/9 web python manage.py test apps --noinput
+
 # Миграции и collectstatic выполняет только web (у celery/celery-beat в
 # docker-compose.vps.yml задан SKIP_MIGRATIONS=1). Применённые миграции —
 # в логе web:
