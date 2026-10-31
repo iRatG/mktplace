@@ -412,5 +412,6 @@
         {% endif %}
     </div>
 </div>
+{% if can_upload_brand_document %}{% include "campaigns/_brand_documents.html" %}{% endif %}
 <script src="{% static 'js/number-input.js' %}"></script>
 {% endblock %}

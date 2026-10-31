@@ -191,6 +191,9 @@ def admin_campaign_approve(request, pk):
     if permit:
         messages.error(request, f"{permit} Отклоните кампанию с этой причиной.")
         return redirect("web:admin_campaign_detail", pk=pk)
+    if campaign.brand_document_missing:
+        messages.error(request, "Документ на бренд ещё не загружен.")
+        return redirect("web:admin_campaign_detail", pk=pk)
     campaign.status = Campaign.Status.ACTIVE
     campaign.rejection_reason = ""
     mark_approved(campaign)
@@ -198,6 +201,17 @@ def admin_campaign_approve(request, pk):
     NotificationService.notify_campaign_approved(campaign.advertiser, campaign)
     messages.success(request, f"Кампания «{campaign.name}» одобрена и опубликована.")
     return redirect("web:admin_campaigns")
+
+
+@_staff_required
+@require_POST
+def admin_campaign_request_brand_document(request, pk):
+    campaign = get_object_or_404(Campaign, pk=pk, status=Campaign.Status.MODERATION)
+    campaign.brand_document_requested_at = timezone.now()
+    campaign.save(update_fields=["brand_document_requested_at", "updated_at"])
+    NotificationService.notify_brand_document_requested(campaign)
+    messages.success(request, "Рекламодатель получил запрос документа.")
+    return redirect("web:admin_campaign_detail", pk=pk)
 
 
 @_staff_required

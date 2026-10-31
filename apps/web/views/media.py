@@ -37,6 +37,16 @@ def _owned_file(model_path, label):
     return rule
 
 
+def _brand_document(path):
+    from apps.campaigns.models import CampaignBrandDocument
+
+    document = CampaignBrandDocument.objects.filter(file=path).select_related("campaign__advertiser").first()
+    if document is None:
+        return None
+    advertiser = document.campaign.advertiser
+    return {advertiser.pk}, advertiser, f"документ на бренд, кампания #{document.campaign_id}"
+
+
 def _ticket_file(path):
     from apps.business_queries.models import TicketAttachment
 
@@ -67,6 +77,7 @@ RULES = {
     "claim_files": _deal_file("deals.ClaimFile", "file", "файл претензии", lambda f: f.claim.deal, ("claim__deal",)),
     "ip_documents": _owned_file("registration.IPApplication", "документ подтверждения статуса"),
     "permits": _owned_file("platforms.PermitDocument", "разрешительный документ"),
+    "campaign_brand_docs": _brand_document,
     "tickets": _ticket_file,
     "campaign_images": _shared_image("campaigns.Campaign", "image"),
     "blogger_avatars": _shared_image("profiles.BloggerProfile", "avatar"),

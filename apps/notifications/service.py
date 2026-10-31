@@ -710,6 +710,18 @@ class NotificationService:
         )
 
     @staticmethod
+    def notify_brand_document_requested(campaign):
+        """Модератор запросил документ на бренд → рекламодателю."""
+        NotificationService.notify(
+            user=campaign.advertiser,
+            notification_type=Notification.Type.SYSTEM,
+            title="Нужен документ на бренд",
+            body=f"Загрузите документ на бренд в кампании «{campaign.name}»: без него её не опубликуют.",
+            url=reverse("web:campaign_detail", args=[campaign.pk]),
+            campaign=campaign,
+        )
+
+    @staticmethod
     def notify_campaign_rejected(advertiser, campaign):
         """Кампания отклонена модератором → рекламодателю."""
         reason = campaign.rejection_reason or "причина не указана"

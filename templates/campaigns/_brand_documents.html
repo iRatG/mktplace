@@ -1,0 +1,22 @@
+{# Документы на бренд: рекламодатель загружает, на модерации их видит сотрудник. #}
+<div class="card-dark rounded-xl p-6 mt-6" data-brand-documents>
+    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Документы на бренд</h2>
+    {% if campaign.brand_document_missing %}
+    <div class="alert-error mb-3" data-brand-requested>Модератор запросил документ. Без него кампанию не опубликуют.</div>
+    {% endif %}
+    <p class="text-xs text-gray-500 mb-3">Если в кампании используются чужой бренд, товарный знак, логотип или материалы правообладателя, приложите свидетельство, договор или письмо-разрешение. PDF, JPG или PNG, до 10 МБ.</p>
+    {% for document in brand_documents %}
+    <div class="flex justify-between gap-3 text-sm py-1">
+        <a href="{{ document.file.url }}" target="_blank" class="text-orange-600 hover:text-orange-700">{{ document.title }}</a>
+        <form method="post" action="{% url 'web:campaign_brand_document_delete' campaign.pk document.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="text-xs text-gray-500 underline">Удалить</button>
+        </form>
+    </div>
+    {% endfor %}
+    <form method="post" enctype="multipart/form-data" action="{% url 'web:campaign_brand_document_upload' campaign.pk %}" class="mt-3 flex flex-wrap gap-3 items-end">
+        {% csrf_token %}
+        <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" class="text-sm" aria-label="Файл документа">
+        <button type="submit" class="px-4 py-2 text-sm rounded-xl border border-gray-300 hover:bg-gray-100 transition-colors">Загрузить</button>
+    </form>
+</div>

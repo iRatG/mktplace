@@ -83,6 +83,9 @@ class Campaign(models.Model):
         related_name="campaigns",
     )
     image = models.ImageField(upload_to="campaign_images/", null=True, blank=True)
+    brand_document_requested_at = models.DateTimeField(
+        null=True, blank=True, help_text="Модератор запросил документ на бренд: без него кампанию не одобрить",
+    )
     content_types = models.JSONField(
         default=list,
         help_text="List of allowed content types, e.g. ['post', 'stories', 'video', 'review']",
@@ -215,6 +218,28 @@ class Campaign(models.Model):
         if self.status in (self.Status.ACTIVE, self.Status.PAUSED):
             return True
         return self.status == self.Status.MODERATION and bool(self.approved_snapshot)
+
+    @property
+    def brand_document_missing(self):
+        """Модератор запросил документ на бренд, а его ещё нет."""
+        return bool(self.brand_document_requested_at) and not self.brand_documents.exists()
+
+
+class CampaignBrandDocument(models.Model):
+    """Документ, подтверждающий право на бренд, товарный знак, логотип или материалы правообладателя."""
+
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="brand_documents")
+    file = models.FileField(upload_to="campaign_brand_docs/%Y/%m/")
+    title = models.CharField(max_length=255)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["uploaded_at", "pk"]
+        verbose_name = "Документ на бренд"
+        verbose_name_plural = "Документы на бренд"
+
+    def __str__(self):
+        return self.title
 
 
 class CampaignInvitation(models.Model):

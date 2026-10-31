@@ -2,6 +2,7 @@ import re
 from decimal import Decimal
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
@@ -666,6 +667,18 @@ class ConsentSettingsForm(forms.Form):
             self.fields["show_in_catalog"].initial = user.blogger_profile.show_in_catalog
         else:
             del self.fields["show_in_catalog"]
+
+
+class BrandDocumentForm(forms.Form):
+    file = forms.FileField(error_messages={"required": "Выберите файл."})
+
+    def clean_file(self):
+        file = self.cleaned_data["file"]
+        if not file.name.lower().endswith((".pdf", ".jpg", ".jpeg", ".png")):
+            raise ValidationError("Подойдёт PDF, JPG или PNG.")
+        if file.size > settings.BRAND_DOCUMENT_MAX_BYTES:
+            raise ValidationError("Файл больше 10 МБ.")
+        return file
 
 
 class InvoiceForm(forms.Form):

@@ -69,6 +69,23 @@
 <div class="alert-error mb-4" data-permit-error>{{ permit_error }}</div>
 {% endif %}
 
+<div class="card-dark rounded-xl p-6 mb-4" data-moderator-brand>
+    <h2 class="text-gray-900 font-semibold mb-3">Документы на бренд</h2>
+    {% for document in campaign.brand_documents.all %}
+    <div class="text-sm py-0.5"><a href="{{ document.file.url }}" target="_blank" class="text-orange-600 hover:text-orange-700">{{ document.title }}</a> · {{ document.uploaded_at|date:"d.m.Y H:i" }}</div>
+    {% empty %}
+    <p class="text-sm text-gray-500">Не загружены.</p>
+    {% endfor %}
+    {% if campaign.brand_document_missing %}
+    <p class="text-sm text-red-600 mt-2" data-brand-waiting>Документ запрошен, пока не загружен: одобрить нельзя.</p>
+    {% elif campaign.status == 'moderation' and not campaign.brand_documents.exists %}
+    <form method="post" action="{% url 'web:admin_campaign_request_brand_document' campaign.pk %}" class="mt-3">
+        {% csrf_token %}
+        <button type="submit" class="px-4 py-2 text-sm rounded-xl border border-gray-300 hover:bg-gray-100 transition-colors">Запросить документ</button>
+    </form>
+    {% endif %}
+</div>
+
 <div class="card-dark rounded-xl p-6 mb-4" data-card-terms>
     <h2 class="text-gray-900 font-semibold mb-3">Задание, приёмка и права</h2>
     {% include "campaigns/_terms.html" with rows=card_terms_rows %}

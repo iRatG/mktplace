@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.billing.formatting import format_money
-from apps.campaigns.models import Campaign, CampaignEditProposal
+from apps.campaigns.models import Campaign, CampaignBrandDocument, CampaignEditProposal
 from apps.campaigns.services import AcceptError, accept_response, expired_error, increase_budget
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.validation import (
@@ -17,8 +17,13 @@ from apps.platforms.models import Platform
 from apps.users.models import User
 
 from ..campaign_proposals import describe_changes, mark_approved, proposal_form, save_campaign_form
-from ..forms import CampaignForm, _strip_spaces
+from ..forms import BrandDocumentForm, CampaignForm, _strip_spaces
 from .pages import _redirect_dashboard
+
+BRAND_DOCUMENT_STATUSES = (
+    Campaign.Status.DRAFT, Campaign.Status.MODERATION, Campaign.Status.REJECTED, Campaign.Status.ACTIVE,
+    Campaign.Status.PAUSED,
+)
 
 
 def _responses_with_blogger_data(campaign):
@@ -112,6 +117,34 @@ def campaign_list(request):
 
 
 @login_required
+@require_POST
+def campaign_brand_document_upload(request, pk):
+    campaign = get_object_or_404(Campaign, pk=pk, advertiser=request.user)
+    if campaign.status not in BRAND_DOCUMENT_STATUSES:
+        messages.error(request, "Эта кампания завершена, документы к ней не добавляются.")
+        return redirect("web:campaign_detail", pk=pk)
+    form = BrandDocumentForm(request.POST, request.FILES)
+    if form.is_valid():
+        file = form.cleaned_data["file"]
+        CampaignBrandDocument.objects.create(campaign=campaign, file=file, title=file.name[:255])
+        messages.success(request, "Документ загружен.")
+    else:
+        messages.error(request, form.errors["file"][0])
+    return redirect("web:campaign_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def campaign_brand_document_delete(request, pk, document_pk):
+    document = get_object_or_404(CampaignBrandDocument, pk=document_pk, campaign_id=pk, campaign__advertiser=request.user)
+    file = document.file
+    document.delete()
+    file.delete(save=False)
+    messages.success(request, "Документ удалён.")
+    return redirect("web:campaign_detail", pk=pk)
+
+
+@login_required
 def campaign_detail(request, pk):
     from apps.campaigns.validation import advertiser_verification_error
 
@@ -165,6 +198,8 @@ def campaign_detail(request, pk):
 
     context["card_terms_rows"] = describe_terms(campaign_snapshot(campaign), CARD_TERMS_FIELDS)
     if context.get("is_owner"):
+        context["brand_documents"] = campaign.brand_documents.all()
+        context["can_upload_brand_document"] = user == campaign.advertiser and campaign.status in BRAND_DOCUMENT_STATUSES
         from apps.billing.tariffs import tier_description
         from apps.platforms.models import Category, Platform as PlatformModel
 
