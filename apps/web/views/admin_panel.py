@@ -19,7 +19,7 @@ from apps.deals.models import Deal
 from apps.deals.services import TransitionError
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Category, PermitDocument, Platform
-from apps.users.models import User
+from apps.users.models import DataRequest, User
 
 from ..campaign_proposals import (
     CARD_TERMS_FIELDS, campaign_snapshot, changes_since_approval, compute_changes, describe, describe_changes,
@@ -70,6 +70,7 @@ def admin_dashboard(request):
         ),
         "permits_pending": PermitDocument.objects.filter(status=PermitDocument.Status.PENDING).count(),
         "reviews_pending": _pending_platform_reviews(),
+        "data_requests_open": DataRequest.objects.filter(status=DataRequest.Status.OPEN).count(),
         "users_total": User.objects.count(),
         "users_active": User.objects.filter(status=User.Status.ACTIVE).count(),
         "new_users_month": User.objects.filter(date_joined__gte=last_30).count(),

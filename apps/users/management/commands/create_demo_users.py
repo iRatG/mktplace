@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.profiles.models import BloggerProfile
-from apps.users.models import User
+from apps.users.models import DataRequest, User
 
 
 def _delete_user_safely(user):
@@ -29,6 +29,7 @@ def _delete_user_safely(user):
     # Delete wallet and transactions
     Wallet.objects.filter(user=user).delete()
     WithdrawalRequest.objects.filter(blogger=user).delete()
+    DataRequest.objects.filter(user=user).delete()
 
     user.delete()
 

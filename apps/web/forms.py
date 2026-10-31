@@ -16,7 +16,7 @@ from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.registration.models import IPApplication, LegalEntityApplication
 from apps.registration.validators import INN_ERROR, is_valid_inn
 from apps.users import consents
-from apps.users.models import Consent, User
+from apps.users.models import Consent, DataRequest, User
 
 
 class SupportMessageForm(forms.Form):
@@ -665,6 +665,18 @@ class ConsentSettingsForm(forms.Form):
             self.fields["show_in_catalog"].initial = user.blogger_profile.show_in_catalog
         else:
             del self.fields["show_in_catalog"]
+
+
+class DataRequestForm(forms.Form):
+    """Обращение по персональным данным из раздела «Мои данные»."""
+
+    kind = forms.ChoiceField(choices=DataRequest.Kind.choices, label="Что нужно сделать")
+    text = forms.CharField(required=False, max_length=2000, label="Подробности", widget=forms.Textarea(attrs={"rows": 3}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input-dark"
 
 
 class LegalEntityApplicationForm(ConsentForm, forms.ModelForm):

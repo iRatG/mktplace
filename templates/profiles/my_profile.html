@@ -144,5 +144,10 @@
         <button type="submit" class="btn-orange px-4 py-2 rounded-lg text-sm">Сохранить</button>
     </form>
 
+    <a href="{% url 'web:my_data' %}" class="card-dark rounded-xl p-6 block" data-my-data-link>
+        <div class="font-semibold">Мои данные</div>
+        <div class="text-sm text-gray-600 mt-1">Что мы храним, обращения по персональным данным, закрытие аккаунта</div>
+    </a>
+
 </div>
 {% endblock %}

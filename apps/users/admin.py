@@ -5,7 +5,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 
-from .models import BlockedIP, Consent, EmailConfirmationToken, PasswordResetToken, PersonalDataAccess, User
+from .models import BlockedIP, Consent, DataRequest, EmailConfirmationToken, PasswordResetToken, PersonalDataAccess, User
 from .pd_access import log_access
 
 
@@ -146,6 +146,25 @@ class ConsentAdmin(admin.ModelAdmin):
             ])
         log_access(request, f"Выгрузка журнала согласий: {len(rows)} зап.")
         return response
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(DataRequest)
+class DataRequestAdmin(admin.ModelAdmin):
+    """Журнал обращений: только чтение, рассматриваются в панели сотрудника."""
+
+    list_display = ("created_at", "user", "kind", "status", "due_at", "answered_by", "answered_at")
+    list_filter = ("kind", "status")
+    search_fields = ("user__email",)
+    date_hierarchy = "created_at"
 
     def has_add_permission(self, request):
         return False

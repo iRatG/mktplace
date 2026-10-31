@@ -1,4 +1,6 @@
 import uuid
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
@@ -228,6 +230,66 @@ class Consent(models.Model):
 
     def __str__(self):
         return f"{self.get_kind_display()}: {'да' if self.granted else 'нет'}"
+
+
+class DataRequest(models.Model):
+    """Обращение пользователя по персональным данным (apps/users/data_requests.py)."""
+
+    class Kind(models.TextChoices):
+        INFO = "info", "Сведения об обработке данных"
+        CORRECT = "correct", "Исправить данные"
+        SUSPEND = "suspend", "Приостановить обработку"
+        WITHDRAW = "withdraw", "Отозвать согласие"
+        CLOSE = "close", "Закрыть аккаунт и удалить данные"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Рассматривается"
+        DONE = "done", "Выполнено"
+        REJECTED = "rejected", "Отказано"
+
+    DUE_DAYS = {Kind.INFO: 10}
+    DEFAULT_DUE_DAYS = 3
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="data_requests")
+    kind = models.CharField("Вид", max_length=20, choices=Kind.choices)
+    text = models.TextField("Текст", blank=True)
+    status = models.CharField("Статус", max_length=20, choices=Status.choices, default=Status.OPEN)
+    due_at = models.DateTimeField("Ответить до")
+    answer = models.TextField("Ответ", blank=True)
+    answered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="answered_data_requests",
+    )
+    answered_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField("Подано", auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "Обращение по персональным данным"
+        verbose_name_plural = "Обращения по персональным данным"
+
+    def __str__(self):
+        return f"№{self.pk}: {self.get_kind_display()}"
+
+    def save(self, *args, **kwargs):
+        if not self.due_at:
+            days = self.DUE_DAYS.get(self.kind, self.DEFAULT_DUE_DAYS)
+            self.due_at = timezone.now() + timedelta(days=days)
+        super().save(*args, **kwargs)
+
+    @property
+    def is_open(self):
+        return self.status == self.Status.OPEN
+
+    @property
+    def is_overdue(self):
+        return self.is_open and self.due_at < timezone.now()
+
+    def finish(self, status, staff, answer):
+        self.status = status
+        self.answered_by = staff
+        self.answer = answer
+        self.answered_at = timezone.now()
+        self.save(update_fields=["status", "answered_by", "answer", "answered_at"])
 
 
 class PersonalDataAccess(models.Model):

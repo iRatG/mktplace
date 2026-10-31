@@ -882,6 +882,31 @@ class NotificationService:
                 url=reverse("web:admin_withdrawals") + f"?deal={deal.pk}",
             )
 
+    # ── Обращения по персональным данным ──────────────────────────────────────
+
+    @staticmethod
+    def notify_data_request_created(request):
+        """Новое обращение по персональным данным → всем активным сотрудникам."""
+        for staff in NotificationService._staff():
+            NotificationService.notify(
+                user=staff,
+                notification_type=Notification.Type.SYSTEM,
+                title="Обращение по персональным данным",
+                body=f"{request.get_kind_display()}: ответить до {timezone.localtime(request.due_at):%d.%m.%Y}.",
+                url=reverse("web:admin_data_request_detail", kwargs={"pk": request.pk}),
+            )
+
+    @staticmethod
+    def notify_data_request_answered(request):
+        """Ответ на обращение → пользователю."""
+        NotificationService.notify(
+            user=request.user,
+            notification_type=Notification.Type.SYSTEM,
+            title="Ответ на обращение по персональным данным",
+            body=f"{request.get_kind_display()}: {request.get_status_display().lower()}.",
+            url=reverse("web:my_data"),
+        )
+
     # ── Регистрация юрлиц ─────────────────────────────────────────────────────
 
     @staticmethod

@@ -32,6 +32,11 @@
         <div class="text-xs text-gray-600 mt-1">Отзывов о платформе на проверке</div>
         {% if reviews_pending %}<div class="text-xs text-orange-600 mt-1">Требует действия</div>{% endif %}
     </a>
+    <a href="{% url 'web:admin_data_requests' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block" data-requests-tile>
+        <div class="text-2xl font-bold {% if data_requests_open %}text-orange-600{% else %}text-gray-900{% endif %}">{{ data_requests_open }}</div>
+        <div class="text-xs text-gray-600 mt-1">Обращений по персональным данным</div>
+        {% if data_requests_open %}<div class="text-xs text-orange-600 mt-1">Требует ответа</div>{% endif %}
+    </a>
     <a href="{% url 'web:admin_withdrawals' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block" data-payouts-tile>
         <div class="text-2xl font-bold {% if payouts_ready %}text-yellow-700{% else %}text-gray-900{% endif %}">{{ payouts_ready }}</div>
         <div class="text-xs text-gray-600 mt-1">Выплат к проведению</div>

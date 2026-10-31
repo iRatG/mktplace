@@ -61,6 +61,13 @@ from .platforms import (
     platform_edit,
     platform_delete,
 )
+from .data_requests import (
+    admin_data_request_answer,
+    admin_data_request_close_account,
+    admin_data_request_detail,
+    admin_data_requests,
+    my_data,
+)
 from .profiles import (
     profile_view,
     profile_edit,

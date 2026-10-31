@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Обращения по персональным данным — UBlogers!{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center gap-3">
+    <a href="{% url 'web:admin_dashboard' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Панель</a>
+    <h1 class="text-2xl font-bold text-gray-900">Обращения по персональным данным</h1>
+    <span class="text-sm text-gray-500">({{ queue|length }} открыто)</span>
+</div>
+
+{% if queue %}
+<div class="space-y-3">
+    {% for item in queue %}
+    <a href="{% url 'web:admin_data_request_detail' item.pk %}" class="card-dark rounded-xl p-5 block" data-request-row>
+        <div class="flex justify-between gap-4">
+            <span class="font-semibold text-gray-900">№{{ item.pk }} · {{ item.get_kind_display }}</span>
+            {% if item.is_overdue %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700" data-overdue>Просрочено</span>
+            {% else %}
+            <span class="text-xs text-gray-600">до {{ item.due_at|date:"d.m.Y H:i" }}</span>
+            {% endif %}
+        </div>
+        <div class="text-xs text-gray-600 mt-1">{{ item.user.login_display }} · подано {{ item.created_at|date:"d.m.Y H:i" }}</div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card-dark rounded-xl p-8 text-center text-gray-500">Открытых обращений нет</div>
+{% endif %}
+{% endblock %}

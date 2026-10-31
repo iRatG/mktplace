@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Обращение №{{ item.pk }} — UBlogers!{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div>
+        <a href="{% url 'web:admin_data_requests' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Обращения</a>
+        <h1 class="text-2xl font-bold text-gray-900 mt-2">№{{ item.pk }} · {{ item.get_kind_display }}</h1>
+        <p class="text-sm text-gray-600 mt-1">{{ item.user.login_display }} · подано {{ item.created_at|date:"d.m.Y H:i" }} · {{ item.get_status_display }}</p>
+        {% if item.is_overdue %}<p class="text-sm text-red-600 mt-1" data-overdue>Срок ответа прошёл {{ item.due_at|date:"d.m.Y H:i" }}</p>{% elif item.is_open %}<p class="text-sm text-gray-600 mt-1">Ответить до {{ item.due_at|date:"d.m.Y H:i" }}</p>{% endif %}
+    </div>
+
+    <div class="card-dark rounded-xl p-6 text-sm">
+        <h2 class="font-semibold text-gray-900 mb-2">Текст обращения</h2>
+        <p class="text-gray-700">{{ item.text|default:"Без текста" }}</p>
+        {% if held %}
+        <dl class="space-y-1 mt-4">
+            {% for label, value in held %}
+            <div class="flex justify-between gap-4"><dt class="text-gray-600">{{ label }}</dt><dd class="text-gray-900">{{ value }}</dd></div>
+            {% endfor %}
+        </dl>
+        {% endif %}
+    </div>
+
+    {% if item.is_open %}
+    {% if closing %}
+    <div class="card-dark rounded-xl p-6 text-sm space-y-3" data-closing>
+        <h2 class="font-semibold text-gray-900">Закрыть аккаунт</h2>
+        {% if blockers %}
+        <p class="text-red-600" data-closure-blockers>Сейчас нельзя: {{ blockers|join:"; " }}. Откажите с объяснением или дождитесь завершения.</p>
+        {% else %}
+        <p class="text-gray-700">Будут удалены профиль, документы статуса, реквизиты выплаты и данные подтверждения личности. Отменить нельзя. Останутся:</p>
+        <ul class="list-disc list-inside text-gray-600">{% for line in kept %}<li>{{ line }}</li>{% endfor %}</ul>
+        <form method="post" action="{% url 'web:admin_data_request_close_account' item.pk %}" class="space-y-3">
+            {% csrf_token %}
+            <label class="flex items-start gap-2 text-gray-700"><input type="checkbox" name="confirm" required><span>Личность заявителя проверена, закрыть аккаунт</span></label>
+            <button type="submit" class="btn-orange px-4 py-2 rounded-lg text-sm" data-close-account>Закрыть аккаунт</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'web:admin_data_request_answer' item.pk %}" class="card-dark rounded-xl p-6 space-y-3">
+        {% csrf_token %}
+        <h2 class="font-semibold text-gray-900">Ответ пользователю</h2>
+        <textarea name="answer" rows="4" required class="input-dark resize-none text-sm" placeholder="Что сделано, или основание отказа и как его обжаловать"></textarea>
+        <div class="flex gap-3">
+            {% if not closing %}<button type="submit" name="action" value="done" class="btn-orange px-4 py-2 rounded-lg text-sm">Выполнено</button>{% endif %}
+            <button type="submit" name="action" value="reject" class="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">Отказать</button>
+        </div>
+    </form>
+    {% else %}
+    <div class="card-dark rounded-xl p-6 text-sm">
+        <h2 class="font-semibold text-gray-900 mb-2">Ответ</h2>
+        <p class="text-gray-700">{{ item.answer }}</p>
+        <p class="text-xs text-gray-500 mt-2">{{ item.answered_by.login_display }}, {{ item.answered_at|date:"d.m.Y H:i" }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

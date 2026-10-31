@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Мои данные | UBlogers!{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div>
+        <a href="{% url 'web:profile' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Профиль</a>
+        <h1 class="text-2xl font-bold mt-2">Мои данные</h1>
+        <p class="text-sm text-gray-600 mt-1">Что мы храним и как этим управлять. Обращение можно также отправить на claim@ublogers.uz.</p>
+    </div>
+
+    <div class="card-dark rounded-xl p-6" data-held-data>
+        <h2 class="text-lg font-semibold mb-3">Что хранится</h2>
+        <dl class="space-y-2 text-sm">
+            {% for label, value in held %}
+            <div class="flex justify-between gap-4"><dt class="text-gray-600">{{ label }}</dt><dd class="text-gray-900 text-right">{{ value }}</dd></div>
+            {% endfor %}
+        </dl>
+    </div>
+
+    <form method="post" class="card-dark rounded-xl p-6 space-y-4">
+        {% csrf_token %}
+        <h2 class="text-lg font-semibold">Новое обращение</h2>
+        {% if form.non_field_errors %}<div class="alert-error">{{ form.non_field_errors.0 }}</div>{% endif %}
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.kind.label }}</label>
+            {{ form.kind }}
+            {% if form.kind.errors %}<p class="text-red-600 text-xs mt-1">{{ form.kind.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.text.label }}</label>
+            {{ form.text }}
+        </div>
+        <p class="text-xs text-gray-500">Ответ — в течение 10 дней, исправление, приостановка и удаление — в течение 3 дней. Причину отзыва согласия указывать не нужно.</p>
+        <button type="submit" class="btn-orange px-4 py-2 rounded-lg text-sm">Отправить</button>
+    </form>
+
+    <div class="card-dark rounded-xl p-6 text-sm" data-closure-info>
+        <h2 class="text-lg font-semibold mb-2">Закрытие аккаунта</h2>
+        {% if blockers %}
+        <p class="text-gray-700 mb-2" data-closure-blockers>Сейчас закрыть нельзя: {{ blockers|join:"; " }}.</p>
+        {% endif %}
+        <p class="text-gray-600 mb-2">Удалим профиль, документы статуса, реквизиты выплаты и данные подтверждения личности. Вход в аккаунт станет невозможен, восстановить его нельзя.</p>
+        <p class="text-gray-600">Останутся, потому что их нужно хранить по договору, бухгалтерскому и налоговому учёту и на случай споров:</p>
+        <ul class="list-disc list-inside text-gray-600 mt-1">{% for item in kept %}<li>{{ item }}</li>{% endfor %}</ul>
+    </div>
+
+    {% if requests %}
+    <div class="card-dark rounded-xl p-6" data-my-requests>
+        <h2 class="text-lg font-semibold mb-3">Мои обращения</h2>
+        <div class="space-y-3 text-sm">
+            {% for item in requests %}
+            <div class="border-t border-gray-200 pt-3 first:border-0 first:pt-0">
+                <div class="flex justify-between gap-4">
+                    <span class="font-medium text-gray-900">№{{ item.pk }} · {{ item.get_kind_display }}</span>
+                    <span class="text-gray-600">{{ item.get_status_display }}</span>
+                </div>
+                <div class="text-xs text-gray-500 mt-1">{{ item.created_at|date:"d.m.Y" }}{% if item.is_open %} · ответ до {{ item.due_at|date:"d.m.Y" }}{% endif %}</div>
+                {% if item.answer %}<p class="text-gray-700 mt-1">{{ item.answer }}</p>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if consents %}
+    <div class="card-dark rounded-xl p-6" data-my-consents>
+        <h2 class="text-lg font-semibold mb-3">История согласий</h2>
+        <div class="space-y-1 text-sm">
+            {% for consent in consents %}
+            <div class="flex justify-between gap-4">
+                <span class="text-gray-700">{{ consent.get_kind_display }}: {{ consent.granted|yesno:"да,нет" }}</span>
+                <span class="text-gray-500">{{ consent.created_at|date:"d.m.Y H:i" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

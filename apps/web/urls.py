@@ -59,6 +59,7 @@ urlpatterns = [
     path("profile/", views.profile_view, name="profile"),
     path("profile/edit/", views.profile_edit, name="profile_edit"),
     path("profile/consents/", views.profile_consents, name="profile_consents"),
+    path("profile/my-data/", views.my_data, name="my_data"),
     path("bloggers/<int:pk>/", views.blogger_public_profile, name="blogger_public_profile"),
 
     # Deals
@@ -93,6 +94,11 @@ urlpatterns = [
     path("panel/payout-requisites/<int:pk>/reject/", views.admin_payout_requisites_reject, name="admin_payout_requisites_reject"),
 
     # Admin panel (staff only)
+    path("panel/data-requests/", views.admin_data_requests, name="admin_data_requests"),
+    path("panel/data-requests/<int:pk>/", views.admin_data_request_detail, name="admin_data_request_detail"),
+    path("panel/data-requests/<int:pk>/answer/", views.admin_data_request_answer, name="admin_data_request_answer"),
+    path("panel/data-requests/<int:pk>/close-account/", views.admin_data_request_close_account,
+         name="admin_data_request_close_account"),
     path("panel/", views.admin_dashboard, name="admin_dashboard"),
     path("panel/campaigns/", views.admin_campaigns, name="admin_campaigns"),
     path("panel/campaigns/<int:pk>/", views.admin_campaign_detail, name="admin_campaign_detail"),
