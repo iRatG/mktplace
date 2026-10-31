@@ -92,6 +92,14 @@ class OneIDResult:
     failure_reason: str = ""
 
 
+REGISTRATION_CLOSED = "Регистрация недоступна. Напишите в поддержку."
+
+
+def blogger_login(phone):
+    """Служебный логин аккаунта блогера: один телефон — один аккаунт."""
+    return f"blogger.{phone.lstrip('+')}@sms.internal"
+
+
 class OneIDVerificationBackend:
     """Точка расширения для реальной интеграции с id.egov.uz / MyID."""
 
@@ -105,6 +113,28 @@ class StubOneIDVerificationBackend(OneIDVerificationBackend):
     def verify(self, full_name: str, phone: str, pinfl: str) -> OneIDResult:
         logger.info("OneID stub: verifying %s / %s / %s", full_name, phone, pinfl)
         return OneIDResult(success=True, reference=f"stub-{uuid.uuid4().hex[:10]}")
+
+
+def blogger_registration_error(pinfl, phone):
+    """Почему блогеру нельзя зарегистрироваться: ПИНФЛ занят другим аккаунтом или аккаунт заблокирован."""
+    from apps.profiles.models import BloggerProfile
+    from apps.users.models import User
+
+    taken = BloggerProfile.objects.filter(pinfl=pinfl).select_related("user")
+    if any(p.user.status == User.Status.BLOCKED for p in taken):
+        return REGISTRATION_CLOSED
+    if User.objects.filter(email=blogger_login(phone), status=User.Status.BLOCKED).exists():
+        return REGISTRATION_CLOSED
+    if taken.exclude(phone=phone).exists():
+        return "Этот ПИНФЛ уже зарегистрирован. Войдите в свой аккаунт или напишите в поддержку."
+    return None
+
+
+def inn_blocked(inn):
+    """Аккаунт с этим ИНН заблокирован."""
+    from apps.users.models import User
+
+    return User.objects.filter(email=legal_entity_login(inn), status=User.Status.BLOCKED).exists()
 
 
 def get_oneid_backend() -> OneIDVerificationBackend:

@@ -36,7 +36,8 @@ from apps.registration.models import (
     LegalEntityApplicationStatusLog,
 )
 from apps.registration.services import (
-    REGISTRATION_REVIEWERS_GROUP, assign_reviewer, get_oneid_backend, legal_entity_login,
+    REGISTRATION_CLOSED, REGISTRATION_REVIEWERS_GROUP, assign_reviewer, blogger_login, blogger_registration_error,
+    get_oneid_backend, inn_blocked, legal_entity_login,
 )
 from apps.registration.tasks import send_blogger_sms_credentials
 from apps.registration.validators import INN_ERROR, is_valid_inn
@@ -88,7 +89,9 @@ def legal_entity_submit(request):
             status = _reject_public_form(request, form, problem)
             return render(request, "registration/legal_entity_submit.html", {"form": form}, status=status)
 
-    if request.method == "POST" and form.is_valid():
+    if request.method == "POST" and form.is_valid() and inn_blocked(form.cleaned_data["inn"]):
+        form.add_error(None, REGISTRATION_CLOSED)
+    elif request.method == "POST" and form.is_valid():
         application = form.save(commit=False)
         application.save()
         consents.record_registration(form.cleaned_data, request, legal_application=application)
@@ -370,6 +373,9 @@ def admin_legal_entity_issue_access(request, pk):
             email=legal_entity_login(application.inn), defaults={"role": User.Role.ADVERTISER},
         )
         application.user = user
+    if user.status == User.Status.BLOCKED:
+        messages.error(request, "Аккаунт с этим ИНН заблокирован: доступ не выдан.")
+        return redirect("web:admin_legal_entity_detail", pk=application.pk)
     consents.attach_to_user(application, user)
 
     user.set_password(raw_password)
@@ -437,6 +443,11 @@ def blogger_identity_submit(request):
             form.add_error(None, security.MSG_TOO_MANY)
             return render(request, "registration/blogger_identity_submit.html", {"form": form}, status=429)
 
+        problem = blogger_registration_error(pinfl, phone)
+        if problem:
+            form.add_error(None, problem)
+            return render(request, "registration/blogger_identity_submit.html", {"form": form})
+
         verification = IdentityVerification.objects.create(
             full_name=full_name, phone=phone, pinfl=pinfl,
         )
@@ -453,7 +464,7 @@ def blogger_identity_submit(request):
         # аккаунт (повторная попытка OneID — SMS потерялось, опечатка в
         # прошлый раз и т.п.) — тот же класс бага, что и с ИНН юрлица,
         # см. fix-registration-entry-points.
-        synthetic_email = f"blogger.{phone.lstrip('+')}@sms.internal"
+        synthetic_email = blogger_login(phone)
         raw_password = User.objects.make_random_password()
         user, _created = User.objects.get_or_create(
             email=synthetic_email, defaults={"role": User.Role.BLOGGER},

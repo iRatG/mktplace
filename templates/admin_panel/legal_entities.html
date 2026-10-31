@@ -38,7 +38,7 @@
                 </div>
                 <div class="text-xs text-gray-600 space-y-0.5 mt-2">
                     <div>Категория: <span class="text-gray-700">{{ app.get_category_display }}</span></div>
-                    <div>ИНН: <span class="text-gray-700">{{ app.inn }}</span></div>
+                    <div>ИНН: <span class="text-gray-700">{{ app.inn }}</span>{% if app.has_duplicate %} <span class="text-yellow-700" data-duplicate-inn>уже есть заявка или аккаунт с этим ИНН</span>{% endif %}</div>
                     <div>Логин: <span class="text-gray-700">{{ app.user.login_display }}</span></div>
                     <div>Ддокс: <span class="text-gray-700">{{ app.get_ddocs_status_display }}</span></div>
                     <div>Подана: <span class="text-gray-700">{{ app.created_at|date:"d.m.Y H:i" }}</span></div>

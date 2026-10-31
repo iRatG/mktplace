@@ -100,6 +100,18 @@ class LegalEntityApplication(models.Model):
     def __str__(self):
         return f"{self.company_name} (ИНН {self.inn}) — {self.get_status_display()}"
 
+    @property
+    def has_duplicate(self):
+        """Тот же ИНН уже подавали или у него есть аккаунт: сотрудник проверяет, не вторая ли это учётная запись."""
+        from apps.users.models import User
+
+        from .services import legal_entity_login
+
+        others = LegalEntityApplication.objects.filter(inn=self.inn).exclude(pk=self.pk)
+        if others.exclude(status=self.Status.REJECTED).exists():
+            return True
+        return User.objects.filter(email=legal_entity_login(self.inn)).exclude(pk=self.user_id).exists()
+
 
 class LegalEntityApplicationStatusLog(models.Model):
     application = models.ForeignKey(

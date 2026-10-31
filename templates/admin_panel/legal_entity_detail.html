@@ -16,6 +16,9 @@
     {% endif %}
 </div>
 
+{% if app.has_duplicate %}
+<div class="alert-info mb-4" data-duplicate-inn>С этим ИНН уже есть заявка или аккаунт. Проверьте, что это не вторая учётная запись.</div>
+{% endif %}
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
     <div class="card-dark rounded-xl p-6">
         <h2 class="text-gray-900 font-semibold mb-3">Заявка</h2>
