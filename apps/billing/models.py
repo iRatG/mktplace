@@ -272,6 +272,10 @@ class WithdrawalRequest(models.Model):
                     reasons.append("ЭСФ отклонена")
                 elif einvoice.status == EInvoice.Status.MISMATCH:
                     reasons.append("ЭСФ: расхождение")
+            from .esf import receipt_required_for
+
+            if receipt_required_for(self.blogger) and not self.deal.receipt_confirmed_at:
+                reasons.append("ждёт чек самозанятого")
         return reasons
 
     @property

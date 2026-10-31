@@ -79,6 +79,18 @@
             </div>
             {% endwith %}
 
+            {% if wr.deal and wr.status == 'pending' and wr.deal.needs_self_employed_receipt %}
+            <div class="bg-gray-50 rounded-lg p-3 mb-3" data-receipt-row>
+                <div class="text-xs text-gray-500 mb-1">Чек самозанятого на {{ wr.amount|money }} {{ currency.symbol }}{% if wr.deal.receipt_confirmed_at %} проверен{% endif %}</div>
+                <form method="post" action="{% url 'web:admin_withdrawal_receipt' wr.pk %}" class="flex flex-wrap gap-2 items-end">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <label class="block text-xs text-gray-500">Номер чека<input type="text" name="number" value="{{ wr.deal.self_employed_receipt }}" maxlength="64" class="input-dark mt-1"></label>
+                    <button type="submit" class="px-4 py-2 text-sm rounded-xl border border-gray-300 hover:bg-gray-100 transition-colors">Чек проверен</button>
+                </form>
+            </div>
+            {% endif %}
+
             {% if wr.deal %}{% with einvoice=wr.deal.performer_einvoice %}{% if einvoice %}
             <div class="bg-gray-50 rounded-lg p-3 mb-3" data-einvoice="{{ einvoice.pk }}">
                 <div class="text-xs text-gray-500 mb-1">ЭСФ исполнителя рекламодателю на {{ einvoice.amount|money }} {{ currency.symbol }} — <span class="text-gray-900">{{ einvoice.get_status_display }}</span>{% if einvoice.number %} · № {{ einvoice.number }}{% endif %}{% if einvoice.note %} · {{ einvoice.note }}{% endif %}</div>

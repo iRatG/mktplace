@@ -147,7 +147,7 @@ CURRENCY_MIN_DEPOSIT     = env.int('CURRENCY_MIN_DEPOSIT',     default=130000)
 CAMPAIGN_MIN_FIXED_PRICE = env.int('CAMPAIGN_MIN_FIXED_PRICE', default=10000)
 # ЭСФ исполнителя как условие выплаты — для каких категорий исполнителя (ответ бизнеса 13.10.2026);
 # самозанятый — до ответа бухгалтерии. Категории — BloggerProfile.Category.
-ESF_REQUIRED_CATEGORIES = env.list('ESF_REQUIRED_CATEGORIES', default=['ip', 'legal_entity', 'self_employed'])
+ESF_REQUIRED_CATEGORIES = env.list('ESF_REQUIRED_CATEGORIES', default=['ip', 'legal_entity'])
 # Реквизиты оператора для счёта на оплату. Пока банк не задан, форма счёта скрыта.
 OPERATOR_NAME = env('OPERATOR_NAME', default='ООО «EASTESSE GROUP»')
 OPERATOR_INN = env('OPERATOR_INN', default='310591115')

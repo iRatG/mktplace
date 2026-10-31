@@ -2,14 +2,16 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.billing import esf
 from apps.billing.formatting import format_money
 from apps.billing.models import PayoutRequisites, Transaction, Wallet, WithdrawalRequest
 from apps.billing.payout_requisites import (
     PayoutRequisitesError, approve_payout_requisites, current_requisites,
     expected_requisite_type, reject_payout_requisites, submit_payout_requisites,
 )
+from apps.deals.models import Deal
 from apps.users.models import User
 from apps.users.pd_access import log_access
 
@@ -65,6 +67,19 @@ def wallet_view(request):
         "legacy_available": user.role == User.Role.BLOGGER and wallet.available_balance > 0,
         "requisites": requisites,
     })
+
+
+@login_required
+@require_POST
+def deal_receipt(request, pk):
+    """Исполнитель-самозанятый вносит номер чека на странице сделки."""
+    deal = get_object_or_404(Deal, pk=pk, blogger=request.user)
+    try:
+        esf.submit_receipt(deal, request.user, request.POST.get("number"))
+        messages.success(request, "Номер чека сохранён. Выплата — после проверки.")
+    except ValueError as e:
+        messages.error(request, str(e))
+    return redirect("web:deal_detail", pk=deal.pk)
 
 
 def _expected_payouts(blogger):

@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.billing import metrics
+from apps.billing import esf, metrics
 from apps.billing.formatting import format_money
 from apps.billing.models import BalanceRefund, PaymentInvoice, WithdrawalRequest
 from apps.billing.services import BillingService
@@ -66,7 +66,7 @@ def admin_dashboard(request):
         "withdrawals_pending": WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING).count(),
         "payouts_ready": sum(
             1 for p in WithdrawalRequest.objects.filter(status=WithdrawalRequest.Status.PENDING)
-            .select_related("blogger").prefetch_related("deal__einvoices") if p.is_ready
+            .select_related("blogger__blogger_profile", "deal").prefetch_related("deal__einvoices") if p.is_ready
         ),
         "permits_pending": PermitDocument.objects.filter(status=PermitDocument.Status.PENDING).count(),
         "reviews_pending": _pending_platform_reviews(),
@@ -401,6 +401,19 @@ def admin_withdrawal_approve(request, pk):
         return _back_to_register(request)
     NotificationService.notify_withdrawal_approved(wr.blogger, wr.amount, deal=wr.deal)
     messages.success(request, f"Выплата {format_money(wr.amount)} для {wr.blogger.login_display} проведена.")
+    return _back_to_register(request)
+
+
+@_staff_required
+@require_POST
+def admin_withdrawal_receipt(request, pk):
+    """Сотрудник проверил чек самозанятого по выплате."""
+    wr = get_object_or_404(WithdrawalRequest.objects.select_related("deal"), pk=pk, deal__isnull=False)
+    try:
+        esf.confirm_receipt(wr.deal, request.POST.get("number"))
+        messages.success(request, "Чек подтверждён.")
+    except ValueError as e:
+        messages.error(request, str(e))
     return _back_to_register(request)
 
 

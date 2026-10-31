@@ -86,6 +86,7 @@ from .profiles import (
     blogger_public_profile,
 )
 from .billing import (
+    deal_receipt,
     admin_payout_requisites,
     admin_payout_requisites_approve,
     admin_payout_requisites_reject,
@@ -116,6 +117,7 @@ from .admin_panel import (
     admin_withdrawal_approve,
     admin_withdrawal_reject,
     admin_withdrawal_reissue,
+    admin_withdrawal_receipt,
     admin_withdrawal_legacy_balance,
     admin_einvoice_update,
     admin_user_block,

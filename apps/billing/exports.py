@@ -99,7 +99,7 @@ def payouts_workbook(payouts):
     ws = wb.active
     ws.title = "Выплаты"
     ws.append(["№", "Создана", "Вид", "Сделка", "Договор", "Исполнитель", "Категория", "Сумма", "Реквизиты",
-               "ЭСФ", "Номер ЭСФ", "Блокировка", "Статус", "Проведена", "Комментарий / № платёжки"])
+               "ЭСФ", "Номер ЭСФ", "Блокировка", "Статус", "Проведена", "Комментарий / № платёжки", "Чек самозанятого"])
     for p in payouts:
         profile = getattr(p.blogger, "blogger_profile", None)
         einvoice = p.deal.performer_einvoice if p.deal_id else None
@@ -109,8 +109,9 @@ def payouts_workbook(payouts):
             profile.get_category_display() if profile else "", p.amount, _requisites_text(p.effective_requisites()),
             einvoice.get_status_display() if einvoice else "", einvoice.number if einvoice else "",
             ", ".join(p.blocked_reasons), p.get_status_display(), _naive(p.processed_at), p.admin_comment,
+            p.deal.self_employed_receipt if p.deal_id else "",
         ])
-    _finish_sheet(ws, [8, 18, 18, 10, 12, 34, 18, 16, 50, 20, 18, 30, 14, 18, 40], date_columns=(1, 13))
+    _finish_sheet(ws, [8, 18, 18, 10, 12, 34, 18, 16, 50, 20, 18, 30, 14, 18, 40, 18], date_columns=(1, 13))
     return _save(wb)
 
 

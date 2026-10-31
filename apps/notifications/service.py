@@ -840,6 +840,19 @@ class NotificationService:
     # ── ЭСФ по сделке (#61) ──────────────────────────────────────────────────
 
     @staticmethod
+    def notify_receipt_required(blogger, deal, amount):
+        """Сделка оплачена, исполнитель самозанятый → выставить чек и внести номер в сделку."""
+        NotificationService.notify(
+            user=blogger,
+            notification_type=Notification.Type.SYSTEM,
+            title="Выставьте чек самозанятого",
+            body=(f"По сделке #{deal.pk} «{deal.campaign.name}» выставьте чек в приложении Soliq на сумму "
+                  f"{format_money(amount)} и внесите его номер на странице сделки. Выплата — после проверки чека."),
+            deal=deal,
+            url=reverse("web:deal_detail", args=[deal.pk]),
+        )
+
+    @staticmethod
     def notify_esf_required(blogger, deal, einvoice):
         """Сделка оплачена, нужна ЭСФ исполнителя → исполнителю (договор №, сумма)."""
         NotificationService.notify(

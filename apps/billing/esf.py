@@ -37,6 +37,37 @@ def esf_required_for(blogger):
     return category in settings.ESF_REQUIRED_CATEGORIES
 
 
+def receipt_required_for(blogger):
+    """Самозанятый вместо ЭСФ выдаёт чек на сумму выплаты."""
+    profile = getattr(blogger, "blogger_profile", None)
+    return bool(profile) and profile.category == "self_employed"
+
+
+def submit_receipt(deal, user, number):
+    """Исполнитель вносит номер чека; выплату открывает только подтверждение сотрудника."""
+    number = (number or "").strip()
+    if user != deal.blogger or not receipt_required_for(deal.blogger):
+        raise ValueError("Чек вносит исполнитель-самозанятый этой сделки.")
+    if deal.receipt_confirmed_at:
+        raise ValueError("Чек уже подтверждён.")
+    if not number:
+        raise ValueError("Укажите номер чека.")
+    deal.self_employed_receipt = number
+    deal.save(update_fields=["self_employed_receipt"])
+    return deal
+
+
+def confirm_receipt(deal, number):
+    """Сотрудник проверил чек: номер и сумма совпали. Сотрудник может внести номер сам."""
+    number = (number or "").strip()
+    if not number:
+        raise ValueError("Укажите номер чека.")
+    deal.self_employed_receipt = number
+    deal.receipt_confirmed_at = timezone.now()
+    deal.save(update_fields=["self_employed_receipt", "receipt_confirmed_at"])
+    return deal
+
+
 def open_for_deal(deal, amount):
     """ЭСФ исполнителя при оплате сделки: «ждёт подтверждения» или «не требуется». Идемпотентно.
 

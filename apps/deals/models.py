@@ -117,6 +117,8 @@ class Deal(models.Model):
         blank=True,
         help_text="Дата последнего распространения рекламы. От этой даты отсчитывается 3-летний срок хранения материалов.",
     )
+    self_employed_receipt = models.CharField("Чек самозанятого", max_length=64, blank=True)
+    receipt_confirmed_at = models.DateTimeField("Чек проверен", null=True, blank=True)
     is_frozen = models.BooleanField(
         default=False,
         help_text="Материалы заморожены (активный или завершённый спор) — удаление запрещено до истечения 3 лет.",
@@ -234,6 +236,13 @@ class Deal(models.Model):
     def payout(self):
         """Действующая выплата по сделке (не отклонённая) — или None."""
         return next((p for p in self.payouts.all() if p.status != "rejected"), None)
+
+    @property
+    def needs_self_employed_receipt(self):
+        """Выплата по этой сделке ждёт чек самозанятого: сделка оплачена и исполнитель — самозанятый."""
+        from apps.billing.esf import receipt_required_for
+
+        return receipt_required_for(self.blogger) and self.payouts.exists()
 
     @property
     def performer_einvoice(self):

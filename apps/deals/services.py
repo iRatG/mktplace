@@ -293,6 +293,8 @@ def _after_payout(deal):
     if created and einvoice.status == einvoice.Status.WAITING:
         _after_commit(NotificationService.notify_esf_required, deal.blogger, deal, einvoice)
         _after_commit(NotificationService.notify_esf_to_confirm, deal.advertiser, deal, einvoice)
+    if created and esf.receipt_required_for(deal.blogger):
+        _after_commit(NotificationService.notify_receipt_required, deal.blogger, deal, einvoice.amount)
 
 
 def checking_overdue(deal, now=None):
