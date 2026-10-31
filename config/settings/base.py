@@ -146,7 +146,7 @@ CURRENCY_MIN_DEPOSIT     = env.int('CURRENCY_MIN_DEPOSIT',     default=130000)
 # Минимальная цена за размещение в FIXED-кампании (решение бизнеса 04.10.2026).
 CAMPAIGN_MIN_FIXED_PRICE = env.int('CAMPAIGN_MIN_FIXED_PRICE', default=10000)
 # ЭСФ исполнителя как условие выплаты — для каких категорий исполнителя (ответ бизнеса 13.10.2026);
-# самозанятый — до ответа бухгалтерии. Категории — BloggerProfile.Category.
+# самозанятый выдаёт чек. Категории — BloggerProfile.Category.
 ESF_REQUIRED_CATEGORIES = env.list('ESF_REQUIRED_CATEGORIES', default=['ip', 'legal_entity'])
 # Выплаты проводятся раз в месяц: до этого числа за предыдущий месяц.
 PAYOUT_DAY = env.int('PAYOUT_DAY', default=5)
