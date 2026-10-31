@@ -148,6 +148,12 @@ CAMPAIGN_MIN_FIXED_PRICE = env.int('CAMPAIGN_MIN_FIXED_PRICE', default=10000)
 # ЭСФ исполнителя как условие выплаты — для каких категорий исполнителя (ответ бизнеса 13.10.2026);
 # самозанятый — до ответа бухгалтерии. Категории — BloggerProfile.Category.
 ESF_REQUIRED_CATEGORIES = env.list('ESF_REQUIRED_CATEGORIES', default=['ip', 'legal_entity', 'self_employed'])
+# Пометка рядом с комиссией: меняется при смене налогового режима.
+VAT_NOTE = env('VAT_NOTE', default='НДС не облагается')
+# Лимит применения налога с оборота: в БРВ, размер БРВ в сумах и доля лимита (%), с которой дашборд предупреждает.
+TURNOVER_LIMIT_BRV = env.int('TURNOVER_LIMIT_BRV', default=12000)
+BRV_AMOUNT = env.int('BRV_AMOUNT', default=440000)
+TURNOVER_WARNING_PERCENT = env.int('TURNOVER_WARNING_PERCENT', default=80)
 # Действующая редакция документов (дата). Пока пусто, принять новую редакцию при входе не предлагается.
 LEGAL_EDITION = env('LEGAL_EDITION', default='')
 # Через сколько дней без подтверждения ЭСФ напомнить рекламодателю (один раз).

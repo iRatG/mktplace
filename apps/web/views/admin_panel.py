@@ -77,6 +77,7 @@ def admin_dashboard(request):
         "deals_completed": Deal.objects.filter(status=Deal.Status.COMPLETED).count(),
         "platform_revenue": platform_revenue,
         "deal_turnover_month": deal_turnover_month,
+        "turnover_limit": metrics.turnover_limit(),
         "top_advertisers": top_advertisers,
         "top_bloggers": top_bloggers,
     }

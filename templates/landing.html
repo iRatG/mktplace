@@ -159,7 +159,7 @@
                 </div>
                 <div>
                     <div class="text-2xl font-extrabold text-gray-800">8–16%</div>
-                    <div class="text-xs text-gray-500">комиссия по обороту — сверх цены блогера</div>
+                    <div class="text-xs text-gray-500">комиссия по обороту — сверх цены блогера, {{ vat_note }}</div>
                 </div>
             </div>
             <div class="flex items-center gap-4 lg:pl-6">
@@ -446,7 +446,7 @@
         </div>
         <div class="border-t border-gray-100 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
             <span>© 2026 UBlogers! Все права защищены.</span>
-            <span>Комиссия 8–16% по тарифу · Вывод от {{ currency.min_withdrawal|money }} {{ currency.symbol }}</span>
+            <span>Комиссия 8–16% по тарифу, {{ vat_note }} · Вывод от {{ currency.min_withdrawal|money }} {{ currency.symbol }}</span>
         </div>
     </div>
 </footer>

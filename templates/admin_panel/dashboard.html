@@ -96,6 +96,19 @@
         <div class="text-xs text-gray-500 mt-1">Регистраций за месяц</div>
     </div>
 </div>
+<div class="card-dark rounded-xl p-5 mb-6" data-turnover-limit>
+    <div class="text-xs text-gray-600 uppercase tracking-wide mb-1">Оборот сделок · с начала года, к лимиту налога с оборота</div>
+    <div class="text-2xl font-bold {% if turnover_limit.over %}text-red-600{% elif turnover_limit.near %}text-yellow-700{% else %}text-gray-900{% endif %}">{{ turnover_limit.turnover|money }} {{ currency.symbol }}</div>
+    <div class="text-xs text-gray-500 mt-1">{{ turnover_limit.percent|money }}% от лимита {{ turnover_limit.limit|money }} {{ currency.symbol }}, без демо-аккаунтов</div>
+    <div class="h-2 rounded-full bg-gray-100 mt-3 overflow-hidden">
+        <div class="h-2 {% if turnover_limit.over %}bg-red-500{% elif turnover_limit.near %}bg-yellow-500{% else %}bg-orange-500{% endif %}" style="width: {{ turnover_limit.bar }}%"></div>
+    </div>
+    {% if turnover_limit.over %}
+    <p class="text-sm text-red-600 mt-3" data-turnover-warning>Лимит превышен: покажите это бухгалтеру, меняется налоговый режим.</p>
+    {% elif turnover_limit.near %}
+    <p class="text-sm text-yellow-700 mt-3" data-turnover-warning>Оборот близок к лимиту: покажите это бухгалтеру заранее.</p>
+    {% endif %}
+</div>
 
 {% if top_advertisers or top_bloggers %}
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

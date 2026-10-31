@@ -50,7 +50,7 @@
                     <div class="text-xs text-gray-500 mb-0.5">Сумма</div>
                     <div class="text-lg font-bold text-gray-900">{{ deal.amount|money }} {{ currency.symbol }}</div>
                     {% if deal.commission_on_top and user != deal.blogger %}
-                    <div class="text-xs text-gray-500 mt-0.5" data-deal-commission>+ комиссия платформы {{ deal.commission_percent|money }}% — {{ deal.commission_amount|money }} {{ currency.symbol }}; в резерве {{ deal.reserved_total|money }} {{ currency.symbol }}</div>
+                    <div class="text-xs text-gray-500 mt-0.5" data-deal-commission>+ комиссия платформы {{ deal.commission_percent|money }}% — {{ deal.commission_amount|money }} {{ currency.symbol }} ({{ vat_note }}); в резерве {{ deal.reserved_total|money }} {{ currency.symbol }}</div>
                     {% endif %}
                 </div>
                 {% if deal.publication_date %}

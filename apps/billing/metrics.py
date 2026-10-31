@@ -10,8 +10,9 @@ BillingService пишет списания с минусом (RESERVE, PAYMENT, 
 лежит конкретная запись, и всегда неотрицателен.
 """
 from datetime import datetime, time, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
+from django.conf import settings
 from django.db.models import Count, Sum
 from django.db.models.functions import Abs, TruncDate
 from django.utils import timezone
@@ -50,6 +51,29 @@ def deal_turnover(since=None):
     if since is not None:
         qs = qs.filter(created_at__gte=since)
     return _abs_total(qs)
+
+
+def year_turnover(year=None):
+    """Оборот по сделкам с начала календарного года без демо-аккаунтов: к нему считается лимит налога с оборота."""
+    year = year or timezone.localdate().year
+    start = timezone.make_aware(datetime(year, 1, 1))
+    end = timezone.make_aware(datetime(year + 1, 1, 1))
+    return _abs_total(_payments().filter(created_at__gte=start, created_at__lt=end, wallet__user__is_demo=False))
+
+
+def turnover_limit():
+    """Оборот года к лимиту налога с оборота: суммы, доля и признаки «близко» и «превышен»."""
+    turnover = year_turnover()
+    limit = Decimal(settings.TURNOVER_LIMIT_BRV) * settings.BRV_AMOUNT
+    percent = (turnover * 100 / limit).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    return {
+        "turnover": turnover,
+        "limit": limit,
+        "percent": percent,
+        "bar": min(int(percent), 100),
+        "near": percent >= settings.TURNOVER_WARNING_PERCENT,
+        "over": turnover > limit,
+    }
 
 
 def platform_revenue():
