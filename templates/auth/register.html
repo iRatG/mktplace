@@ -35,13 +35,14 @@
             </p>
             <form method="post" action="{% url 'web:legal_entity_submit' %}" class="space-y-4">
                 {% csrf_token %}
-                {% for field in legal_entity_form %}
+                {% for field in legal_entity_form.main_fields %}
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }} *</label>
                     <div class="[&>input]:input-dark">{{ field }}</div>
                     {% if field.errors %}<p class="text-red-600 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
                 </div>
                 {% endfor %}
+                {% include "partials/consent_fields.html" with form=legal_entity_form %}
                 {% include "partials/bot_protection.html" with load_script=True %}
                 <button type="submit" class="btn-orange w-full py-2.5 px-4 text-sm">Отправить на проверку</button>
             </form>
@@ -58,21 +59,18 @@
             {% endif %}
             <form method="post" action="{% url 'web:blogger_identity_submit' %}" class="space-y-4">
                 {% csrf_token %}
-                {% for field in blogger_form %}
+                {% for field in blogger_form.main_fields %}
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }} *</label>
                     <div class="[&>input]:input-dark">{{ field }}</div>
                     {% if field.errors %}<p class="text-red-600 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
                 </div>
                 {% endfor %}
+                {% include "partials/consent_fields.html" with form=blogger_form %}
                 {% include "partials/bot_protection.html" %}
                 <button type="submit" class="btn-orange w-full py-2.5 px-4 text-sm">Подтвердить через OneID</button>
             </form>
         </div>
-
-        <p class="text-xs text-gray-500 mt-6">
-            Регистрируясь, вы соглашаетесь с условиями использования платформы.
-        </p>
     </div>
 </div>
 

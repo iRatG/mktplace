@@ -529,6 +529,8 @@ class SmokeClosedCampaignVisibilityTest(_SmokeBase):
         self.assertContains(resp, "data-visibility")
 
     def test_catalog_shows_invite_control_for_closed_campaign(self):
+        from apps.profiles.models import BloggerProfile
+        BloggerProfile.objects.filter(user=self.blg).update(show_in_catalog=True)
         c = Client()
         c.force_login(self.adv)
         resp = c.get(reverse("web:blogger_catalog"))

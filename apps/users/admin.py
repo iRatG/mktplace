@@ -1,8 +1,12 @@
+import csv
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 
-from .models import BlockedIP, EmailConfirmationToken, PasswordResetToken, PersonalDataAccess, User
+from .models import BlockedIP, Consent, EmailConfirmationToken, PasswordResetToken, PersonalDataAccess, User
+from .pd_access import log_access
 
 
 @admin.register(User)
@@ -115,6 +119,42 @@ class BlockedIPAdmin(admin.ModelAdmin):
         if not change:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(Consent)
+class ConsentAdmin(admin.ModelAdmin):
+    """Журнал согласий: только чтение, выгрузка подтверждения по запросу попадает в журнал доступа к ПД."""
+
+    list_display = ("created_at", "user", "legal_application", "kind", "granted", "edition", "ip")
+    list_filter = ("kind", "granted", "edition")
+    search_fields = ("user__email", "legal_application__inn")
+    date_hierarchy = "created_at"
+    actions = ("export_csv",)
+
+    @admin.action(description="Выгрузить в CSV")
+    def export_csv(self, request, queryset):
+        rows = queryset.select_related("user", "legal_application")
+        response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
+        response["Content-Disposition"] = 'attachment; filename="consents.csv"'
+        writer = csv.writer(response, delimiter=";")
+        writer.writerow(["Когда", "Пользователь", "ИНН заявки", "Вид", "Согласие", "Редакция", "IP"])
+        for c in rows:
+            writer.writerow([
+                c.created_at.isoformat(), c.user.email if c.user else "",
+                c.legal_application.inn if c.legal_application else "", c.get_kind_display(),
+                "да" if c.granted else "нет", c.edition, c.ip or "",
+            ])
+        log_access(request, f"Выгрузка журнала согласий: {len(rows)} зап.")
+        return response
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(PersonalDataAccess)

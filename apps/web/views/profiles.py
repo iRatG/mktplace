@@ -1,13 +1,15 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from apps.deals.models import Deal, Review
 from apps.platforms.models import Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
+from apps.users import consents
 from apps.users.models import User
 
-from ..forms import AdvertiserProfileForm, BloggerProfileForm
+from ..forms import AdvertiserProfileForm, BloggerProfileForm, ConsentSettingsForm
 from .pages import _redirect_dashboard
 
 
@@ -24,11 +26,13 @@ def profile_view(request):
             "profile": profile,
             "platforms": platforms,
             "completed_deals": completed_deals,
+            "consent_form": ConsentSettingsForm(user=user),
         })
     else:
         profile, _ = AdvertiserProfile.objects.get_or_create(user=user)
         return render(request, "profiles/my_profile.html", {
             "profile": profile,
+            "consent_form": ConsentSettingsForm(user=user),
         })
 
 
@@ -51,6 +55,19 @@ def profile_edit(request):
         return redirect("web:profile")
 
     return render(request, "profiles/edit_profile.html", {"form": form})
+
+
+@login_required
+@require_POST
+def profile_consents(request):
+    """Рассылки и показ в каталоге из профиля: служебные уведомления от этого не зависят."""
+    form = ConsentSettingsForm(request.POST, user=request.user)
+    if form.is_valid():
+        consents.set_marketing(request.user, form.cleaned_data["accept_marketing"], request)
+        if "show_in_catalog" in form.fields:
+            consents.set_catalog(request.user, form.cleaned_data["show_in_catalog"], request)
+        messages.success(request, "Настройки сохранены.")
+    return redirect("web:profile")
 
 
 @login_required

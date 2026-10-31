@@ -6,12 +6,13 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.registration.services import legal_entity_login, parse_inn_login
-from apps.users import blocklist, security
-from apps.users.models import PasswordResetToken, User
+from apps.users import blocklist, consents, security
+from apps.users.models import Consent, PasswordResetToken, User
 from apps.users.tasks import queue_welcome_email, send_password_reset_email
 
 from ..forms import (
     BloggerIdentitySubmitForm,
+    LegalAcceptForm,
     LegalEntityApplicationForm,
     LoginForm,
     PasswordResetConfirmForm,
@@ -94,7 +95,7 @@ def register_view(request):
 
     return render(request, "auth/register.html", {
         "legal_entity_form": LegalEntityApplicationForm(),
-        "blogger_form": BloggerIdentitySubmitForm(),
+        "blogger_form": BloggerIdentitySubmitForm(auto_id="blogger_%s"),
         "initial_role": request.GET.get("role", "advertiser"),
     })
 
@@ -103,6 +104,29 @@ def register_view(request):
 def logout_view(request):
     logout(request)
     return redirect("web:login")
+
+
+def _safe_next(request, url):
+    allowed = url and url_has_allowed_host_and_scheme(url, allowed_hosts={request.get_host()},
+                                                      require_https=request.is_secure())
+    return url if allowed else None
+
+
+@login_required
+def legal_accept_view(request):
+    """Принятие действующей редакции документов, сюда ведёт LegalAcceptanceMiddleware."""
+    next_url = _safe_next(request, request.POST.get("next") or request.GET.get("next", ""))
+    if not consents.needs_acceptance(request.user):
+        return redirect(next_url) if next_url else _redirect_dashboard(request.user)
+
+    form = LegalAcceptForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        consents.record(Consent.Kind.TERMS, request=request, user=request.user)
+        consents.set_marketing(request.user, form.cleaned_data["accept_marketing"], request)
+        if "show_in_catalog" in form.fields:
+            consents.set_catalog(request.user, form.cleaned_data["show_in_catalog"], request)
+        return redirect(next_url) if next_url else _redirect_dashboard(request.user)
+    return render(request, "legal/accept.html", {"form": form, "next": next_url or ""})
 
 
 def email_confirm_view(request, token):

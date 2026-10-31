@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
+from apps.profiles.models import BloggerProfile
 from apps.users.models import User
 
 
@@ -108,6 +109,8 @@ class Command(BaseCommand):
             user.is_demo = True
             user.status = User.Status.ACTIVE
             user.save(update_fields=["is_staff", "is_superuser", "is_email_confirmed", "is_demo", "status"])
+            if data["role"] == User.Role.BLOGGER:
+                BloggerProfile.objects.filter(user=user).update(show_in_catalog=True)
 
             if data["is_staff"]:
                 from django.contrib.auth.models import Group

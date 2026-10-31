@@ -442,6 +442,9 @@ class Command(BaseCommand):
         # Обеспечиваем профиль с никнеймом
         from apps.profiles.models import BloggerProfile
         profile, _ = BloggerProfile.objects.get_or_create(user=user)
+        if not profile.show_in_catalog:
+            profile.show_in_catalog = True
+            profile.save(update_fields=["show_in_catalog"])
         if not profile.nickname:
             profile.nickname = nickname
             profile.bio = f"Демо-блогер {nickname} — автоматически созданный аккаунт для каталога."

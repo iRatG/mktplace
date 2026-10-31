@@ -58,6 +58,7 @@ class BloggerProfile(models.Model):
     deals_count = models.PositiveIntegerField(default=0)
     phone = models.CharField(max_length=30, blank=True)
     pinfl = models.CharField(max_length=14, blank=True, verbose_name="ПИНФЛ")
+    show_in_catalog = models.BooleanField(default=False, verbose_name="Показывать в каталоге")
     is_ip_confirmed = models.BooleanField(default=False)
     is_self_employed_confirmed = models.BooleanField(default=False)
     is_legal_entity_confirmed = models.BooleanField(default=False)

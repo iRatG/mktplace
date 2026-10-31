@@ -133,5 +133,16 @@
     </div>
     {% endif %}
 
+    <!-- Рассылки и каталог -->
+    <form method="post" action="{% url 'web:profile_consents' %}" class="card-dark rounded-xl p-6 space-y-3">
+        {% csrf_token %}
+        <h2 class="text-lg font-semibold">Рассылки и видимость</h2>
+        {% for field in consent_form %}
+        <label class="flex items-start gap-2 text-sm text-gray-700">{{ field }}<span>{{ field.label }}</span></label>
+        {% endfor %}
+        <p class="text-xs text-gray-500">Уведомления о сделках приходят всегда. Без показа в каталоге на кампании можно откликаться.</p>
+        <button type="submit" class="btn-orange px-4 py-2 rounded-lg text-sm">Сохранить</button>
+    </form>
+
 </div>
 {% endblock %}

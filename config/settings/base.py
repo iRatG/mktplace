@@ -60,6 +60,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.users.middleware.BlockedIPMiddleware',
+    'apps.users.middleware.LegalAcceptanceMiddleware',
     'apps.notifications.middleware.NotificationResolveMiddleware',
 ]
 
@@ -147,6 +148,8 @@ CAMPAIGN_MIN_FIXED_PRICE = env.int('CAMPAIGN_MIN_FIXED_PRICE', default=10000)
 # ЭСФ исполнителя как условие выплаты — для каких категорий исполнителя (ответ бизнеса 13.10.2026);
 # самозанятый — до ответа бухгалтерии. Категории — BloggerProfile.Category.
 ESF_REQUIRED_CATEGORIES = env.list('ESF_REQUIRED_CATEGORIES', default=['ip', 'legal_entity', 'self_employed'])
+# Действующая редакция документов (дата). Пока пусто, принять новую редакцию при входе не предлагается.
+LEGAL_EDITION = env('LEGAL_EDITION', default='')
 # Через сколько дней без подтверждения ЭСФ напомнить рекламодателю (один раз).
 ESF_REMINDER_DAYS = env.int('ESF_REMINDER_DAYS', default=3)
 

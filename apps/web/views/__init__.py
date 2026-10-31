@@ -3,6 +3,7 @@ from .auth import (
     register_view,
     logout_view,
     email_confirm_view,
+    legal_accept_view,
     password_reset_request_view,
     password_reset_confirm_view,
 )
@@ -63,6 +64,7 @@ from .platforms import (
 from .profiles import (
     profile_view,
     profile_edit,
+    profile_consents,
     blogger_public_profile,
 )
 from .billing import (

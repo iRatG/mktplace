@@ -58,6 +58,7 @@ urlpatterns = [
     # Profiles
     path("profile/", views.profile_view, name="profile"),
     path("profile/edit/", views.profile_edit, name="profile_edit"),
+    path("profile/consents/", views.profile_consents, name="profile_consents"),
     path("bloggers/<int:pk>/", views.blogger_public_profile, name="blogger_public_profile"),
 
     # Deals
@@ -156,6 +157,7 @@ urlpatterns = [
     path("bq/<slug:token>/", views.business_query_view, name="business_query"),
 
     # Legal pages (REQ-6)
+    path("legal/accept/", views.legal_accept_view, name="legal_accept"),
     path("legal/terms/", views.terms_view, name="terms"),
     path("legal/oferta/", views.oferta_view, name="oferta"),
 

@@ -21,7 +21,7 @@
 
         <form method="post" class="space-y-4">
             {% csrf_token %}
-            {% for field in form %}
+            {% for field in form.main_fields %}
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">
                     {{ field.label }}{% if field.field.required %} *{% endif %}
@@ -36,6 +36,7 @@
             {% if form.non_field_errors %}
             <div class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{{ form.non_field_errors|join:", " }}</div>
             {% endif %}
+            {% include "partials/consent_fields.html" %}
             {% include "partials/bot_protection.html" with load_script=True %}
 
             <div class="pt-2">

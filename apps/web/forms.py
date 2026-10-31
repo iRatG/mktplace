@@ -15,7 +15,8 @@ from apps.platforms.models import Category, PermitDocument, Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
 from apps.registration.models import IPApplication, LegalEntityApplication
 from apps.registration.validators import INN_ERROR, is_valid_inn
-from apps.users.models import User
+from apps.users import consents
+from apps.users.models import Consent, User
 
 
 class SupportMessageForm(forms.Form):
@@ -624,7 +625,49 @@ class DigitBoxesWidget(forms.Widget):
         })
 
 
-class LegalEntityApplicationForm(forms.ModelForm):
+class ConsentForm(forms.Form):
+    """Согласия. В шаблоне — `partials/consent_fields.html`, остальные поля формы — `main_fields`."""
+
+    CONSENT_FIELDS = ("accept_terms", "accept_marketing", "show_in_catalog")
+
+    accept_terms = forms.BooleanField(error_messages={"required": "Без согласия с условиями продолжить нельзя."})
+    accept_marketing = forms.BooleanField(required=False)
+
+    def main_fields(self):
+        return [field for field in self if field.name not in self.CONSENT_FIELDS]
+
+
+class LegalAcceptForm(ConsentForm):
+    """Принятие новой редакции документов; рассылки и каталог показаны с текущими значениями."""
+
+    show_in_catalog = forms.BooleanField(required=False)
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        self.fields["accept_marketing"].initial = consents.is_granted(user, Consent.Kind.MARKETING)
+        if user.role == User.Role.BLOGGER:
+            self.fields["show_in_catalog"].initial = user.blogger_profile.show_in_catalog
+        else:
+            del self.fields["show_in_catalog"]
+
+
+class ConsentSettingsForm(forms.Form):
+    """Рассылки и каталог в профиле."""
+
+    accept_marketing = forms.BooleanField(required=False, label="Получать рекламные рассылки")
+    show_in_catalog = forms.BooleanField(required=False, label="Показывать мой профиль рекламодателям в каталоге")
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["accept_marketing"].initial = consents.is_granted(user, Consent.Kind.MARKETING)
+        if user.role == User.Role.BLOGGER:
+            self.fields["show_in_catalog"].initial = user.blogger_profile.show_in_catalog
+        else:
+            del self.fields["show_in_catalog"]
+
+
+class LegalEntityApplicationForm(ConsentForm, forms.ModelForm):
     """Форма подачи заявки на регистрацию юрлица (название + ИНН)."""
 
     class Meta:
@@ -636,9 +679,7 @@ class LegalEntityApplicationForm(forms.ModelForm):
         self.fields["company_name"].label = "Название компании"
         self.fields["inn"].label = "ИНН"
         self.fields["inn"].widget = DigitBoxesWidget(length=9, group=3, label="ИНН")
-        for name, field in self.fields.items():
-            if name != "inn":
-                field.widget.attrs["class"] = "input-dark"
+        self.fields["company_name"].widget.attrs["class"] = "input-dark"
 
     def clean_inn(self):
         inn = self.cleaned_data["inn"].strip()
@@ -657,17 +698,20 @@ class AdminLegalEntityRejectForm(forms.Form):
     )
 
 
-class BloggerIdentitySubmitForm(forms.Form):
+class BloggerIdentitySubmitForm(ConsentForm):
     """Форма подтверждения личности блогера (OneID/ПИНФЛ) перед регистрацией."""
 
     full_name = forms.CharField(max_length=255, label="Фамилия Имя")
     phone = forms.CharField(max_length=30, label="Телефон")
     pinfl = forms.CharField(max_length=14, label="ПИНФЛ")
+    show_in_catalog = forms.BooleanField(required=False)
+
+    field_order = ["full_name", "phone", "pinfl"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.widget.attrs["class"] = "input-dark"
+        for field in self.main_fields():
+            field.field.widget.attrs["class"] = "input-dark"
 
 
 class IPApplicationForm(forms.ModelForm):

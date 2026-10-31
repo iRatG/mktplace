@@ -3,6 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
+from . import consents
 from .models import User
 
 
@@ -11,10 +12,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         write_only=True, required=True, validators=[validate_password]
     )
     password_confirm = serializers.CharField(write_only=True, required=True)
+    accept_terms = serializers.BooleanField(write_only=True, required=True)
+    accept_marketing = serializers.BooleanField(write_only=True, required=False, default=False)
 
     class Meta:
         model = User
-        fields = ("email", "role", "password", "password_confirm")
+        fields = ("email", "role", "password", "password_confirm", "accept_terms", "accept_marketing")
 
     def validate(self, attrs):
         if attrs["password"] != attrs["password_confirm"]:
@@ -23,6 +26,11 @@ class RegisterSerializer(serializers.ModelSerializer):
             )
         return attrs
 
+    def validate_accept_terms(self, value):
+        if not value:
+            raise serializers.ValidationError(_("Terms must be accepted."))
+        return value
+
     def validate_role(self, value):
         if value not in (User.Role.ADVERTISER, User.Role.BLOGGER):
             raise serializers.ValidationError(_("Invalid role."))
@@ -30,10 +38,13 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop("password_confirm")
+        validated_data.pop("accept_terms")
+        marketing = validated_data.pop("accept_marketing")
         password = validated_data.pop("password")
         user = User(**validated_data)
         user.set_password(password)
         user.save()
+        consents.record_registration({"accept_marketing": marketing}, self.context.get("request"), user=user)
         return user
 
 

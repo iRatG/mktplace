@@ -31,6 +31,7 @@ _platform_counter = 0
 def _make_platform(blogger, status=Platform.Status.APPROVED, social_type=None):
     global _platform_counter
     _platform_counter += 1
+    BloggerProfile.objects.filter(user=blogger).update(show_in_catalog=True)
     return Platform.objects.create(
         blogger=blogger,
         social_type=social_type or Platform.SocialType.INSTAGRAM,
@@ -120,6 +121,7 @@ class CatalogFilterTest(TestCase):
         self.advertiser = _make_user("adv@test.com", User.Role.ADVERTISER)
         self.blogger = _make_user("b1@test.com", User.Role.BLOGGER)
         self.blogger2 = _make_user("b2@test.com", User.Role.BLOGGER)
+        BloggerProfile.objects.filter(user__in=[self.blogger, self.blogger2]).update(show_in_catalog=True)
         self.client.force_login(self.advertiser)
 
         self.p_insta = Platform.objects.create(

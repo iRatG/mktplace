@@ -1,4 +1,5 @@
 import uuid
+from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
@@ -195,6 +196,38 @@ class BlockedIP(models.Model):
     @property
     def is_active(self):
         return self.blocked_until is None or self.blocked_until > timezone.now()
+
+
+class Consent(models.Model):
+    """Журнал согласий: каждая запись — факт согласия или отказа, записи не меняются (apps/users/consents.py)."""
+
+    class Kind(models.TextChoices):
+        TERMS = "terms", "Условия и обработка персональных данных"
+        MARKETING = "marketing", "Рекламные рассылки"
+        CATALOG = "catalog", "Показ профиля в каталоге"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="consents",
+        verbose_name="Пользователь",
+    )
+    legal_application = models.ForeignKey(
+        "registration.LegalEntityApplication", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="consents", verbose_name="Заявка юрлица",
+    )
+    kind = models.CharField("Вид", max_length=20, choices=Kind.choices)
+    granted = models.BooleanField("Согласие дано", default=True)
+    edition = models.CharField("Редакция документов", max_length=20, blank=True)
+    ip = models.GenericIPAddressField("IP", null=True, blank=True)
+    created_at = models.DateTimeField("Когда", auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "Согласие"
+        verbose_name_plural = "Журнал согласий"
+        indexes = [models.Index(fields=["user", "kind", "edition"], name="consent_user_kind_edition")]
+
+    def __str__(self):
+        return f"{self.get_kind_display()}: {'да' if self.granted else 'нет'}"
 
 
 class PersonalDataAccess(models.Model):

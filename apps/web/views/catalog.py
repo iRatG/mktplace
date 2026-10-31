@@ -44,7 +44,7 @@ def blogger_catalog(request):
 
     form = CatalogFilterForm(request.GET or None)
     qs = (
-        Platform.objects.filter(status=Platform.Status.APPROVED)
+        Platform.objects.filter(status=Platform.Status.APPROVED, blogger__blogger_profile__show_in_catalog=True)
         .select_related("blogger__blogger_profile")
         .prefetch_related("categories")
     )

@@ -40,7 +40,7 @@ from apps.registration.services import (
 )
 from apps.registration.tasks import send_blogger_sms_credentials
 from apps.registration.validators import INN_ERROR, is_valid_inn
-from apps.users import security
+from apps.users import consents, security
 from apps.users.models import User
 from apps.users.pd_access import log_access
 
@@ -91,6 +91,7 @@ def legal_entity_submit(request):
     if request.method == "POST" and form.is_valid():
         application = form.save(commit=False)
         application.save()
+        consents.record_registration(form.cleaned_data, request, legal_application=application)
 
         reviewer = assign_reviewer()
         if reviewer:
@@ -369,6 +370,7 @@ def admin_legal_entity_issue_access(request, pk):
             email=legal_entity_login(application.inn), defaults={"role": User.Role.ADVERTISER},
         )
         application.user = user
+    consents.attach_to_user(application, user)
 
     user.set_password(raw_password)
     user.status = User.Status.ACTIVE
@@ -470,6 +472,7 @@ def blogger_identity_submit(request):
         verification.provider_reference = result.reference
         verification.verified_at = timezone.now()
         verification.save(update_fields=["user", "status", "provider_reference", "verified_at"])
+        consents.record_registration(form.cleaned_data, request, user=user)
 
         send_blogger_sms_credentials.delay(user.pk, raw_password)
 

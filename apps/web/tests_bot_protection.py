@@ -171,7 +171,7 @@ class LegalEntityProtectionTest(BotProtectionBase):
         self.url = reverse("web:legal_entity_submit")
 
     def _post(self, n, ip=IP_A, **extra):
-        data = {"company_name": f"ООО Тест {n}", "inn": f"30{n:07d}"}
+        data = {"company_name": f"ООО Тест {n}", "inn": f"30{n:07d}", "accept_terms": "on"}
         data.update(extra)
         return self.client.post(self.url, data, **ip)
 
@@ -201,7 +201,7 @@ class BloggerIdentityProtectionTest(BotProtectionBase):
         self.url = reverse("web:blogger_identity_submit")
 
     def _post(self, phone="+998901112233", pinfl="12345678901234", ip=IP_A, **extra):
-        data = {"full_name": "Тест Тестов", "phone": phone, "pinfl": pinfl}
+        data = {"full_name": "Тест Тестов", "phone": phone, "pinfl": pinfl, "accept_terms": "on"}
         data.update(extra)
         return self.client.post(self.url, data, **ip)
 
@@ -249,7 +249,7 @@ class TurnstileTest(BotProtectionBase):
     def setUp(self):
         super().setUp()
         self.url = reverse("web:legal_entity_submit")
-        self.data = {"company_name": "ООО Капча", "inn": "301234567"}
+        self.data = {"company_name": "ООО Капча", "inn": "301234567", "accept_terms": "on"}
 
     def _urlopen(self, success=True, exc=None, error_codes=()):
         payload = {"success": success, "error-codes": list(error_codes)}

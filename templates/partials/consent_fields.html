@@ -1,0 +1,18 @@
+<div class="space-y-2 text-sm text-gray-700">
+    <label class="flex items-start gap-2">
+        {{ form.accept_terms }}
+        <span>Принимаю <a href="{% url 'web:terms' %}" target="_blank" class="text-orange-600 underline">условия использования</a>,
+            даю согласие на обработку персональных данных, подтверждаю дееспособность, нужный возраст и полномочия *</span>
+    </label>
+    {% if form.accept_terms.errors %}<p class="text-red-600 text-xs">{{ form.accept_terms.errors.0 }}</p>{% endif %}
+    <label class="flex items-start gap-2">
+        {{ form.accept_marketing }}
+        <span>Получать рекламные рассылки</span>
+    </label>
+    {% if form.show_in_catalog %}
+    <label class="flex items-start gap-2">
+        {{ form.show_in_catalog }}
+        <span>Показывать мой профиль рекламодателям в каталоге</span>
+    </label>
+    {% endif %}
+</div>

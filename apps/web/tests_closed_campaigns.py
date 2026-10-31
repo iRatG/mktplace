@@ -17,6 +17,7 @@ from apps.campaigns.testing import CARD_FIELDS
 from apps.campaigns.validation import campaigns_visible_to
 from apps.notifications.models import Notification
 from apps.platforms.models import Platform
+from apps.profiles.models import BloggerProfile
 from apps.users.models import User
 
 _n = 0
@@ -92,6 +93,7 @@ class ClosedCampaignTest(TestCase):
             invite_bloggers(self.campaign.pk, self.adv, [self.stranger])
 
     def test_web_invite_from_catalog_and_page(self):
+        BloggerProfile.objects.filter(user=self.stranger).update(show_in_catalog=True)
         self.client.force_login(self.adv)
         catalog = self.client.get(reverse("web:blogger_catalog")).content.decode()
         self.assertIn("data-invite-one", catalog)

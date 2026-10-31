@@ -311,6 +311,7 @@ class LegalEntityPublicSubmitTests(TestCase):
         response = self.client.post(reverse("web:legal_entity_submit"), {
             "company_name": "ООО Ромашка",
             "inn": "123456789",
+            "accept_terms": "on",
         })
         self.assertEqual(response.status_code, 200)
 
@@ -452,6 +453,7 @@ class BloggerIdentitySubmitTests(TestCase):
             "full_name": "Иван Иванов",
             "phone": "+998901112233",
             "pinfl": "12345678901234",
+            "accept_terms": "on",
         })
         self.assertEqual(response.status_code, 302)
 
@@ -484,6 +486,7 @@ class BloggerIdentitySubmitTests(TestCase):
             "full_name": "Иван Иванов",
             "phone": "+998901112233",
             "pinfl": "12345678901234",
+            "accept_terms": "on",
         })
 
         self.assertEqual(response.status_code, 200)
@@ -497,7 +500,8 @@ class BloggerIdentitySubmitTests(TestCase):
         """Тот же класс бага, что и с ИНН юрлица: логин детерминирован по
         телефону — повторная попытка OneID с тем же номером (потерянное SMS,
         повтор после ошибки) не должна падать с IntegrityError."""
-        payload = {"full_name": "Иван Иванов", "phone": "+998901112233", "pinfl": "12345678901234"}
+        payload = {"full_name": "Иван Иванов", "phone": "+998901112233", "pinfl": "12345678901234",
+                   "accept_terms": "on"}
         r1 = self.client.post(reverse("web:blogger_identity_submit"), payload)
         self.assertEqual(r1.status_code, 302)
         user1 = IdentityVerification.objects.get(pinfl="12345678901234").user
