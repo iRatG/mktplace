@@ -101,8 +101,8 @@ class SelfEmployedReceiptTest(DealPayoutBase):
         from openpyxl import load_workbook
 
         sheet = load_workbook(BytesIO(payouts_workbook(WithdrawalRequest.objects.filter(pk=self.payout.pk)))).active
-        self.assertEqual(sheet.cell(row=1, column=sheet.max_column).value, "Чек самозанятого")
-        self.assertEqual(sheet.cell(row=2, column=sheet.max_column).value, "123456")
+        headers = [cell.value for cell in sheet[1]]
+        self.assertEqual(sheet.cell(row=2, column=headers.index("Чек самозанятого") + 1).value, "123456")
 
 
 class OtherCategoriesTest(DealPayoutBase):

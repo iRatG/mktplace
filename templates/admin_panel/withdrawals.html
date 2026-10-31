@@ -31,6 +31,8 @@
         </select></label>
     <label class="block"><span class="text-xs text-gray-500">Сделка №</span>
         <input type="text" name="deal" value="{{ filters.deal }}" class="input-dark mt-1" inputmode="numeric"></label>
+    <label class="block"><span class="text-xs text-gray-500">Месяц</span>
+        <input type="month" name="month" value="{{ filters.month }}" class="input-dark mt-1"></label>
     <label class="block"><span class="text-xs text-gray-500">Создана с</span>
         <input type="date" name="date_from" value="{{ filters.date_from|date:'Y-m-d' }}" class="input-dark mt-1"></label>
     <label class="block"><span class="text-xs text-gray-500">по</span>
@@ -56,6 +58,7 @@
                         {{ wr.get_kind_display }}{% if wr.deal %} · <a href="{% url 'web:deal_detail' wr.deal.pk %}" class="text-orange-600 hover:text-orange-700">сделка #{{ wr.deal.pk }}</a> · договор № {{ wr.deal.contract_number }} · {{ wr.deal.campaign.name }}{% endif %}
                         · категория: {{ wr.blogger.blogger_profile.get_category_display|default:"—" }}
                         · создана {{ wr.created_at|date:"d.m.Y H:i" }}
+                        {% if wr.status == 'pending' %}· <span data-pay-by {% if wr.is_late %}class="text-red-600 font-medium"{% endif %}>оплатить до {{ wr.pay_by|date:"d.m.Y" }}{% if wr.is_late %}, срок прошёл{% endif %}</span>{% endif %}
                     </div>
                 </div>
                 <div class="text-right shrink-0">

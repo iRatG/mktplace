@@ -238,6 +238,13 @@ class Deal(models.Model):
         return next((p for p in self.payouts.all() if p.status != "rejected"), None)
 
     @property
+    def payout_pay_by(self):
+        """Ожидаемая дата выплаты: срок месяца, в котором наступит основание для выплаты."""
+        from apps.billing.models import payment_deadline
+
+        return payment_deadline(self.payout_due) if self.payout_due else None
+
+    @property
     def needs_self_employed_receipt(self):
         """Выплата по этой сделке ждёт чек самозанятого: сделка оплачена и исполнитель — самозанятый."""
         from apps.billing.esf import receipt_required_for

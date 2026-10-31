@@ -7,6 +7,7 @@
         <div><dt class="text-xs text-gray-500">Сумма исполнителю</dt><dd class="text-gray-900">{{ payout.amount|money }} {{ currency.symbol }}</dd></div>
         <div><dt class="text-xs text-gray-500">ЭСФ исполнителя</dt>
             <dd data-einvoice-status>{% if einvoice %}{{ einvoice.get_status_display }}{% if einvoice.number %} · № {{ einvoice.number }}{% endif %}{% else %}—{% endif %}</dd></div>
+        {% if payout.status == 'pending' %}<div><dt class="text-xs text-gray-500">Срок выплаты</dt><dd data-pay-by>до {{ payout.pay_by|date:"d.m.Y" }}, выплаты проходят раз в месяц</dd></div>{% endif %}
         <div><dt class="text-xs text-gray-500">Выплата</dt>
             <dd data-payout-state>{% if payout.status == 'completed' %}проведена {{ payout.processed_at|date:"d.m.Y" }}{% elif payout.status == 'rejected' %}не проведена{% if payout.admin_comment %}: {{ payout.admin_comment }}{% endif %}{% else %}{% with reasons=payout.blocked_reasons %}{% if reasons %}ждёт: {{ reasons|join:", " }}{% else %}в реестре — ждёт проведения бухгалтером{% endif %}{% endwith %}{% endif %}</dd></div>
     </dl>

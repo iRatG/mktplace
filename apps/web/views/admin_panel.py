@@ -334,6 +334,7 @@ def admin_withdrawals(request):
     show_demo = request.GET.get("demo") == "1"
     date_from = parse_date(request.GET.get("date_from"))
     date_to = parse_date(request.GET.get("date_to"))
+    month = parse_date(f'{request.GET.get("month", "")}-01')
 
     qs = (
         WithdrawalRequest.objects.select_related("blogger__blogger_profile", "deal__campaign")
@@ -347,6 +348,8 @@ def admin_withdrawals(request):
         qs = qs.filter(deal_id=int(deal_id))
     if not show_demo:
         qs = qs.filter(blogger__is_demo=False)
+    if month:
+        qs = qs.filter(created_at__year=month.year, created_at__month=month.month)
     if date_from:
         qs = qs.filter(created_at__gte=metrics.period_bounds(date_from, date_from)[0])
     if date_to:
@@ -376,7 +379,7 @@ def admin_withdrawals(request):
         "withdrawals": payouts,
         "ready_count": sum(1 for p in payouts if p.is_ready),
         "filters": {"status": status, "kind": kind, "deal": deal_id, "ready": ready, "demo": show_demo,
-                    "date_from": date_from, "date_to": date_to},
+                    "date_from": date_from, "date_to": date_to, "month": request.GET.get("month", "") if month else ""},
         "status_choices": WithdrawalRequest.Status.choices,
         "kind_choices": WithdrawalRequest.Kind.choices,
         "performer_statuses": [(v, EInvoice.Status(v).label) for v in ALLOWED_STATUSES[EInvoice.Kind.PERFORMER]],

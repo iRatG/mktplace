@@ -74,7 +74,7 @@
             <tr>
                 <td class="px-6 py-3"><a href="{% url 'web:deal_detail' deal.pk %}" class="text-gray-900 hover:text-orange-700">#{{ deal.pk }} · {{ deal.campaign.name }}</a></td>
                 <td class="px-3 py-3 text-right whitespace-nowrap">{{ deal.blogger_earning|money }}</td>
-                <td class="px-6 py-3 text-right text-xs text-gray-500">{% if deal.status == 'disputed' %}по решению претензии{% elif deal.payout_due %}{{ deal.payout_due|date:"d.m.Y" }}{% elif deal.publication_date %}после публикации {{ deal.publication_date|date:"d.m.Y" }}{% else %}после публикации{% endif %}</td>
+                <td class="px-6 py-3 text-right text-xs text-gray-500">{% if deal.status == 'disputed' %}по решению претензии{% elif deal.payout_due %}до {{ deal.payout_pay_by|date:"d.m.Y" }}{% elif deal.publication_date %}после публикации {{ deal.publication_date|date:"d.m.Y" }}{% else %}после публикации{% endif %}</td>
             </tr>
             {% endfor %}
         </tbody>

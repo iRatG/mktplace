@@ -1,7 +1,16 @@
+from datetime import date
+
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
+
+
+def payment_deadline(moment):
+    """До какого числа выплата за месяц этого момента: PAYOUT_DAY следующего месяца, по местному времени."""
+    local = timezone.localtime(moment)
+    year, month = (local.year + 1, 1) if local.month == 12 else (local.year, local.month + 1)
+    return date(year, month, settings.PAYOUT_DAY)
 
 
 class Wallet(models.Model):
@@ -281,6 +290,14 @@ class WithdrawalRequest(models.Model):
     @property
     def is_ready(self):
         return not self.blocked_reasons
+
+    @property
+    def pay_by(self):
+        return payment_deadline(self.created_at)
+
+    @property
+    def is_late(self):
+        return self.status == self.Status.PENDING and timezone.localdate() > self.pay_by
 
 
 class EInvoice(models.Model):
