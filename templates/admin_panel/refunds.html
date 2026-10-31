@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Возвраты остатка — UBlogers!{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center gap-3">
+    <a href="{% url 'web:admin_dashboard' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Панель</a>
+    <h1 class="text-2xl font-bold text-gray-900">Возвраты остатка</h1>
+    <span class="text-sm text-gray-500">({{ queue|length }} открыто)</span>
+</div>
+
+{% if queue %}
+<div class="space-y-4">
+    {% for refund in queue %}
+    <div class="card-dark rounded-xl p-6" data-refund-row>
+        <div class="flex flex-wrap justify-between gap-3">
+            <div class="font-semibold text-gray-900">№{{ refund.pk }} · {{ refund.amount|money }} {{ currency.symbol }} · {{ refund.advertiser.public_name }}</div>
+            <div class="text-sm text-gray-600">{{ refund.get_status_display }}</div>
+        </div>
+        <div class="text-sm text-gray-700 mt-2">Счёт {{ refund.account }}, МФО {{ refund.mfo }}</div>
+        {% if refund.other_account %}<div class="text-sm text-yellow-700 mt-1" data-other-account>Не счёт поступления ({{ refund.source_account|default:"нет" }}): подтвердите, что это счёт того же плательщика.</div>{% endif %}
+        {% if refund.status == 'requested' %}
+        <div class="text-xs mt-2 {% if refund.is_overdue %}text-red-600{% else %}text-gray-500{% endif %}" {% if refund.is_overdue %}data-overdue{% endif %}>Запросить недостающее до {{ refund.info_due_at|date:"d.m.Y" }} · передать в банк до {{ refund.due_at|date:"d.m.Y" }}{% if refund.is_overdue %} · срок прошёл{% endif %}</div>
+        {% endif %}
+        {% if refund.staff_comment %}<div class="text-sm text-gray-700 mt-1">Комментарий: {{ refund.staff_comment }}</div>{% endif %}
+
+        <form method="post" action="{% url 'web:admin_refund_action' refund.pk %}" class="mt-4 space-y-3">
+            {% csrf_token %}
+            <textarea name="note" rows="2" class="input-dark resize-none text-sm" placeholder="Причина отказа или каких сведений не хватает"></textarea>
+            <div class="flex flex-wrap gap-3">
+                {% if refund.status == 'requested' %}
+                <button type="submit" name="action" value="sent" class="btn-orange px-4 py-2 rounded-lg text-sm">Передано в банк</button>
+                <button type="submit" name="action" value="info" class="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg">Запросить сведения</button>
+                {% endif %}
+                {% if refund.status == 'sent' %}
+                <button type="submit" name="action" value="done" class="btn-orange px-4 py-2 rounded-lg text-sm">Проведено</button>
+                {% endif %}
+                <button type="submit" name="action" value="reject" class="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg">Отклонить, вернуть на баланс</button>
+            </div>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card-dark rounded-xl p-8 text-center text-gray-500">Открытых заявок нет</div>
+{% endif %}
+{% endblock %}

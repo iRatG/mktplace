@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from .models import EInvoice, SpecialTariff, TestBalanceGrant, Transaction, Wallet, WithdrawalRequest
+from .models import (
+    BalanceRefund, EInvoice, PaymentInvoice, SpecialTariff, TestBalanceGrant, Transaction, Wallet, WithdrawalRequest,
+)
 from .services import BillingService
 
 
@@ -105,6 +107,33 @@ class TestBalanceGrantAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False  # audit log — immutable
+
+
+class _ReadOnlyMoneyAdmin(admin.ModelAdmin):
+    """Деньги двигаются только из панели сотрудника."""
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PaymentInvoice)
+class PaymentInvoiceAdmin(_ReadOnlyMoneyAdmin):
+    list_display = ("number", "advertiser", "amount", "status", "received_amount", "received_on", "created_at")
+    list_filter = ("status",)
+    search_fields = ("advertiser__email", "payer_account")
+
+
+@admin.register(BalanceRefund)
+class BalanceRefundAdmin(_ReadOnlyMoneyAdmin):
+    list_display = ("id", "advertiser", "amount", "account", "status", "due_at", "processed_at")
+    list_filter = ("status",)
+    search_fields = ("advertiser__email", "account")
 
 
 @admin.register(SpecialTariff)

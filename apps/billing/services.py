@@ -3,7 +3,8 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.conf import settings
 from django.db import models, transaction as db_transaction
 
-from .models import TestBalanceGrant, Transaction, Wallet, WithdrawalRequest
+from .formatting import format_money
+from .models import BalanceRefund, PaymentInvoice, TestBalanceGrant, Transaction, Wallet, WithdrawalRequest
 
 
 # Сделка, по которой списываются CPA-конверсии: идёт работа или проверка. Завершённая, отменённая
@@ -410,6 +411,128 @@ class BillingService:
             description=f"Refund for rejected withdrawal request #{withdrawal.pk}",
         )
         return wallet
+
+    # ── Пополнение по счёту и возврат свободного остатка ─────────────────────
+
+    @classmethod
+    @db_transaction.atomic
+    def credit_invoice(cls, invoice, amount, received_on, payer_account, payer_mfo, staff):
+        """Поступление по счёту: на баланс зачисляется сумма из выписки (DEPOSIT). Истёкший счёт тоже можно зачислить."""
+        from django.utils import timezone
+
+        invoice = PaymentInvoice.objects.select_for_update().get(pk=invoice.pk)
+        if invoice.status == PaymentInvoice.Status.PAID:
+            raise ValueError("Счёт уже оплачен.")
+        if amount <= 0:
+            raise ValueError("Сумма поступления должна быть больше нуля.")
+        wallet = cls._get_or_create_wallet(invoice.advertiser)
+        wallet.available_balance += amount
+        wallet.save(update_fields=["available_balance", "updated_at"])
+        Transaction.objects.create(
+            wallet=wallet, type=Transaction.Type.DEPOSIT, amount=amount, balance_after=wallet.available_balance,
+            description=f"Пополнение по счёту {invoice.number}",
+        )
+        invoice.status = PaymentInvoice.Status.PAID
+        invoice.received_amount = amount
+        invoice.received_on = received_on
+        invoice.payer_account = payer_account
+        invoice.payer_mfo = payer_mfo
+        invoice.confirmed_by = staff
+        invoice.confirmed_at = timezone.now()
+        invoice.save()
+        return invoice
+
+    @classmethod
+    @db_transaction.atomic
+    def request_balance_refund(cls, user, amount, account, mfo):
+        """Заявка на возврат: сумма сразу уходит из доступной и не может быть потрачена или возвращена второй раз."""
+        wallet = cls._get_or_create_wallet(user)
+        paid = PaymentInvoice.objects.filter(advertiser=user, status=PaymentInvoice.Status.PAID)
+        if not paid.exists():
+            raise ValueError("Возврат доступен после первого поступления по счёту.")
+        if amount <= 0:
+            raise ValueError("Укажите сумму больше нуля.")
+        if wallet.available_balance < amount:
+            raise ValueError(f"Свободно только {format_money(wallet.available_balance)} сум.")
+        latest = paid.order_by("-confirmed_at").first()
+        refund = BalanceRefund(advertiser=user, amount=amount, account=account, mfo=mfo,
+                               other_account=(account, mfo) != (latest.payer_account, latest.payer_mfo))
+        refund.set_deadlines()
+        refund.save()
+        wallet.available_balance -= amount
+        wallet.on_withdrawal += amount
+        wallet.save(update_fields=["available_balance", "on_withdrawal", "updated_at"])
+        Transaction.objects.create(
+            wallet=wallet, type=Transaction.Type.WITHDRAWAL, amount=-amount, balance_after=wallet.available_balance,
+            description=f"Заявка на возврат остатка №{refund.pk}",
+        )
+        return refund
+
+    @classmethod
+    def _return_refund_to_balance(cls, refund):
+        wallet = cls._get_or_create_wallet(refund.advertiser)
+        wallet.on_withdrawal -= refund.amount
+        wallet.available_balance += refund.amount
+        wallet.save(update_fields=["available_balance", "on_withdrawal", "updated_at"])
+        Transaction.objects.create(
+            wallet=wallet, type=Transaction.Type.REFUND, amount=refund.amount, balance_after=wallet.available_balance,
+            description=f"Возврат остатка №{refund.pk} не проведён, сумма снова доступна",
+        )
+
+    @classmethod
+    @db_transaction.atomic
+    def cancel_balance_refund(cls, refund):
+        """Рекламодатель отзывает заявку, пока она не передана банку."""
+        refund = BalanceRefund.objects.select_for_update().get(pk=refund.pk)
+        if not refund.can_cancel:
+            raise ValueError("Заявка уже передана банку, отозвать её нельзя.")
+        cls._return_refund_to_balance(refund)
+        refund.status = BalanceRefund.Status.CANCELLED
+        refund.save(update_fields=["status"])
+        return refund
+
+    @classmethod
+    @db_transaction.atomic
+    def reject_balance_refund(cls, refund, staff, reason):
+        """Отказ или возврат денег банком: сумма снова на доступном балансе, причина обязательна."""
+        from django.utils import timezone
+
+        reason = (reason or "").strip()
+        if not reason:
+            raise ValueError("Укажите причину.")
+        refund = BalanceRefund.objects.select_for_update().get(pk=refund.pk)
+        open_statuses = (BalanceRefund.Status.REQUESTED, BalanceRefund.Status.NEEDS_INFO, BalanceRefund.Status.SENT)
+        if refund.status not in open_statuses:
+            raise ValueError("Заявка уже закрыта.")
+        cls._return_refund_to_balance(refund)
+        refund.status = BalanceRefund.Status.REJECTED
+        refund.staff_comment = reason
+        refund.processed_by = staff
+        refund.processed_at = timezone.now()
+        refund.save(update_fields=["status", "staff_comment", "processed_by", "processed_at"])
+        return refund
+
+    @classmethod
+    @db_transaction.atomic
+    def complete_balance_refund(cls, refund, staff):
+        """Банк провёл возврат: сумма уходит из системы (PAYOUT). Комиссии нет."""
+        from django.utils import timezone
+
+        refund = BalanceRefund.objects.select_for_update().get(pk=refund.pk)
+        if refund.status != BalanceRefund.Status.SENT:
+            raise ValueError("Проведённым отмечается возврат, переданный банку.")
+        wallet = cls._get_or_create_wallet(refund.advertiser)
+        wallet.on_withdrawal -= refund.amount
+        wallet.save(update_fields=["on_withdrawal", "updated_at"])
+        Transaction.objects.create(
+            wallet=wallet, type=Transaction.Type.PAYOUT, amount=-refund.amount, balance_after=wallet.available_balance,
+            description=f"Возврат остатка №{refund.pk} на счёт {refund.account}",
+        )
+        refund.status = BalanceRefund.Status.DONE
+        refund.processed_by = staff
+        refund.processed_at = timezone.now()
+        refund.save(update_fields=["status", "processed_by", "processed_at"])
+        return refund
 
     # ── Test Balance (Demo) ──────────────────────────────────────────────────
 

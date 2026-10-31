@@ -10,7 +10,7 @@ def _delete_user_safely(user):
     from apps.deals.models import Deal, DealStatusLog
     from apps.campaigns.models import Campaign, Response
     from apps.platforms.models import Platform
-    from apps.billing.models import Wallet, Transaction, WithdrawalRequest
+    from apps.billing.models import BalanceRefund, PaymentInvoice, Wallet, Transaction, WithdrawalRequest
     from apps.profiles.models import AdvertiserProfile, BloggerProfile
 
     # Delete deals (PROTECT FK) — must go before campaigns and users
@@ -30,6 +30,8 @@ def _delete_user_safely(user):
     Wallet.objects.filter(user=user).delete()
     WithdrawalRequest.objects.filter(blogger=user).delete()
     DataRequest.objects.filter(user=user).delete()
+    BalanceRefund.objects.filter(advertiser=user).delete()
+    PaymentInvoice.objects.filter(advertiser=user).delete()
 
     user.delete()
 

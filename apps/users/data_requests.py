@@ -53,6 +53,8 @@ def closure_blockers(user):
     live = (Campaign.Status.MODERATION, Campaign.Status.ACTIVE, Campaign.Status.PAUSED)
     if Campaign.objects.filter(advertiser=user, status__in=live).exists():
         blockers.append("есть незавершённые кампании")
+    if user.payment_invoices.filter(status="issued").exists():
+        blockers.append("есть неоплаченные счета")
     wallet = Wallet.objects.filter(user=user).first()
     if wallet and wallet.total_balance > 0:
         blockers.append("на балансе есть деньги")

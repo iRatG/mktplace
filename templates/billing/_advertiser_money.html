@@ -1,0 +1,77 @@
+{% load money %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+    <div class="card-dark rounded-xl p-6" data-top-up>
+        <h2 class="font-semibold text-gray-900 mb-1">Пополнить баланс</h2>
+        {% if invoice_error %}
+        <p class="text-sm text-gray-600" data-top-up-closed>{{ invoice_error }}</p>
+        {% else %}
+        <p class="text-xs text-gray-500 mb-3">Сформируйте счёт и оплатите его с расчётного счёта. Баланс пополнится на сумму, которая поступит, после проверки по выписке.</p>
+        <form method="post" action="{% url 'web:invoice_create' %}" novalidate class="space-y-3">
+            {% csrf_token %}
+            {% include "partials/number_input.html" with name="amount" label="Сумма счёта" step=1000000 %}
+            <button type="submit" class="btn-orange px-4 py-2 rounded-lg text-sm">Сформировать счёт</button>
+        </form>
+        {% endif %}
+        {% if invoices %}
+        <div class="mt-4 space-y-1 text-sm" data-invoices>
+            {% for invoice in invoices %}
+            <div class="flex justify-between gap-3">
+                <a href="{% url 'web:invoice_print' invoice.pk %}" class="text-orange-600 hover:text-orange-700">{{ invoice.number }}</a>
+                <span class="text-gray-700">{{ invoice.amount|money }} {{ currency.symbol }}</span>
+                <span class="text-gray-500">{{ invoice.get_status_display }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card-dark rounded-xl p-6" data-refund>
+        <h2 class="font-semibold text-gray-900 mb-1">Вернуть свободный остаток</h2>
+        {% if refund_source %}
+        <p class="text-xs text-gray-500 mb-3">Доступно {{ wallet.available_balance|money }} {{ currency.symbol }}. Деньги вернутся на счёт, с которого поступили, в течение 5 рабочих дней, без комиссии. Сделки и кампании не мешают возврату свободной части.</p>
+        <form method="post" action="{% url 'web:refund_create' %}" novalidate class="space-y-3">
+            {% csrf_token %}
+            {% include "partials/number_input.html" with name="refund_amount" label="Сумма возврата" step=1000000 %}
+            <div>
+                <label class="block text-sm text-gray-700 mb-1">{{ refund_form.account.label }}</label>
+                {{ refund_form.account }}
+            </div>
+            <div>
+                <label class="block text-sm text-gray-700 mb-1">{{ refund_form.mfo.label }}</label>
+                {{ refund_form.mfo }}
+            </div>
+            <p class="text-xs text-gray-500">Другой счёт — только того же плательщика, сотрудник проверит его.</p>
+            <button type="submit" class="btn-orange px-4 py-2 rounded-lg text-sm">Подать заявку</button>
+        </form>
+        {% else %}
+        <p class="text-sm text-gray-600">Возврат станет доступен после первого поступления по счёту.</p>
+        {% endif %}
+        {% if refunds %}
+        <div class="mt-4 space-y-3 text-sm" data-refunds>
+            {% for refund in refunds %}
+            <div class="border-t border-gray-200 pt-3">
+                <div class="flex justify-between gap-3">
+                    <span class="text-gray-900">№{{ refund.pk }} · {{ refund.amount|money }} {{ currency.symbol }}</span>
+                    <span class="text-gray-600">{{ refund.get_status_display }}</span>
+                </div>
+                {% if refund.staff_comment %}<p class="text-gray-700 mt-1">{{ refund.staff_comment }}</p>{% endif %}
+                {% if refund.status == 'needs_info' %}
+                <form method="post" action="{% url 'web:refund_update' refund.pk %}" class="mt-2 space-y-2" data-refund-details>
+                    {% csrf_token %}
+                    <input name="account" value="{{ refund.account }}" class="input-dark text-sm" aria-label="Счёт">
+                    <input name="mfo" value="{{ refund.mfo }}" class="input-dark text-sm" aria-label="МФО">
+                    <button type="submit" class="btn-orange px-3 py-1.5 rounded-lg text-xs">Отправить сведения</button>
+                </form>
+                {% endif %}
+                {% if refund.can_cancel %}
+                <form method="post" action="{% url 'web:refund_cancel' refund.pk %}" class="mt-2">
+                    {% csrf_token %}
+                    <button type="submit" class="text-xs text-gray-500 underline">Отозвать заявку</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>

@@ -83,6 +83,8 @@
 </div>
 {% endif %}
 
+{% if is_advertiser %}{% include "billing/_advertiser_money.html" %}{% endif %}
+
 {% if budgets and budgets.rows %}
 <!-- Бюджеты кампаний (рекламодатель): сколько денег приходится на каждую кампанию -->
 <div class="card-dark rounded-xl overflow-hidden mb-8" data-campaign-budgets>

@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 
 from apps.billing import metrics
 from apps.billing.formatting import format_money
-from apps.billing.models import WithdrawalRequest
+from apps.billing.models import BalanceRefund, PaymentInvoice, WithdrawalRequest
 from apps.billing.services import BillingService
 from apps.campaigns.models import Campaign, CampaignEditProposal
 from apps.campaigns.services import expired_error
@@ -71,6 +71,10 @@ def admin_dashboard(request):
         "permits_pending": PermitDocument.objects.filter(status=PermitDocument.Status.PENDING).count(),
         "reviews_pending": _pending_platform_reviews(),
         "data_requests_open": DataRequest.objects.filter(status=DataRequest.Status.OPEN).count(),
+        "invoices_waiting": PaymentInvoice.objects.filter(status=PaymentInvoice.Status.ISSUED).count(),
+        "refunds_open": BalanceRefund.objects.filter(status__in=(
+            BalanceRefund.Status.REQUESTED, BalanceRefund.Status.SENT,
+        )).count(),
         "users_total": User.objects.count(),
         "users_active": User.objects.filter(status=User.Status.ACTIVE).count(),
         "new_users_month": User.objects.filter(date_joined__gte=last_30).count(),

@@ -882,6 +882,55 @@ class NotificationService:
                 url=reverse("web:admin_withdrawals") + f"?deal={deal.pk}",
             )
 
+    # ── Пополнение по счёту и возврат остатка ─────────────────────────────────
+
+    @staticmethod
+    def notify_balance_topped_up(invoice):
+        """Поступление зачислено → рекламодателю."""
+        NotificationService.notify(
+            user=invoice.advertiser,
+            notification_type=Notification.Type.PAYMENT_RECEIVED,
+            title="Баланс пополнен",
+            body=f"По счёту {invoice.number} зачислено {format_money(invoice.received_amount)} сум.",
+            url=reverse("web:wallet"),
+        )
+
+    @staticmethod
+    def notify_invoice_expired(invoice):
+        """Счёт истёк без оплаты → рекламодателю."""
+        NotificationService.notify(
+            user=invoice.advertiser,
+            notification_type=Notification.Type.SYSTEM,
+            title="Счёт истёк",
+            body=f"Счёт {invoice.number} не оплачен в срок. Если деньги уже отправлены, напишите в поддержку.",
+            url=reverse("web:wallet"),
+        )
+
+    @staticmethod
+    def notify_refund_requested(refund):
+        """Заявка на возврат остатка → всем активным сотрудникам."""
+        for staff in NotificationService._staff():
+            NotificationService.notify(
+                user=staff,
+                notification_type=Notification.Type.SYSTEM,
+                title="Заявка на возврат остатка",
+                body=f"Заявка №{refund.pk} на {format_money(refund.amount)} сум: передать в банк до "
+                     f"{timezone.localtime(refund.due_at):%d.%m.%Y}.",
+                url=reverse("web:admin_refunds"),
+            )
+
+    @staticmethod
+    def notify_refund_changed(refund):
+        """Заявка на возврат изменила статус → рекламодателю."""
+        comment = f" {refund.staff_comment}" if refund.staff_comment else ""
+        NotificationService.notify(
+            user=refund.advertiser,
+            notification_type=Notification.Type.SYSTEM,
+            title="Возврат остатка",
+            body=f"Заявка №{refund.pk}: {refund.get_status_display().lower()}.{comment}",
+            url=reverse("web:wallet"),
+        )
+
     # ── Обращения по персональным данным ──────────────────────────────────────
 
     @staticmethod

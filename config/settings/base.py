@@ -148,6 +148,15 @@ CAMPAIGN_MIN_FIXED_PRICE = env.int('CAMPAIGN_MIN_FIXED_PRICE', default=10000)
 # ЭСФ исполнителя как условие выплаты — для каких категорий исполнителя (ответ бизнеса 13.10.2026);
 # самозанятый — до ответа бухгалтерии. Категории — BloggerProfile.Category.
 ESF_REQUIRED_CATEGORIES = env.list('ESF_REQUIRED_CATEGORIES', default=['ip', 'legal_entity', 'self_employed'])
+# Реквизиты оператора для счёта на оплату. Пока банк не задан, форма счёта скрыта.
+OPERATOR_NAME = env('OPERATOR_NAME', default='ООО «EASTESSE GROUP»')
+OPERATOR_INN = env('OPERATOR_INN', default='310591115')
+OPERATOR_ADDRESS = env('OPERATOR_ADDRESS', default='г. Ташкент, Шайхантахурский р-н, ул. Пахтакор, 5')
+OPERATOR_BANK_NAME = env('OPERATOR_BANK_NAME', default='')
+OPERATOR_ACCOUNT = env('OPERATOR_ACCOUNT', default='')
+OPERATOR_MFO = env('OPERATOR_MFO', default='')
+# Сколько дней действует счёт на оплату.
+INVOICE_VALID_DAYS = env.int('INVOICE_VALID_DAYS', default=10)
 # Пометка рядом с комиссией: меняется при смене налогового режима.
 VAT_NOTE = env('VAT_NOTE', default='НДС не облагается')
 # Лимит применения налога с оборота: в БРВ, размер БРВ в сумах и доля лимита (%), с которой дашборд предупреждает.
@@ -209,6 +218,10 @@ CELERY_BEAT_SCHEDULE = {
     'auto-expire-responses-and-offers': {
         'task': 'apps.campaigns.tasks.auto_expire_responses_and_offers',
         'schedule': 3600,  # every hour — срок ответа 7 дней, напоминание за сутки (BZ-3)
+    },
+    'expire-payment-invoices': {
+        'task': 'apps.billing.tasks.expire_payment_invoices',
+        'schedule': 3600,  # every hour
     },
     'einvoice-reminders': {
         'task': 'apps.billing.tasks.einvoice_reminders',

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Счета на оплату — UBlogers!{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center gap-3">
+    <a href="{% url 'web:admin_dashboard' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Панель</a>
+    <h1 class="text-2xl font-bold text-gray-900">Счета на оплату</h1>
+    <span class="text-sm text-gray-500">({{ queue|length }} ждут поступления)</span>
+</div>
+
+{% if queue %}
+<div class="space-y-4">
+    {% for invoice in queue %}
+    <div class="card-dark rounded-xl p-6" data-invoice-row>
+        <div class="flex flex-wrap justify-between gap-3 mb-4">
+            <div>
+                <a href="{% url 'web:invoice_print' invoice.pk %}" class="font-semibold text-orange-600">{{ invoice.number }}</a>
+                <span class="text-sm text-gray-700 ml-2">{{ invoice.advertiser.public_name }}{% if invoice.advertiser.advertiser_profile.inn %}, ИНН {{ invoice.advertiser.advertiser_profile.inn }}{% endif %}</span>
+                {% if invoice.advertiser.is_demo %}<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">демо</span>{% endif %}
+            </div>
+            <div class="text-sm text-gray-700">{{ invoice.amount|money }} {{ currency.symbol }} · {{ invoice.get_status_display }} · до {{ invoice.expires_at|date:"d.m.Y" }}</div>
+        </div>
+        <form method="post" action="{% url 'web:admin_invoice_confirm' invoice.pk %}" novalidate class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+            {% csrf_token %}
+            <div>{% include "partials/number_input.html" with name="amount" label="Сумма по выписке" value=invoice.amount|money step=1000000 %}</div>
+            <div><label class="block text-sm text-gray-700 mb-1">Дата по выписке</label><input type="date" name="received_on" max="{{ today|date:'Y-m-d' }}" class="input-dark"></div>
+            <div><label class="block text-sm text-gray-700 mb-1">Счёт плательщика</label><input name="account" maxlength="20" class="input-dark"></div>
+            <div><label class="block text-sm text-gray-700 mb-1">МФО</label><input name="mfo" maxlength="5" class="input-dark"></div>
+            <button type="submit" class="btn-orange px-4 py-2 rounded-lg text-sm sm:col-span-4 sm:justify-self-start">Зачислить на баланс</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card-dark rounded-xl p-8 text-center text-gray-500">Счетов, ждущих поступления, нет</div>
+{% endif %}
+{% endblock %}

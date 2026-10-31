@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 
 class Wallet(models.Model):
@@ -82,6 +83,100 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"Transaction({self.type}, {self.amount}) for {self.wallet.user.email}"
+
+
+class PaymentInvoice(models.Model):
+    """Счёт на оплату: рекламодатель переводит деньги, сотрудник отмечает поступление по выписке (apps/billing/topups.py)."""
+
+    class Status(models.TextChoices):
+        ISSUED = "issued", "Ждёт оплаты"
+        PAID = "paid", "Оплачен"
+        EXPIRED = "expired", "Истёк"
+
+    advertiser = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="payment_invoices")
+    amount = models.DecimalField("Сумма счёта", max_digits=14, decimal_places=2)
+    status = models.CharField("Статус", max_length=20, choices=Status.choices, default=Status.ISSUED)
+    requisites = models.JSONField("Реквизиты оператора", default=dict)
+    expires_at = models.DateTimeField("Действителен до")
+    received_amount = models.DecimalField("Поступило", max_digits=14, decimal_places=2, null=True, blank=True)
+    received_on = models.DateField("Дата поступления", null=True, blank=True)
+    payer_account = models.CharField("Счёт плательщика", max_length=20, blank=True)
+    payer_mfo = models.CharField("МФО плательщика", max_length=5, blank=True)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="confirmed_invoices",
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "Счёт на оплату"
+        verbose_name_plural = "Счета на оплату"
+
+    def __str__(self):
+        return self.number
+
+    @property
+    def number(self):
+        return f"СЧ-{self.pk}"
+
+    @property
+    def purpose(self):
+        return f"Пополнение баланса на платформе UBlogers по счёту {self.number}, {settings.VAT_NOTE}"
+
+
+class BalanceRefund(models.Model):
+    """Возврат свободного остатка рекламодателю. Сумма снята с доступной при заявке, пока заявка открыта — на выводе."""
+
+    class Status(models.TextChoices):
+        REQUESTED = "requested", "Заявка принята"
+        NEEDS_INFO = "needs_info", "Нужны сведения"
+        SENT = "sent", "Передано в банк"
+        DONE = "done", "Проведено"
+        REJECTED = "rejected", "Отклонено"
+        CANCELLED = "cancelled", "Отозвано"
+
+    INFO_WORKING_DAYS = 2
+    SEND_WORKING_DAYS = 5
+
+    advertiser = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="balance_refunds")
+    amount = models.DecimalField("Сумма", max_digits=14, decimal_places=2)
+    account = models.CharField("Счёт", max_length=20)
+    mfo = models.CharField("МФО", max_length=5)
+    other_account = models.BooleanField("Не счёт поступления", default=False)
+    status = models.CharField("Статус", max_length=20, choices=Status.choices, default=Status.REQUESTED)
+    info_due_at = models.DateTimeField("Запросить сведения до")
+    due_at = models.DateTimeField("Передать в банк до")
+    staff_comment = models.TextField("Комментарий сотрудника", blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="processed_refunds",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "Возврат остатка"
+        verbose_name_plural = "Возвраты остатка"
+
+    def __str__(self):
+        return f"Возврат №{self.pk}"
+
+    def set_deadlines(self):
+        from apps.campaigns.validation import working_days_after
+
+        now = timezone.now()
+        self.info_due_at = working_days_after(now, self.INFO_WORKING_DAYS)
+        self.due_at = working_days_after(now, self.SEND_WORKING_DAYS)
+
+    @property
+    def can_cancel(self):
+        return self.status in (self.Status.REQUESTED, self.Status.NEEDS_INFO)
+
+    @property
+    def is_overdue(self):
+        return self.status == self.Status.REQUESTED and self.due_at < timezone.now()
 
 
 class WithdrawalRequest(models.Model):

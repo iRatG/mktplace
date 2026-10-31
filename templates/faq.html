@@ -64,7 +64,7 @@
             </div>
             <ol class="space-y-2">
                 <li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-5 flex-shrink-0">1.</span><span class="text-gray-700">Зарегистрируйтесь и подтвердите email</span></li>
-                <li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-5 flex-shrink-0">2.</span><span class="text-gray-700">Пополните баланс (минимум {{ currency.min_deposit|money }} {{ currency.symbol }})</span></li>
+                <li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-5 flex-shrink-0">2.</span><span class="text-gray-700">Пополните баланс по счёту на оплату</span></li>
                 <li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-5 flex-shrink-0">3.</span><span class="text-gray-700">Создайте кампанию — название, описание, требования, бюджет, соцсети</span></li>
                 <li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-5 flex-shrink-0">4.</span><span class="text-gray-700">Отправьте кампанию на модерацию (до 24ч)</span></li>
                 <li class="flex gap-3 text-sm"><span class="text-orange-500 font-bold w-5 flex-shrink-0">5.</span><span class="text-gray-700">После одобрения кампания появится в ленте — блогеры начнут откликаться</span></li>
@@ -136,8 +136,8 @@
                 <div class="text-xs text-gray-500">Комиссия платформы<br>по тарифу, сверх цены блогера<br>{{ vat_note }}</div>
             </div>
             <div class="card-dark rounded-xl p-4 text-center">
-                <div class="text-2xl font-bold text-orange-600 mb-1">{{ currency.min_deposit|money }} {{ currency.symbol }}</div>
-                <div class="text-xs text-gray-500">Минимальное пополнение<br>баланса</div>
+                <div class="text-2xl font-bold text-orange-600 mb-1">Без минимума</div>
+                <div class="text-xs text-gray-500">Пополнение баланса<br>по счёту на оплату</div>
             </div>
             <div class="card-dark rounded-xl p-4 text-center">
                 <div class="text-2xl font-bold text-orange-600 mb-1">По сделке</div>
@@ -151,7 +151,7 @@
                 <svg class="faq-arrow w-5 h-5 text-gray-600 flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
             <div class="hidden px-6 pb-5 text-sm text-gray-600 leading-relaxed border-t border-gray-200 pt-4">
-                Перейдите в раздел «Кошелёк» → «Пополнить». После успешного платежа средства зачисляются на доступный баланс. Минимум — {{ currency.min_deposit|money }} {{ currency.symbol }}.
+                В разделе «Кошелёк» сформируйте счёт на нужную сумму и оплатите его с расчётного счёта. Комиссию банка оплачивает плательщик. После проверки по выписке поступившая сумма зачисляется на доступный баланс, в кабинете появляется уведомление.
             </div>
         </div>
         {% include "partials/faq_item.html" with question="Что такое зарезервированный баланс?" answer="При создании сделки сумма перемещается из «доступного» в «зарезервированный». Эти деньги нельзя потратить на другое. При завершении — переходят блогеру. При отмене — возвращаются рекламодателю." %}

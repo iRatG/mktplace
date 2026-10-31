@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 
 from django import forms
 from django.contrib.auth.password_validation import validate_password
@@ -665,6 +666,32 @@ class ConsentSettingsForm(forms.Form):
             self.fields["show_in_catalog"].initial = user.blogger_profile.show_in_catalog
         else:
             del self.fields["show_in_catalog"]
+
+
+class InvoiceForm(forms.Form):
+    amount = SpacedDecimalField(max_digits=14, decimal_places=2, min_value=Decimal("0.01"), label="Сумма счёта",
+                                error_messages={"required": "Укажите сумму счёта."})
+
+
+class RefundDetailsForm(forms.Form):
+    account = forms.CharField(max_length=20, label="Счёт", error_messages={"required": "Укажите счёт."})
+    mfo = forms.CharField(max_length=5, label="МФО", error_messages={"required": "Укажите МФО."})
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input-dark"
+
+
+class RefundRequestForm(RefundDetailsForm):
+    refund_amount = SpacedDecimalField(max_digits=14, decimal_places=2, min_value=Decimal("0.01"), label="Сумма возврата",
+                                error_messages={"required": "Укажите сумму возврата."})
+
+
+class ConfirmPaymentForm(RefundDetailsForm):
+    amount = SpacedDecimalField(max_digits=14, decimal_places=2, min_value=Decimal("0.01"), label="Сумма по выписке",
+                                error_messages={"required": "Укажите сумму по выписке."})
+    received_on = forms.DateField(label="Дата по выписке", error_messages={"required": "Укажите дату по выписке."})
 
 
 class DataRequestForm(forms.Form):

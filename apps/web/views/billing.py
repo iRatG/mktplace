@@ -42,12 +42,18 @@ def wallet_view(request):
         paid_out = metrics.blogger_paid_out(user)
 
     budgets = None
+    money = {}
     if user.role == User.Role.ADVERTISER:
         from apps.campaigns.validation import advertiser_budgets
 
+        from .topups import wallet_context
+
         budgets = advertiser_budgets(user)
+        money = wallet_context(user)
 
     return render(request, "billing/wallet.html", {
+        **money,
+        "is_advertiser": user.role == User.Role.ADVERTISER and not user.is_staff,
         "budgets": budgets,
         "expected": expected,
         "wallet": wallet,

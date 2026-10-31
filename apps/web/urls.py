@@ -88,12 +88,21 @@ urlpatterns = [
 
     # Billing
     path("wallet/", views.wallet_view, name="wallet"),
+    path("wallet/invoices/", views.invoice_create, name="invoice_create"),
+    path("wallet/invoices/<int:pk>/", views.invoice_print, name="invoice_print"),
+    path("wallet/refunds/", views.refund_create, name="refund_create"),
+    path("wallet/refunds/<int:pk>/cancel/", views.refund_cancel, name="refund_cancel"),
+    path("wallet/refunds/<int:pk>/details/", views.refund_update, name="refund_update"),
     path("profile/payout-requisites/", views.payout_requisites_view, name="payout_requisites"),
     path("panel/payout-requisites/", views.admin_payout_requisites, name="admin_payout_requisites"),
     path("panel/payout-requisites/<int:pk>/approve/", views.admin_payout_requisites_approve, name="admin_payout_requisites_approve"),
     path("panel/payout-requisites/<int:pk>/reject/", views.admin_payout_requisites_reject, name="admin_payout_requisites_reject"),
 
     # Admin panel (staff only)
+    path("panel/invoices/", views.admin_invoices, name="admin_invoices"),
+    path("panel/invoices/<int:pk>/confirm/", views.admin_invoice_confirm, name="admin_invoice_confirm"),
+    path("panel/refunds/", views.admin_refunds, name="admin_refunds"),
+    path("panel/refunds/<int:pk>/action/", views.admin_refund_action, name="admin_refund_action"),
     path("panel/data-requests/", views.admin_data_requests, name="admin_data_requests"),
     path("panel/data-requests/<int:pk>/", views.admin_data_request_detail, name="admin_data_request_detail"),
     path("panel/data-requests/<int:pk>/answer/", views.admin_data_request_answer, name="admin_data_request_answer"),

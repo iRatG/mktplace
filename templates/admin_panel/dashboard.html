@@ -32,6 +32,15 @@
         <div class="text-xs text-gray-600 mt-1">Отзывов о платформе на проверке</div>
         {% if reviews_pending %}<div class="text-xs text-orange-600 mt-1">Требует действия</div>{% endif %}
     </a>
+    <a href="{% url 'web:admin_invoices' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block" data-invoices-tile>
+        <div class="text-2xl font-bold {% if invoices_waiting %}text-yellow-700{% else %}text-gray-900{% endif %}">{{ invoices_waiting }}</div>
+        <div class="text-xs text-gray-600 mt-1">Счетов ждут поступления</div>
+    </a>
+    <a href="{% url 'web:admin_refunds' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block" data-refunds-tile>
+        <div class="text-2xl font-bold {% if refunds_open %}text-orange-600{% else %}text-gray-900{% endif %}">{{ refunds_open }}</div>
+        <div class="text-xs text-gray-600 mt-1">Возвратов остатка</div>
+        {% if refunds_open %}<div class="text-xs text-orange-600 mt-1">Требует действия</div>{% endif %}
+    </a>
     <a href="{% url 'web:admin_data_requests' %}" class="card-dark rounded-xl p-5 hover:border-orange-200 transition-colors block" data-requests-tile>
         <div class="text-2xl font-bold {% if data_requests_open %}text-orange-600{% else %}text-gray-900{% endif %}">{{ data_requests_open }}</div>
         <div class="text-xs text-gray-600 mt-1">Обращений по персональным данным</div>

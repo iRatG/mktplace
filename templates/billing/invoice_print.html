@@ -1,0 +1,45 @@
+{% load money %}<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Счёт {{ invoice.number }}</title>
+<style>
+  body { font: 15px/1.5 Arial, sans-serif; color: #111; max-width: 720px; margin: 32px auto; padding: 0 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  td { border: 1px solid #999; padding: 8px 10px; vertical-align: top; }
+  td:first-child { width: 38%; color: #444; }
+  .total { font-size: 18px; font-weight: 700; }
+  .actions { margin-top: 24px; display: flex; gap: 12px; }
+  .actions a, .actions button { font: inherit; padding: 8px 14px; border: 1px solid #999; border-radius: 6px; background: #fff; color: #111; text-decoration: none; cursor: pointer; }
+  @media print { .actions { display: none; } body { margin: 0; } }
+</style>
+</head>
+<body>
+  <h1>Счёт на оплату № {{ invoice.number }}</h1>
+  <div>от {{ invoice.created_at|date:"d.m.Y" }}, действителен до {{ invoice.expires_at|date:"d.m.Y" }}</div>
+
+  <table data-operator>
+    <tr><td>Получатель</td><td>{{ invoice.requisites.name }}</td></tr>
+    <tr><td>ИНН</td><td>{{ invoice.requisites.inn }}</td></tr>
+    <tr><td>Адрес</td><td>{{ invoice.requisites.address }}</td></tr>
+    <tr><td>Банк</td><td>{{ invoice.requisites.bank }}</td></tr>
+    <tr><td>Расчётный счёт</td><td>{{ invoice.requisites.account }}</td></tr>
+    <tr><td>МФО</td><td>{{ invoice.requisites.mfo }}</td></tr>
+  </table>
+
+  <table>
+    <tr><td>Плательщик</td><td>{{ invoice.advertiser.public_name }}{% if invoice.advertiser.advertiser_profile.inn %}, ИНН {{ invoice.advertiser.advertiser_profile.inn }}{% endif %}</td></tr>
+    <tr><td>Назначение платежа</td><td data-purpose>{{ invoice.purpose }}</td></tr>
+    <tr><td>Сумма</td><td class="total">{{ invoice.amount|money }} сум</td></tr>
+  </table>
+
+  <p>Комиссию банка за перевод оплачивает плательщик. На баланс зачисляется поступившая сумма. Укажите назначение платежа без изменений: по нему сотрудник найдёт перевод в выписке.</p>
+
+  <div class="actions">
+    <button type="button" onclick="window.print()">Печать</button>
+    <a href="{% url 'web:wallet' %}">В кошелёк</a>
+  </div>
+</body>
+</html>
