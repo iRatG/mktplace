@@ -3,6 +3,11 @@ from django.db import models
 
 
 class AdvertiserProfile(models.Model):
+    class Category(models.TextChoices):
+        LEGAL_ENTITY = "legal_entity", "Юрлицо"
+        IP = "ip", "ИП"
+        SELF_EMPLOYED = "self_employed", "Самозанятый"
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -16,6 +21,7 @@ class AdvertiserProfile(models.Model):
     logo = models.ImageField(upload_to="advertiser_logos/", null=True, blank=True)
     description = models.TextField(blank=True)
     inn = models.CharField(max_length=20, blank=True, verbose_name="INN")
+    category = models.CharField(max_length=20, choices=Category.choices, blank=True, verbose_name="Категория")
     is_complete = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

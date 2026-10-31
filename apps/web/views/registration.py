@@ -188,7 +188,7 @@ def _legal_entities_xlsx(applications):
     headers = [
         "ID", "Компания", "ИНН", "Статус заявки", "Статус Ддокс", "Аккаунт (логин)",
         "Ответственный сотрудник", "Проверил", "Дата проверки", "Причина отклонения",
-        "Комментарий Ддокс", "Подана", "Обновлена",
+        "Комментарий Ддокс", "Подана", "Обновлена", "Категория",
     ]
     ws.append(headers)
     for cell in ws[1]:
@@ -202,7 +202,7 @@ def _legal_entities_xlsx(applications):
             a.assigned_to.email if a.assigned_to else "",
             a.reviewed_by.email if a.reviewed_by else "",
             naive(a.reviewed_at), a.rejection_reason, a.ddocs_note,
-            naive(a.created_at), naive(a.updated_at),
+            naive(a.created_at), naive(a.updated_at), a.get_category_display(),
         ])
     for col, width in enumerate([6, 32, 14, 16, 22, 34, 30, 30, 18, 36, 36, 18, 18], start=1):
         ws.column_dimensions[get_column_letter(col)].width = width
@@ -380,7 +380,8 @@ def admin_legal_entity_issue_access(request, pk):
     profile, _created = AdvertiserProfile.objects.get_or_create(user=user)
     profile.company_name = application.company_name
     profile.inn = application.inn
-    profile.save(update_fields=["company_name", "inn"])
+    profile.category = application.category
+    profile.save(update_fields=["company_name", "inn", "category"])
 
     application.ddocs_status = LegalEntityApplication.DdocsStatus.ACCESS_ISSUED
     application.retention_anchor_at = timezone.now()

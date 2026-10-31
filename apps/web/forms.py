@@ -684,14 +684,20 @@ class LegalEntityApplicationForm(ConsentForm, forms.ModelForm):
 
     class Meta:
         model = LegalEntityApplication
-        fields = ["company_name", "inn"]
+        fields = ["category", "company_name", "inn"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["company_name"].label = "Название компании"
+        self.fields["category"].label = "Кто регистрируется"
+        self.fields["category"].required = False
+        self.fields["category"].widget.attrs["class"] = "input-dark"
+        self.fields["company_name"].label = "Название компании или ФИО"
         self.fields["inn"].label = "ИНН"
         self.fields["inn"].widget = DigitBoxesWidget(length=9, group=3, label="ИНН")
         self.fields["company_name"].widget.attrs["class"] = "input-dark"
+
+    def clean_category(self):
+        return self.cleaned_data["category"] or AdvertiserProfile.Category.LEGAL_ENTITY
 
     def clean_inn(self):
         inn = self.cleaned_data["inn"].strip()

@@ -63,6 +63,9 @@
             {% if profile.phone %}
             <div><span class="text-gray-500">Тел:</span> <span class="text-gray-700">{{ profile.phone }}</span></div>
             {% endif %}
+            {% if profile.category %}
+            <div><span class="text-gray-500">Категория:</span> <span class="text-gray-700">{{ profile.get_category_display }}</span></div>
+            {% endif %}
             {% if profile.inn %}
             <div><span class="text-gray-500">ИНН:</span> <span class="text-gray-700">{{ profile.inn }}</span></div>
             {% endif %}

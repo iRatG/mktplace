@@ -20,6 +20,7 @@ class LegalEntityApplicationStatusLogInline(admin.TabularInline):
 class LegalEntityApplicationAdmin(admin.ModelAdmin):
     list_display = (
         "company_name",
+        "category",
         "inn",
         "user",
         "status",

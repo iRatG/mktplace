@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from apps.profiles.models import AdvertiserProfile
+
 from .validators import validate_inn
 
 
@@ -39,6 +41,10 @@ class LegalEntityApplication(models.Model):
         null=True,
         blank=True,
         help_text="Заполняется только при выдаче доступа — до этого аккаунта не существует",
+    )
+    category = models.CharField(
+        max_length=20, choices=AdvertiserProfile.Category.choices, default=AdvertiserProfile.Category.LEGAL_ENTITY,
+        verbose_name="Категория",
     )
     company_name = models.CharField(max_length=255)
     # Ровно 9 цифр — validate_inn действует в ModelForm и Django admin (save() валидаторы не вызывает).

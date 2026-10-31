@@ -32,7 +32,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_role(self, value):
-        if value not in (User.Role.ADVERTISER, User.Role.BLOGGER):
+        if value == User.Role.ADVERTISER:
+            raise serializers.ValidationError(_("Advertisers register with a taxpayer number on the website."))
+        if value != User.Role.BLOGGER:
             raise serializers.ValidationError(_("Invalid role."))
         return value
 

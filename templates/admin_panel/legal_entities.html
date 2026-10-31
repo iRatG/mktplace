@@ -37,6 +37,7 @@
                     </span>
                 </div>
                 <div class="text-xs text-gray-600 space-y-0.5 mt-2">
+                    <div>Категория: <span class="text-gray-700">{{ app.get_category_display }}</span></div>
                     <div>ИНН: <span class="text-gray-700">{{ app.inn }}</span></div>
                     <div>Логин: <span class="text-gray-700">{{ app.user.login_display }}</span></div>
                     <div>Ддокс: <span class="text-gray-700">{{ app.get_ddocs_status_display }}</span></div>

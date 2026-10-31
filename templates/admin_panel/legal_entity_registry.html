@@ -49,6 +49,7 @@
         <thead>
             <tr class="border-b border-gray-200">
                 <th class="text-left px-4 py-3 text-gray-600 font-medium">Компания</th>
+                <th class="text-left px-4 py-3 text-gray-600 font-medium">Категория</th>
                 <th class="text-left px-4 py-3 text-gray-600 font-medium">ИНН</th>
                 <th class="text-left px-4 py-3 text-gray-600 font-medium">Заявка</th>
                 <th class="text-left px-4 py-3 text-gray-600 font-medium">Ддокс</th>
@@ -63,6 +64,7 @@
                 <td class="px-4 py-3">
                     <a href="{% url 'web:admin_legal_entity_detail' a.pk %}" class="text-orange-600 hover:text-orange-700 font-medium">{{ a.company_name }}</a>
                 </td>
+                <td class="px-4 py-3 text-gray-700">{{ a.get_category_display }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ a.inn }}</td>
                 <td class="px-4 py-3">
                     <span class="text-xs px-2 py-0.5 rounded-full
