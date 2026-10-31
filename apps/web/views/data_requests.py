@@ -23,7 +23,7 @@ def _held_data(user):
     rows = [("Учётная запись", user.login_display)]
     if user.role == User.Role.BLOGGER:
         rows += [
-            ("Профиль блогера", user.blogger_profile.nickname or "заполняется вами"),
+            ("Профиль блогера", user.blogger_profile.nickname or "не заполнен"),
             ("Площадки", Platform.objects.filter(blogger=user).count()),
             ("Подтверждение личности", IdentityVerification.objects.filter(user=user).count()),
             ("Документы статуса", IPApplication.objects.filter(user=user).count()),
@@ -32,7 +32,7 @@ def _held_data(user):
         ]
     else:
         rows += [
-            ("Профиль компании", user.advertiser_profile.company_name or "заполняется вами"),
+            ("Профиль компании", user.advertiser_profile.company_name or "не заполнен"),
             ("Сделки", Deal.objects.filter(advertiser=user).count()),
         ]
     return rows
