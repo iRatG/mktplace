@@ -58,6 +58,22 @@ IP, имена и пароли серверов — только в `key_param.t
 | 2026-02-21 | УДАЛЁН 2026-04-25 | Не оплачен |
 | 2026-04-26 | УДАЛЁН 2026-06-26 | Не оплачен |
 | 2026-06-26 | АКТИВЕН (текущий) | — |
+| 2026-10-31 | Боевой, в Узбекистане; домен переключён на него | Закон РУз о ПД (ст. 27¹) |
+
+### Развёртывание боевого сервера в Узбекистане (31.10.2026)
+
+Процедура та же, что ниже, с отличиями:
+
+- MTU и `http.version HTTP/1.1` не понадобились: это особенности reg.ru. Настраивать, только если `apt`, `pip` или `git` не работают.
+- `.env.prod` создаётся на самом сервере, секреты генерируются там же (`openssl rand`), с тестового не копируются. В `DJANGO_ALLOWED_HOSTS`
+  обязательно `localhost`: healthcheck web идёт на него, без этого autoheal перезапускает web.
+- `create_demo_users` и `seed_demo_data` на боевом сервере не выполняются.
+- Файла сайта nginx нет в репозитории: `/etc/nginx/sites-available/ublogers.uz` — `listen 80`, `server_name ublogers.uz www.ublogers.uz`,
+  `include /etc/nginx/snippets/ublogers-limits.conf`, `location /` c `proxy_pass http://127.0.0.1:8080` и заголовками `Host`, `X-Real-IP`,
+  `X-Forwarded-For`, `X-Forwarded-Proto`, `client_max_body_size 50M`.
+- DNS домена — в кабинете Eskiz (не в reg.ru). TLS выпускается после переключения записи A: `certbot --nginx -d ublogers.uz -d www.ublogers.uz --redirect`.
+- Проверять снаружи с другого сервера: `curl -H 'Host: ublogers.uz' http://SERVER_IP/login/`.
+  Туннель на рабочем компьютере может увести такой запрос на старый адрес домена.
 
 ---
 
