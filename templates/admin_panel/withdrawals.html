@@ -10,7 +10,7 @@
     <a href="{% url 'web:admin_withdrawals' %}?{{ query }}{% if query %}&{% endif %}export=xlsx" class="ml-auto text-sm text-orange-600 hover:text-orange-700 font-medium">Скачать Excel ↓</a>
 </div>
 
-<p class="text-sm text-gray-600 mb-4">Выплата по сделке формируется автоматически при её оплате. Проведите перевод в банке и отметьте «Проведено» с номером платёжного документа; заблокированную выплату провести нельзя. Выплата ИП, юрлицу и самозанятому — после подтверждения ЭСФ исполнителя рекламодателем.</p>
+<p class="text-sm text-gray-600 mb-4">Выплата по сделке формируется автоматически при её оплате. Проведите перевод в банке и отметьте «Проведено» с номером платёжного документа; заблокированную выплату провести нельзя. Выплата ИП и юрлицу — после подтверждения ЭСФ исполнителя рекламодателем, самозанятому — после проверки чека. Срок — до 5 числа следующего месяца.</p>
 
 <form method="get" class="card-dark rounded-xl p-4 mb-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 text-sm" data-register-filters>
     <label class="block"><span class="text-xs text-gray-500">Статус</span>
