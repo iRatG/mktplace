@@ -106,6 +106,16 @@ class Deal(models.Model):
         help_text="Комиссия сверх вознаграждения по тарифу на момент оферты; пусто — прежняя модель (из суммы блогера)",
     )
     commission_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    contractor_fee_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Плата исполнителя за услуги платформы из оферты, % (ПР 7.1); пусто — сделка до двух плат",
+    )
+    contractor_fee_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True,
+                                                help_text="Плата исполнителя с полной стоимости")
+    contractor_fee_withheld = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="Сколько платы удержано зачётом при расчёте (ПР 7.6); пусто — расчёта ещё не было",
+    )
     paid_amount = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True,
         help_text="Сколько фактически перечислено исполнителю (раздел суммы, компенсация); пусто — вся сумма или ничего",
@@ -212,11 +222,18 @@ class Deal(models.Model):
         return self.commission_percent is not None
 
     @property
+    def two_fees(self):
+        """Сделка по двум платам (ПР 7, с 14.11.2026): комиссия рекламодателя сверх цены и плата исполнителя внутри."""
+        return self.contractor_fee_percent is not None
+
+    @property
     def blogger_earning(self):
-        """Сколько получит исполнитель при оплате без претензии: цену целиком по тарифным уровням, у старых сделок —
-        сумму за вычетом PLATFORM_COMMISSION_PERCENT."""
+        """Сколько получит исполнитель при оплате без претензии: по двум платам — цену за вычетом своей платы, по
+        тарифным уровням — цену целиком, у старых сделок — сумму за вычетом PLATFORM_COMMISSION_PERCENT."""
         from decimal import ROUND_HALF_UP, Decimal
 
+        if self.two_fees:
+            return self.amount - (self.contractor_fee_amount or 0)
         if self.commission_on_top:
             return self.amount
         percent = Decimal(getattr(settings, "PLATFORM_COMMISSION_PERCENT", 15))

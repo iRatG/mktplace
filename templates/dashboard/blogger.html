@@ -63,6 +63,7 @@
                     <div class="text-xs text-gray-500 mt-0.5">
                         от {{ offer.advertiser.public_name }} · {{ offer.platform.get_social_type_display }} ·
                         {% if offer.reserved_amount %}{{ offer.reserved_amount|money }} {{ currency.symbol }}{% if offer.reserved_at %} (в резерве){% endif %}{% elif offer.proposed_price %}{{ offer.proposed_price|money }} {{ currency.symbol }}{% else %}цена по кампании{% endif %}
+                        {% if offer.contractor_fee_percent is not None %}<span data-offer-contractor-fee>· ваша плата платформе {{ offer.contractor_fee_percent|money }}% — {{ offer.contractor_fee_amount|money }}, к выплате {{ offer.contractor_payout|money }} {{ currency.symbol }}</span>{% endif %}
                         {% if offer.publication_date %}· публикация {{ offer.publication_date|date:"d.m.Y" }}{% endif %}
                         · ответить до {{ offer.expires_at|date:"d.m.Y H:i" }}
                     </div>

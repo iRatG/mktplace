@@ -152,8 +152,15 @@ TOTAL_TYPES = (
 
 
 def deal_commission(deal):
-    """Комиссия платформы по сделке: оплачено рекламодателем минус начислено исполнителю (по модулю)."""
-    return _abs_total(_payments().filter(deal=deal)) - _abs_total(_earnings().filter(deal=deal))
+    """Комиссия рекламодателя по сделке: оплачено рекламодателем минус начислено исполнителю (по модулю), без платы
+    исполнителя, удержанной зачётом (ПР 7.1 — два самостоятельных платежа). Доход платформы — обе платы."""
+    total = _abs_total(_payments().filter(deal=deal)) - _abs_total(_earnings().filter(deal=deal))
+    return total - (deal.contractor_fee_withheld or Decimal("0"))
+
+
+def deal_contractor_fee(deal):
+    """Плата исполнителя по сделке, удержанная зачётом при расчёте (ПР 7.6)."""
+    return deal.contractor_fee_withheld or Decimal("0")
 
 
 def blogger_paid_out(user):

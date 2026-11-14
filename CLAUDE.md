@@ -133,9 +133,12 @@ honeypot `hp_note` → капча Turnstile, если заданы `TURNSTILE_*`
 - Претензия — `open_claim` / `add_claim_materials` / `resolve_claim` (5 решений, раздел — `BillingService.split_deal_payment`);
   старых `open_dispute`/`resolve_dispute` нет. Бюджет кампании — по `paid_amount`, если он есть.
 - Одностороннего отказа по новым условиям нет — `propose/accept/decline_termination`, возврат за вычетом комиссии.
-- Комиссия — `apps/billing/tariffs.py` (16/13/8% по обороту прошлого месяца, `SpecialTariff`), фиксируется при оферте
-  (`DirectOffer.commission_percent`, `Deal.commission_amount`), резерв = цена + комиссия (`reserved_total`), исполнитель
-  получает цену целиком.
+- Две платы (ПР 7, с 14.11.2026): комиссия рекламодателя — `apps/billing/tariffs.py` (16/13/8% по обороту прошлого месяца,
+  `SpecialTariff`), сверх цены, резерв = цена + комиссия (`reserved_total`); плата исполнителя — `contractor_fee_percent_for`
+  (`ContractorFeeRate` или `CONTRACTOR_FEE_PERCENT`, пока 0 — ждём В21), внутри цены, удерживается зачётом при оплате
+  (`Deal.contractor_fee_withheld`), `blogger_earning` = цена − плата. Обе фиксируются при оферте и копируются в сделку
+  (`Deal.two_fees`); раздел по претензии — обе от принятой части, одна компенсация — без обеих. Доход платформы —
+  |PAYMENT| − EARNING (обе платы), комиссия рекламодателя по сделке — `metrics.deal_commission` (без платы исполнителя).
 - Закрытая кампания — `Campaign.visibility`; что видит исполнитель — только `campaigns_visible_to(blogger)` (веб и API).
 - На модерацию — `moderation_error` (даты, обязательные поля карточки, разрешительный документ — `permit_error`).
 - Тестам: `apps.campaigns.testing` — `CARD_FIELDS`, `CLAIM_FIELDS`, `publication_day`, `deal_from_response`.

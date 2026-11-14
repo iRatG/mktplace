@@ -150,6 +150,9 @@ CAMPAIGN_MIN_FIXED_PRICE = env.int('CAMPAIGN_MIN_FIXED_PRICE', default=10000)
 ESF_REQUIRED_CATEGORIES = env.list('ESF_REQUIRED_CATEGORIES', default=['ip', 'legal_entity'])
 # Выплаты проводятся раз в месяц: до этого числа за предыдущий месяц.
 PAYOUT_DAY = env.int('PAYOUT_DAY', default=5)
+# Плата исполнителя за услуги платформы по умолчанию, % от полной стоимости услуг (ПР 7.1–7.3). Пока бизнес не
+# назвал ставку (вопрос В21) — 0: исполнитель получает цену целиком, как раньше. Индивидуальная — ContractorFeeRate.
+CONTRACTOR_FEE_PERCENT = env.str('CONTRACTOR_FEE_PERCENT', default='0')
 # Предельный размер документа на бренд.
 BRAND_DOCUMENT_MAX_BYTES = env.int('BRAND_DOCUMENT_MAX_BYTES', default=10 * 1024 * 1024)
 # Реквизиты оператора для счёта на оплату. Пока банк не задан, форма счёта скрыта.

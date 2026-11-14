@@ -234,6 +234,10 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
 
         percent = commission_percent_for(advertiser)
         commission = commission_amount(amount, percent)
+        from apps.billing.tariffs import contractor_fee_percent_for
+
+        fee_percent = contractor_fee_percent_for(blogger)
+        fee = commission_amount(amount, fee_percent)
         available = Wallet.objects.filter(user=advertiser).values_list("available_balance", flat=True).first() or 0
         if available < amount + commission:
             raise AcceptError(
@@ -249,6 +253,7 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
                     content_type=content_type, proposed_price=price, message=message, response=response,
                     publication_date=publication_date, reserved_amount=amount, reserve_on_accept=True,
                     commission_percent=percent, reserved_commission=commission,
+                    contractor_fee_percent=fee_percent, contractor_fee_amount=fee,
                     expires_at=working_days_after(now, OFFER_ACCEPT_WORKING_DAYS),
                     terms=campaign_snapshot(campaign),
                 )

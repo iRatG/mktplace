@@ -52,6 +52,9 @@
                     {% if deal.commission_on_top and user != deal.blogger %}
                     <div class="text-xs text-gray-500 mt-0.5" data-deal-commission>+ комиссия платформы {{ deal.commission_percent|money }}% — {{ deal.commission_amount|money }} {{ currency.symbol }} ({{ vat_note }}); в резерве {{ deal.reserved_total|money }} {{ currency.symbol }}</div>
                     {% endif %}
+                    {% if deal.two_fees and user != deal.advertiser %}
+                    <div class="text-xs text-gray-500 mt-0.5" data-contractor-fee>Плата исполнителя за услуги платформы {{ deal.contractor_fee_percent|money }}% — {{ deal.contractor_fee_amount|money }} {{ currency.symbol }}; к выплате {{ deal.blogger_earning|money }} {{ currency.symbol }}{% if deal.contractor_fee_withheld is not None %} · удержано зачётом {{ deal.contractor_fee_withheld|money }} {{ currency.symbol }}{% if deal.last_distributed_at %} {{ deal.last_distributed_at|date:"d.m.Y" }}{% endif %}{% endif %}</div>
+                    {% endif %}
                 </div>
                 {% if deal.publication_date %}
                 <div>

@@ -117,6 +117,9 @@ def create_deal(*, campaign, blogger, platform, advertiser, amount, actor, comme
     commission = {}
     if offer is not None and offer.reserved_amount is not None and offer.commission_percent is not None:
         commission = {"commission_percent": offer.commission_percent, "commission_amount": offer.reserved_commission}
+    if offer is not None and offer.contractor_fee_percent is not None:
+        commission.update(contractor_fee_percent=offer.contractor_fee_percent,
+                          contractor_fee_amount=offer.contractor_fee_amount)
     deal = Deal.objects.create(
         **commission,
         campaign=campaign, blogger=blogger, platform=platform, advertiser=advertiser,
@@ -294,7 +297,11 @@ def _after_payout(deal):
     from apps.billing import esf
 
     payout = deal.payout
-    einvoice, created = esf.open_for_deal(deal, amount=payout.amount if payout else deal.blogger_earning)
+    amount = payout.amount if payout else deal.blogger_earning
+    if deal.two_fees:
+        # ЭСФ исполнителя — на стоимость до удержаний (ПР 8.6): к выплате плюс удержанная зачётом плата.
+        amount += deal.contractor_fee_withheld or 0
+    einvoice, created = esf.open_for_deal(deal, amount=amount)
     if created and einvoice.status == einvoice.Status.WAITING:
         _after_commit(NotificationService.notify_esf_required, deal.blogger, deal, einvoice)
         _after_commit(NotificationService.notify_esf_to_confirm, deal.advertiser, deal, einvoice)
@@ -513,7 +520,7 @@ def resolve_claim(pk, staff, decision, comment, blogger_part=None, *, grounds=""
             BillingService.release_funds(deal)
             _move(deal, S.CANCELLED, staff, f"Решение по претензии: {label}. {comment}", paid_amount=Decimal("0"), **fields)
         else:
-            BillingService.split_deal_payment(deal, part)
+            BillingService.split_deal_payment(deal, part, compensation=decision == Claim.Decision.COMPENSATION)
             _after_payout(deal)
             _move(deal, S.COMPLETED, staff, f"Решение по претензии: {label} — исполнителю {part}. {comment}",
                   last_distributed_at=now, paid_amount=part, **fields)

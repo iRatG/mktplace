@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
 from .models import (
-    BalanceRefund, EInvoice, PaymentInvoice, SpecialTariff, TestBalanceGrant, Transaction, Wallet, WithdrawalRequest,
+    BalanceRefund, ContractorFeeRate, EInvoice, PaymentInvoice, SpecialTariff, TestBalanceGrant, Transaction, Wallet, WithdrawalRequest,
 )
 from .services import BillingService
 
@@ -140,6 +140,14 @@ class BalanceRefundAdmin(_ReadOnlyMoneyAdmin):
 class SpecialTariffAdmin(admin.ModelAdmin):
     list_display = ("advertiser", "percent", "valid_until", "note")
     search_fields = ("advertiser__email",)
+
+
+@admin.register(ContractorFeeRate)
+class ContractorFeeRateAdmin(admin.ModelAdmin):
+    """Индивидуальная плата исполнителя (ПР 7.2). Действует для новых оферт; заключённые сделки не меняются (ПР 7.4)."""
+
+    list_display = ("blogger", "percent", "valid_until", "note")
+    search_fields = ("blogger__email",)
 
 
 @admin.register(EInvoice)

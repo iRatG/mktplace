@@ -152,10 +152,14 @@ class BillingService:
         advertiser_wallet = cls._get_or_create_wallet(deal.advertiser)
         blogger_wallet = cls._get_or_create_wallet(deal.blogger)
         if deal.commission_on_top:
-            # Тарифные уровни: исполнитель получает вознаграждение целиком, комиссия — сверх него из резерва.
+            # Комиссия рекламодателя — сверх цены из резерва; по двум платам исполнитель получает цену за вычетом своей
+            # платы (удержание зачётом, ПР 7.6), по тарифным уровням — целиком.
             commission_percent = deal.commission_percent
             amount = deal.reserved_total
-            blogger_earning = deal.amount
+            blogger_earning = deal.blogger_earning
+            if deal.two_fees:
+                deal.contractor_fee_withheld = deal.contractor_fee_amount or Decimal("0")
+                deal.save(update_fields=["contractor_fee_withheld", "updated_at"])
         else:
             amount = deal.amount
             commission_percent = Decimal(
@@ -232,9 +236,12 @@ class BillingService:
 
     @classmethod
     @db_transaction.atomic
-    def split_deal_payment(cls, deal, blogger_part):
+    def split_deal_payment(cls, deal, blogger_part, compensation=False):
         """Решение по претензии с разделом суммы (или компенсацией): исполнителю — blogger_part за вычетом комиссии,
-        остаток возвращается рекламодателю. Комиссия — только с перечисленной исполнителю части."""
+        остаток возвращается рекламодателю. Комиссия — только с перечисленной исполнителю части.
+
+        По двум платам (ПР 7.5–7.7): обе платы — от принятой части; при одной компенсации (ПЭТ 11.4) комиссии
+        рекламодателя нет, и плата исполнителя не удерживается — компенсация не оплата принятого задания (ПР 7.6)."""
         advertiser_wallet = cls._get_or_create_wallet(deal.advertiser)
         blogger_wallet = cls._get_or_create_wallet(deal.blogger)
         amount = deal.amount
@@ -248,6 +255,15 @@ class BillingService:
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
             earning = blogger_part
+            if deal.two_fees:
+                fee = (blogger_part * deal.contractor_fee_percent / Decimal("100")).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+                if compensation:
+                    commission = fee = Decimal("0")
+                earning = blogger_part - fee
+                deal.contractor_fee_withheld = fee
+                deal.save(update_fields=["contractor_fee_withheld", "updated_at"])
             paid = blogger_part + commission
             reserved = deal.reserved_total
         else:

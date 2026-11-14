@@ -492,6 +492,23 @@ class PayoutRequisites(models.Model):
         }
 
 
+class ContractorFeeRate(models.Model):
+    """Индивидуальная плата исполнителя за услуги платформы вместо ставки по умолчанию (ПР 7.2; задаёт сотрудник)."""
+
+    blogger = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="contractor_fee_rate")
+    percent = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0)])
+    valid_until = models.DateField(null=True, blank=True, help_text="Пусто — бессрочно")
+    note = models.CharField(max_length=255, blank=True, help_text="Основание: соглашение, скидка и т. п.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Плата исполнителя (индивидуальная)"
+        verbose_name_plural = "Платы исполнителей (индивидуальные)"
+
+    def __str__(self):
+        return f"{self.blogger} — {self.percent}%"
+
+
 class SpecialTariff(models.Model):
     """Специальная ставка комиссии рекламодателя вместо тарифных уровней (задаёт сотрудник)."""
 

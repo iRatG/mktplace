@@ -80,3 +80,18 @@ def tier_description(advertiser, today=None):
 
     return (f"{tier_percent(turnover).normalize()}% (ваш оборот за {date(year, month, 1):%m.%Y} — "
             f"{format_money(turnover)} сум)")
+
+
+# ── Плата исполнителя за услуги платформы (ПР 7.1–7.6, редакция 06.11.2026) ──
+
+def contractor_fee_percent_for(blogger, today=None):
+    """Плата исполнителя на сегодня: индивидуальная (ContractorFeeRate) или CONTRACTOR_FEE_PERCENT по умолчанию."""
+    from django.conf import settings
+
+    from .models import ContractorFeeRate
+
+    today = today or timezone.localdate()
+    rate = ContractorFeeRate.objects.filter(blogger=blogger).first()
+    if rate and (rate.valid_until is None or rate.valid_until >= today):
+        return rate.percent
+    return Decimal(str(getattr(settings, "CONTRACTOR_FEE_PERCENT", "0")))

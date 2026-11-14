@@ -270,7 +270,8 @@ class SecondPassTest(_Base):
 
     def test_old_terms_earning_is_amount_minus_commission(self):
         deal = self._deal()
-        Deal.objects.filter(pk=deal.pk).update(commission_percent=None, commission_amount=None)
+        Deal.objects.filter(pk=deal.pk).update(commission_percent=None, commission_amount=None,
+                                               contractor_fee_percent=None, contractor_fee_amount=None)
         deal.refresh_from_db()
         self.assertEqual(deal.blogger_earning, deal.amount - deal.amount * Decimal("0.15"))
 

@@ -404,6 +404,18 @@ class DirectOffer(models.Model):
         help_text="Ставка комиссии платформы, зафиксированная при направлении; пусто — оферта до тарифных уровней",
     )
     reserved_commission = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    contractor_fee_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Плата исполнителя за услуги платформы, % (ПР 7.1); пусто — оферта до двух плат",
+    )
+    contractor_fee_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
+    @property
+    def contractor_payout(self):
+        """Сколько получит исполнитель при полной оплате: стоимость за вычетом его платы (ПЭТ 6.5, ТО 10.3)."""
+        if self.reserved_amount is None:
+            return None
+        return self.reserved_amount - (self.contractor_fee_amount or 0)
 
     @property
     def reserved_total(self):
