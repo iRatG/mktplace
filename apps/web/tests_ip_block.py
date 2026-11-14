@@ -212,7 +212,7 @@ class WelcomeEmailTest(TestCase):
         self.assertEqual(message.to, ["new@example.com"])
         self.assertEqual(message.subject, "Добро пожаловать в UBlogers!")
         self.assertIn("Команда UBlogers!", html)
-        self.assertIn("«Помощь»", message.body)
+        self.assertIn("«FAQ»", message.body)
         self.assertNotIn("₽", html + message.body)
 
     def test_not_sent_to_synthetic_sms_addresses(self):

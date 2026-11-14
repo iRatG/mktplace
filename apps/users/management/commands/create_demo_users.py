@@ -10,11 +10,14 @@ def _delete_user_safely(user):
     from apps.deals.models import Deal, DealStatusLog
     from apps.campaigns.models import Campaign, Response
     from apps.platforms.models import Platform
-    from apps.billing.models import BalanceRefund, PaymentInvoice, Wallet, Transaction, WithdrawalRequest
+    from apps.billing.models import BalanceRefund, EInvoice, PaymentInvoice, Wallet, Transaction, WithdrawalRequest
     from apps.profiles.models import AdvertiserProfile, BloggerProfile
 
     # Delete deals (PROTECT FK) — must go before campaigns and users
     deals = Deal.objects.filter(advertiser=user) | Deal.objects.filter(blogger=user)
+    # ЭСФ держит сделку через PROTECT — демо-документы удаляются вместе с демо-сделками.
+    EInvoice.objects.filter(deal__in=deals).delete()
+    WithdrawalRequest.objects.filter(deal__in=deals).delete()
     for deal in deals:
         DealStatusLog.objects.filter(deal=deal).delete()
         Transaction.objects.filter(deal=deal).delete()

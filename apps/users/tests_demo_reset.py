@@ -36,3 +36,18 @@ class DemoResetTest(TestCase):
         self.assertTrue(offer.reserve_on_accept)  # резерв — при Акцепте (ПР 5.4)
         self.assertEqual(offer.reserved_amount, offer.proposed_price)
         self.assertIsNotNone(offer.commission_percent)
+
+    def test_reset_after_seed_with_einvoice(self):
+        """Демо-сделка с ЭСФ (PROTECT на сделку) не мешает сбросу демо-аккаунтов."""
+        from apps.billing.models import EInvoice
+        from apps.deals.models import Deal
+
+        _run("create_demo_users")
+        _run("seed_demo_data")
+        deal = Deal.objects.filter(advertiser__email="advertiser@demo.com").first()
+        self.assertIsNotNone(deal)
+        EInvoice.objects.get_or_create(deal=deal, kind=EInvoice.Kind.PERFORMER,
+                                       defaults={"status": EInvoice.Status.WAITING, "amount": deal.amount})
+        _run("create_demo_users", "--reset")
+        self.assertFalse(Deal.objects.filter(pk=deal.pk).exists())
+        self.assertTrue(User.objects.filter(email="advertiser@demo.com").exists())
