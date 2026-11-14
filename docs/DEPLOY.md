@@ -425,15 +425,44 @@ honeypot (весит 5), не пройдена капча — даёт IP «шт
 (без `--no-deps` compose пересоздаёт и зависимость `db`: том с данными сохраняется, но БД
 перезапускается).
 
-### Приветственное письмо
+### Почта и письма сайта
 
-Отправляется один раз, после подтверждения email (`templates/emails/welcome.html` и
-`welcome.txt`, задача `send_welcome_email`). В теле нет ссылок; вкладка «FAQ» выделена
-жирным. Получают его только пользователи с настоящим email: регистрация юрлица (нет email)
-и блогера по SMS (адрес `@sms.internal`) письма не получают. Сбой очереди (Redis) не мешает
-подтверждению email — пишется в лог `web`.
+Почта домена — на почтовом хостинге (cPanel): ящики `noreply@` (отправитель писем сайта) и `support@` (поддержка), `claim@` —
+пересылка в `support@`. В DNS домена: MX на почтовый сервер, SPF `v=spf1 a mx ip4:MAIL_SERVER_IP ~all`, подпись DKIM
+(`default._domainkey`, ключ из cPanel «Возможность доставки почты»), DMARC. Если DNS домена обслуживает не cPanel, записи
+вносятся вручную там, где зона домена; кнопка «Исправить» в cPanel тогда не действует.
 
----
+Настройки в `.env.prod` (пароль ящика — только на сервере):
+
+```
+EMAIL_HOST=mail.DOMAIN
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=noreply@DOMAIN
+EMAIL_HOST_PASSWORD=...
+DEFAULT_FROM_EMAIL=UBlogers! <noreply@DOMAIN>
+SUPPORT_EMAIL=support@DOMAIN
+CLAIM_EMAIL=claim@DOMAIN
+FRONTEND_URL=https://DOMAIN
+```
+
+После правки — пересоздать только сервисы приложения, без базы:
+`docker compose -f docker-compose.vps.yml up -d --force-recreate --no-deps web celery celery-beat`.
+
+Проверка:
+
+```bash
+C="docker compose -f docker-compose.vps.yml"
+$C exec -T web python manage.py shell -c "from django.core.mail import get_connection; c=get_connection(); c.open(); print('SMTP OK', c.username); c.close()" </dev/null
+$C exec -T web python manage.py sendtestemail support@DOMAIN </dev/null
+```
+
+`</dev/null` обязателен, если команды идут скриптом через `ssh ... bash -s`: иначе `exec -T` читает остаток скрипта.
+
+Письма сайта — один фирменный шаблон (`templates/base_email.html`, `templates/emails/letter.html`), тексты и события —
+`apps/notifications/emails.py`. Письмо собирается в момент события и уходит Celery-задачей `send_rendered_email` после фиксации
+транзакции; сбой очереди не мешает действию (только запись в лог). Ответ на письмо попадает в `SUPPORT_EMAIL`. Письма не уходят
+на служебные адреса входа (`@sms.internal`, `@ddocs.internal`).
 
 ## Частые ошибки и решения
 

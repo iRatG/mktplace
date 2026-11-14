@@ -6,6 +6,19 @@ from django.utils.html import strip_tags
 from django.utils import timezone
 
 
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_rendered_email(self, to: str, subject: str, text: str, html: str):
+    """Отправка готового фирменного письма (собирается в apps/notifications/emails.py). Ответ — в поддержку."""
+    from django.core.mail import EmailMultiAlternatives
+
+    message = EmailMultiAlternatives(subject, text, settings.DEFAULT_FROM_EMAIL, [to], reply_to=[settings.SUPPORT_EMAIL])
+    message.attach_alternative(html, "text/html")
+    try:
+        message.send(fail_silently=False)
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def send_notification(self, user_id: int, notification_type: str, title: str, body: str, deal_id: int = None):
     """Create an in-app notification for the user."""

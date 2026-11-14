@@ -2,15 +2,23 @@ import logging
 
 from celery import shared_task
 from django.conf import settings
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives
 from django.utils import timezone
-from django.utils.html import strip_tags
+
+
+def _send(user, letter):
+    """Отправка фирменного письма из задачи (apps/notifications/emails.py); ответ на письмо — в поддержку."""
+    subject, html, text = letter
+    message = EmailMultiAlternatives(subject, text, settings.DEFAULT_FROM_EMAIL, [user.email],
+                                     reply_to=[settings.SUPPORT_EMAIL])
+    message.attach_alternative(html, "text/html")
+    message.send(fail_silently=False)
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_confirmation_email(self, user_id: int):
     """Create email confirmation token and send link to the user."""
+    from apps.notifications import emails
     from .models import EmailConfirmationToken, User
 
     try:
@@ -22,25 +30,9 @@ def send_confirmation_email(self, user_id: int):
         user=user,
         expires_at=timezone.now() + timezone.timedelta(hours=24),
     )
-
     confirmation_url = f"{settings.FRONTEND_URL}/confirm-email/{token.token}/"
-
-    subject = "Подтвердите email — ublogers"
-    html_message = render_to_string(
-        "emails/email_confirmation.html",
-        {"user": user, "confirmation_url": confirmation_url},
-    )
-    plain_message = strip_tags(html_message)
-
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False,
-        )
+        _send(user, emails.email_confirmation(user, confirmation_url))
     except Exception as exc:
         raise self.retry(exc=exc)
 
@@ -48,6 +40,7 @@ def send_confirmation_email(self, user_id: int):
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_password_reset_email(self, user_id: int):
     """Create password reset token and send link to the user."""
+    from apps.notifications import emails
     from .models import PasswordResetToken, User
 
     try:
@@ -59,54 +52,30 @@ def send_password_reset_email(self, user_id: int):
         user=user,
         expires_at=timezone.now() + timezone.timedelta(hours=1),
     )
-
     reset_url = f"{settings.FRONTEND_URL}/password-reset/{token.token}/"
-
-    subject = "Сброс пароля — ublogers"
-    html_message = render_to_string(
-        "emails/password_reset.html",
-        {"user": user, "reset_url": reset_url},
-    )
-    plain_message = strip_tags(html_message)
-
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False,
-        )
+        _send(user, emails.password_reset(user, reset_url))
     except Exception as exc:
         raise self.retry(exc=exc)
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_welcome_email(self, user_id: int):
-    """Приветственное письмо после подтверждения email (см. templates/emails/welcome.*).
+    """Приветственное письмо после подтверждения email: своё для рекламодателя и для исполнителя.
 
-    Без ссылок в теле — письмо не должно выглядеть как рассылка. Блогерам с
-    синтетическим адресом (@sms.internal, регистрация по SMS) письмо не шлём.
+    На служебные адреса (вход по SMS, юрлица по ИНН) письмо не шлём.
     """
+    from apps.notifications import emails
     from .models import User
 
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
         return
-    if not user.email or user.email.endswith("@sms.internal"):
+    if not emails.is_real_address(user.email):
         return
-
     try:
-        send_mail(
-            subject="Добро пожаловать в ublogers",
-            message=render_to_string("emails/welcome.txt"),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=render_to_string("emails/welcome.html"),
-            fail_silently=False,
-        )
+        _send(user, emails.welcome(user))
     except Exception as exc:
         raise self.retry(exc=exc)
 

@@ -37,6 +37,7 @@ from django.utils import timezone
 
 from apps.billing.formatting import format_money
 
+from . import emails
 from .models import Notification
 
 
@@ -834,6 +835,7 @@ class NotificationService:
             body=f"Выплата {format_money(amount)}{where} проведена — деньги отправлены на ваши реквизиты.",
             url=reverse("web:wallet"),
         )
+        emails.send(blogger.email, emails.payout_done, amount, deal)
 
     @staticmethod
     def notify_withdrawal_rejected(blogger, amount, comment="", deal=None):
@@ -848,6 +850,7 @@ class NotificationService:
                   f"сотрудник проведёт выплату повторно после исправления."),
             url=reverse("web:wallet"),
         )
+        emails.send(blogger.email, emails.payout_failed, amount, comment, deal)
 
     # ── ЭСФ по сделке (#61) ──────────────────────────────────────────────────
 
@@ -863,6 +866,8 @@ class NotificationService:
             deal=deal,
             url=reverse("web:deal_detail", args=[deal.pk]),
         )
+        emails.send(blogger.email, emails.payout_documents, deal, amount,
+                    f"чек самозанятого на сумму {format_money(amount)} сум — номер чека внесите на странице сделки")
 
     @staticmethod
     def notify_esf_required(blogger, deal, einvoice):
@@ -877,6 +882,8 @@ class NotificationService:
             deal=deal,
             url=reverse("web:deal_detail", args=[deal.pk]),
         )
+        emails.send(blogger.email, emails.payout_documents, deal, einvoice.amount,
+                    f"ЭСФ по договору № {einvoice.contract_number} на сумму {format_money(einvoice.amount)} сум")
 
     @staticmethod
     def notify_esf_to_confirm(advertiser, deal, einvoice, reminder=False):
@@ -919,6 +926,7 @@ class NotificationService:
             body=f"По счёту {invoice.number} зачислено {format_money(invoice.received_amount)} сум.",
             url=reverse("web:wallet"),
         )
+        emails.send(invoice.advertiser.email, emails.balance_topped_up, invoice)
 
     @staticmethod
     def notify_invoice_expired(invoice):
@@ -930,6 +938,7 @@ class NotificationService:
             body=f"Счёт {invoice.number} не оплачен в срок. Если деньги уже отправлены, напишите в поддержку.",
             url=reverse("web:wallet"),
         )
+        emails.send(invoice.advertiser.email, emails.invoice_expired, invoice)
 
     @staticmethod
     def notify_refund_requested(refund):
@@ -955,6 +964,7 @@ class NotificationService:
             body=f"Заявка №{refund.pk}: {refund.get_status_display().lower()}.{comment}",
             url=reverse("web:wallet"),
         )
+        emails.send(refund.advertiser.email, emails.refund_changed, refund)
 
     # ── Обращения по персональным данным ──────────────────────────────────────
 
@@ -1057,6 +1067,7 @@ class NotificationService:
             body="Теперь вы можете подать заявку на вывод средств.",
             url=reverse("web:wallet"),
         )
+        emails.send(blogger.email, emails.requisites_approved, application)
 
     @staticmethod
     def notify_payout_requisites_rejected(blogger, application):
@@ -1069,3 +1080,4 @@ class NotificationService:
             body=f"Причина: {reason}",
             url=reverse("web:payout_requisites"),
         )
+        emails.send(blogger.email, emails.requisites_rejected, application)

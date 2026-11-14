@@ -106,7 +106,13 @@ def support_view(request):
             form.cleaned_data["email"],
             form.cleaned_data["message"],
         )
-        messages.success(request, "Сообщение отправлено! Мы ответим в течение рабочего дня.")
+        if request.user.is_authenticated:
+            # Подтверждение — только на адрес учётной записи: публичная форма не должна рассылать письма на чужие адреса.
+            from apps.notifications import emails
+            from django.utils import timezone
+
+            emails.send(request.user.email, emails.support_received, timezone.now())
+        messages.success(request, "Сообщение отправлено! Ответим на указанный адрес.")
         return redirect("web:support")
 
     return render(request, "support.html", {"form": form})

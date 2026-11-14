@@ -1,0 +1,12 @@
+{% extends "base_email.html" %}
+{% block title %}{{ subject }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+{% block content %}{% for p in intro %}
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#1f2937">{{ p }}</p>{% endfor %}{% if steps %}
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#1f2937"><b>С чего начать</b></p>
+{% include "emails/parts/steps.html" %}{% endif %}{% if facts %}
+{% include "emails/parts/facts.html" with rows=facts %}{% endif %}{% if button_url %}
+{% include "emails/parts/button.html" with url=button_url label=button_label %}{% endif %}{% for p in outro %}
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#1f2937">{{ p }}</p>{% endfor %}{% for note in notes %}
+<p style="margin:0 0 12px;font-size:13px;line-height:1.55;color:#6b7280">{{ note }}</p>{% endfor %}
+{% endblock %}

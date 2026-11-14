@@ -309,8 +309,10 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 # Без таймаута smtplib будет ждать ответа Gmail бесконечно, если письмо
 # отправляется из Celery-задачи, зависший воркер никогда не освободится.
 EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=10)
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@mktplace.com')
-SUPPORT_EMAIL = env('SUPPORT_EMAIL', default='support@ublogers.com')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='UBlogers! <noreply@ublogers.uz>')
+SUPPORT_EMAIL = env('SUPPORT_EMAIL', default='support@ublogers.uz')
+# Адрес для претензий в подвале писем (apps/notifications/emails.py); на почтовом сервере пересылается в SUPPORT_EMAIL.
+CLAIM_EMAIL = env('CLAIM_EMAIL', default='claim@ublogers.uz')
 
 # Frontend URL (used in email confirmation and password reset links)
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8000')

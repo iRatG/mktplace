@@ -8,7 +8,7 @@ Covers:
   - auto-block: off by default; threshold; only public IPs; never overwrites a
     manual block; honeypot weighs more; strikes come from public forms, login and API
   - unblock_ip management command
-  - welcome email: contains bold FAQ and no links, skipped for synthetic addresses,
+  - welcome email: branded letter by role (apps/notifications/emails.py), skipped for synthetic addresses,
     queued after email confirmation, a broken queue never breaks confirmation
 """
 from io import StringIO
@@ -204,18 +204,15 @@ class WelcomeEmailTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(email="new@example.com", password="Good1234!")
 
-    def test_email_content_bold_faq_and_no_links(self):
+    def test_email_branded_letter(self):
         send_welcome_email(self.user.pk)
         self.assertEqual(len(mail.outbox), 1)
         message = mail.outbox[0]
         html = message.alternatives[0][0]
         self.assertEqual(message.to, ["new@example.com"])
-        self.assertEqual(message.subject, "Добро пожаловать в ublogers")
-        self.assertIn("<b>FAQ</b>", html)
-        self.assertIn("FAQ", message.body)
-        for body in (html, message.body):
-            self.assertNotIn("http", body)
-            self.assertNotIn("href", body)
+        self.assertEqual(message.subject, "Добро пожаловать в UBlogers!")
+        self.assertIn("Команда UBlogers!", html)
+        self.assertIn("«Помощь»", message.body)
         self.assertNotIn("₽", html + message.body)
 
     def test_not_sent_to_synthetic_sms_addresses(self):
