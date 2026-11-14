@@ -39,6 +39,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True, db_index=True)
     role = models.CharField(max_length=20, choices=Role.choices)
     is_email_confirmed = models.BooleanField(default=False)
+    # Подтверждённый адрес для писем (Р27): у входа по ИНН и по телефону логин — служебный адрес, письма идут сюда.
+    # Пустой — письма идут на логин, если это настоящий ящик (apps.notifications.emails.address_for).
+    contact_email = models.EmailField("Email для писем", blank=True)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING
     )
@@ -117,6 +120,8 @@ class EmailConfirmationToken(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     is_used = models.BooleanField(default=False)
+    # Заполнен — токен подтверждает адрес для писем (User.contact_email), а не логин.
+    email = models.EmailField(blank=True)
 
     class Meta:
         verbose_name = "Email Confirmation Token"

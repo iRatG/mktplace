@@ -654,6 +654,12 @@ class LegalAcceptForm(ConsentForm):
             del self.fields["show_in_catalog"]
 
 
+class ContactEmailForm(forms.Form):
+    """Адрес для писем в профиле (Р27)."""
+
+    email = forms.EmailField(label="Email для писем", max_length=254)
+
+
 class ConsentSettingsForm(forms.Form):
     """Рассылки и каталог в профиле."""
 

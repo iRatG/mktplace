@@ -63,6 +63,7 @@ urlpatterns = [
     path("profile/", views.profile_view, name="profile"),
     path("profile/edit/", views.profile_edit, name="profile_edit"),
     path("profile/consents/", views.profile_consents, name="profile_consents"),
+    path("profile/contact-email/", views.profile_contact_email, name="profile_contact_email"),
     path("profile/my-data/", views.my_data, name="my_data"),
     path("bloggers/<int:pk>/", views.blogger_public_profile, name="blogger_public_profile"),
 

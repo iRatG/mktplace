@@ -54,7 +54,7 @@ def create_invoice(user, amount):
         advertiser=user, amount=amount, requisites=operator_requisites(),
         expires_at=timezone.now() + timedelta(days=settings.INVOICE_VALID_DAYS),
     )
-    emails.send(user.email, emails.invoice_issued, invoice)
+    emails.send_to(user, emails.invoice_issued, invoice)
     return invoice
 
 
@@ -101,7 +101,7 @@ def request_refund(user, amount, account, mfo):
     except ValueError as e:
         raise TopUpError(str(e)) from e
     NotificationService.notify_refund_requested(refund)
-    emails.send(user.email, emails.refund_requested, refund)
+    emails.send_to(user, emails.refund_requested, refund)
     return refund
 
 
@@ -173,5 +173,5 @@ def update_details(refund, user, account, mfo):
         locked.set_deadlines()
         locked.save(update_fields=["account", "mfo", "other_account", "status", "due_at", "info_due_at"])
     NotificationService.notify_refund_requested(locked)
-    emails.send(user.email, emails.refund_requested, locked)
+    emails.send_to(user, emails.refund_requested, locked)
     return locked

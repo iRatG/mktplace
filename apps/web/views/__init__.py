@@ -85,6 +85,7 @@ from .profiles import (
     profile_view,
     profile_edit,
     profile_consents,
+    profile_contact_email,
     blogger_public_profile,
 )
 from .billing import (

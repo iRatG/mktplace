@@ -20,7 +20,7 @@ from .pages import _redirect_dashboard
 
 def _held_data(user):
     """Какие данные о пользователе хранятся: категории и объём."""
-    rows = [("Учётная запись", user.login_display)]
+    rows = [("Учётная запись", user.login_display), ("Email для писем", user.contact_email or "не указан")]
     if user.role == User.Role.BLOGGER:
         rows += [
             ("Профиль блогера", user.blogger_profile.nickname or "не заполнен"),

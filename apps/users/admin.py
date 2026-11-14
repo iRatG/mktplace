@@ -21,15 +21,16 @@ class UserAdmin(BaseUserAdmin):
         "date_joined",
     )
     list_filter = ("role", "status", "is_demo", "is_email_confirmed", "is_staff")
-    search_fields = ("email",)
+    search_fields = ("email", "contact_email")
     ordering = ("-date_joined",)
-    readonly_fields = ("date_joined", "last_login", "login_attempts", "blocked_until")
+    # contact_email — только через подтверждение по ссылке (apps/users/contact_email.py).
+    readonly_fields = ("date_joined", "last_login", "login_attempts", "blocked_until", "contact_email")
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         (
             _("Personal info"),
-            {"fields": ("role", "status", "is_email_confirmed", "is_demo")},
+            {"fields": ("role", "status", "is_email_confirmed", "contact_email", "is_demo")},
         ),
         (
             _("Security"),

@@ -136,6 +136,34 @@
     </div>
     {% endif %}
 
+    <!-- Email для писем (Р27) -->
+    <div class="card-dark rounded-xl p-6 space-y-3" id="contact-email" data-contact-email>
+        <h2 class="text-lg font-semibold">Email для писем</h2>
+        {% if user.contact_email %}
+        <p class="text-sm text-gray-700">Письма об учётной записи, счетах, возвратах и выплатах приходят на <b>{{ user.contact_email }}</b>.</p>
+        {% elif letters_to %}
+        <p class="text-sm text-gray-700">Письма приходят на адрес входа <b>{{ letters_to }}</b>. Можно указать другой.</p>
+        {% else %}
+        <div class="alert-info text-sm">Укажите адрес почты: без него письма о счетах, возвратах и выплатах не приходят — только уведомления в кабинете.</div>
+        {% endif %}
+        {% if letters_pending %}
+        <p class="text-sm text-orange-700">Ждём подтверждения: ссылка отправлена на <b>{{ letters_pending }}</b>. Пока адрес не подтверждён, письма идут по-прежнему.</p>
+        {% endif %}
+        <form method="post" action="{% url 'web:profile_contact_email' %}" class="flex flex-col sm:flex-row gap-2">
+            {% csrf_token %}
+            <input type="email" name="email" required maxlength="254" placeholder="name@example.com" class="input-dark rounded-lg px-3 py-2 text-sm flex-1" aria-label="Email для писем">
+            <button type="submit" class="btn-orange px-4 py-2 rounded-lg text-sm">{% if user.contact_email %}Сменить адрес{% else %}Подтвердить адрес{% endif %}</button>
+        </form>
+        {% if user.contact_email %}
+        <form method="post" action="{% url 'web:profile_contact_email' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="remove">
+            <button type="submit" class="text-xs text-gray-500 underline">Не присылать письма на этот адрес</button>
+        </form>
+        {% endif %}
+        <p class="text-xs text-gray-500">Пришлём ссылку для подтверждения. Логин для входа не меняется. Уведомления о сделках — в кабинете.</p>
+    </div>
+
     <!-- Рассылки и каталог -->
     <form method="post" action="{% url 'web:profile_consents' %}" class="card-dark rounded-xl p-6 space-y-3">
         {% csrf_token %}

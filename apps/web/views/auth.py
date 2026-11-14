@@ -139,6 +139,13 @@ def email_confirm_view(request, token):
     if not tok.is_valid:
         return render(request, "auth/email_confirm_done.html", {"success": False})
 
+    if tok.email:
+        # Адрес для писем из профиля (Р27): логин и статус аккаунта не меняются.
+        from apps.users import contact_email
+
+        contact_email.confirm(tok)
+        return render(request, "auth/email_confirm_done.html", {"success": True, "contact_email": tok.email})
+
     tok.mark_used()
     user = tok.user
     user.is_email_confirmed = True

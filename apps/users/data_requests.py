@@ -133,10 +133,11 @@ def close_account(pk, staff):
         if user.role == User.Role.BLOGGER:
             consents.record(Consent.Kind.CATALOG, False, user=user)
         user.email = f"closed.{user.pk}@closed.internal"
+        user.contact_email = ""
         user.status = User.Status.DELETED
         user.is_active = False
         user.set_unusable_password()
-        user.save(update_fields=["email", "status", "is_active", "password"])
+        user.save(update_fields=["email", "contact_email", "status", "is_active", "password"])
         request.finish(DataRequest.Status.DONE, staff, CLOSED_ANSWER)
 
         def delete_files():

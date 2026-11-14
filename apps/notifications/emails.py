@@ -2,8 +2,9 @@
 
 Письмо собирается сразу (суммы и статусы — на момент события), а отправляется Celery-задачей
 `send_rendered_email` после фиксации транзакции: откат не рассылает писем, сбой почты или очереди не ломает действие.
-Письма дополняют уведомления в кабинете и уходят только на настоящие адреса (не на служебные адреса входа по SMS
-и юрлиц по ИНН). Ответ на письмо попадает в поддержку (Reply-To = SUPPORT_EMAIL).
+Письма дополняют уведомления в кабинете и уходят на адрес из `address_for`: подтверждённый «Email для писем» из профиля
+(Р27), иначе логин, если это настоящий ящик (не служебный адрес входа по SMS и юрлиц по ИНН, не демо-аккаунт).
+Ответ на письмо попадает в поддержку (Reply-To = SUPPORT_EMAIL).
 
 События вызываются из NotificationService (сайт, API и задачи по расписанию получают одинаковые письма) и из
 apps.billing.topups (счёт выставлен, заявка на возврат принята).
@@ -23,13 +24,25 @@ from apps.billing.formatting import format_money
 
 logger = logging.getLogger(__name__)
 
-SERVICE_DOMAINS = ("@sms.internal", "@ddocs.internal")
+SERVICE_DOMAINS = ("@sms.internal", "@ddocs.internal", "@closed.internal")
 
 
 def is_real_address(email):
     """Служебные адреса (вход по SMS, юрлица по ИНН) — не почтовые ящики."""
     email = (email or "").strip().lower()
     return bool(email) and "@" in email and not email.endswith(SERVICE_DOMAINS)
+
+
+def address_for(user):
+    """Куда слать письма пользователю: подтверждённый адрес для писем, иначе логин — если это настоящий ящик.
+
+    Демо-аккаунтам на логин не пишем: адреса вида advertiser@demo.com принадлежат чужому домену.
+    """
+    if user.contact_email:
+        return user.contact_email
+    if user.is_demo or not is_real_address(user.email):
+        return ""
+    return user.email
 
 
 def site_url(path=""):
@@ -116,6 +129,11 @@ def send(to, factory, *args, **kwargs):
         return False
 
 
+def send_to(user, factory, *args, **kwargs):
+    """Письмо пользователю на его адрес для писем (`address_for`); нет адреса — письма нет."""
+    return send(address_for(user), factory, *args, **kwargs)
+
+
 # ── Аккаунт и помощь ──────────────────────────────────────────────────────────
 
 def email_confirmation(user, url):
@@ -126,6 +144,17 @@ def email_confirmation(user, url):
         button=("Подтвердить email", url),
         notes=[f"Ссылка действует 24 часа. Если кнопка не работает, скопируйте ссылку в браузер: {url}",
                "Если вы не регистрировались на UBlogers!, просто удалите это письмо."],
+    )
+
+
+def contact_email_confirmation(user, url):
+    return build(
+        "Подтвердите адрес для писем — UBlogers!", "Подтвердите адрес для писем",
+        intro=["Этот адрес указали в профиле UBlogers! как адрес для писем. Подтвердите его — и сюда будут приходить "
+               "письма об учётной записи, счетах, возвратах и выплатах."],
+        button=("Подтвердить адрес", url),
+        notes=[f"Ссылка действует 24 часа. Если кнопка не работает, скопируйте ссылку в браузер: {url}",
+               "Если вы не указывали этот адрес на UBlogers!, просто удалите это письмо: без подтверждения писем не будет."],
     )
 
 

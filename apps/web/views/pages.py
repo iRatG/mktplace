@@ -111,7 +111,7 @@ def support_view(request):
             from apps.notifications import emails
             from django.utils import timezone
 
-            emails.send(request.user.email, emails.support_received, timezone.now())
+            emails.send_to(request.user, emails.support_received, timezone.now())
         messages.success(request, "Сообщение отправлено! Ответим на указанный адрес.")
         return redirect("web:support")
 

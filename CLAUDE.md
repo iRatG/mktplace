@@ -198,8 +198,9 @@ honeypot `hp_note` → капча Turnstile, если заданы `TURNSTILE_*`
 Один фирменный шаблон (`templates/base_email.html` + `templates/emails/letter.html`), одна функция на письмо; новое письмо —
 функция там же и вызов `emails.send(адрес, emails.<письмо>, ...)` из `NotificationService` или сервиса события, не своя
 `send_mail` во view. Письмо собирается в момент события и уходит задачей `send_rendered_email` после фиксации транзакции
-(`on_commit`): откат не рассылает, сбой очереди или шаблона не ломает действие. Только настоящие адреса (`is_real_address`:
-не `@sms.internal`, не `@ddocs.internal`), Reply-To — `SUPPORT_EMAIL`, адрес претензий в подвале — `CLAIM_EMAIL`. Ответ формы
+(`on_commit`): откат не рассылает, сбой очереди или шаблона не ломает действие. Адрес — только `emails.send_to(user, …)` /
+`address_for(user)`: подтверждённый «Email для писем» (`User.contact_email`, `apps/users/contact_email.py`, Р27), иначе логин, если
+это настоящий ящик (не `@sms.internal` / `@ddocs.internal`, не демо); логины юрлиц и блогеров служебные. Reply-To — `SUPPORT_EMAIL`, адрес претензий в подвале — `CLAIM_EMAIL`. Ответ формы
 поддержки — только вошедшему пользователю на адрес учётной записи. Тестам — `SentMail` из `apps/notifications/tests_emails.py`.
 
 ## Структура приложений

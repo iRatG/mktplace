@@ -6,11 +6,21 @@ from django.views.decorators.http import require_POST
 from apps.deals.models import Deal, Review
 from apps.platforms.models import Platform
 from apps.profiles.models import AdvertiserProfile, BloggerProfile
-from apps.users import consents
+from apps.notifications import emails
+from apps.users import consents, contact_email
 from apps.users.models import User
 
-from ..forms import AdvertiserProfileForm, BloggerProfileForm, ConsentSettingsForm
+from ..forms import AdvertiserProfileForm, BloggerProfileForm, ConsentSettingsForm, ContactEmailForm
 from .pages import _redirect_dashboard
+
+
+def _letters_context(user, form=None):
+    """Блок «Email для писем»: куда сейчас идут письма и какой адрес ждёт подтверждения."""
+    return {
+        "letters_to": emails.address_for(user),
+        "letters_pending": contact_email.pending(user),
+        "contact_form": form or ContactEmailForm(),
+    }
 
 
 @login_required
@@ -27,12 +37,14 @@ def profile_view(request):
             "platforms": platforms,
             "completed_deals": completed_deals,
             "consent_form": ConsentSettingsForm(user=user),
+            **_letters_context(user),
         })
     else:
         profile, _ = AdvertiserProfile.objects.get_or_create(user=user)
         return render(request, "profiles/my_profile.html", {
             "profile": profile,
             "consent_form": ConsentSettingsForm(user=user),
+            **_letters_context(user),
         })
 
 
@@ -55,6 +67,27 @@ def profile_edit(request):
         return redirect("web:profile")
 
     return render(request, "profiles/edit_profile.html", {"form": form})
+
+
+@login_required
+@require_POST
+def profile_contact_email(request):
+    """Указать, сменить или удалить адрес для писем. Новый адрес начинает работать после подтверждения по ссылке."""
+    if request.POST.get("action") == "remove":
+        contact_email.remove(request.user)
+        messages.success(request, "Адрес для писем удалён.")
+        return redirect("web:profile")
+    form = ContactEmailForm(request.POST)
+    if form.is_valid():
+        try:
+            contact_email.request_change(request.user, form.cleaned_data["email"])
+            messages.success(request, f"Отправили ссылку на {form.cleaned_data['email'].lower()}. "
+                                      "Откройте письмо и подтвердите адрес — ссылка действует 24 часа.")
+        except contact_email.ContactEmailError as e:
+            messages.error(request, str(e))
+    else:
+        messages.error(request, "Проверьте адрес почты.")
+    return redirect("web:profile")
 
 
 @login_required

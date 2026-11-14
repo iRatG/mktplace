@@ -6,10 +6,18 @@ from django.core.mail import EmailMultiAlternatives
 from django.utils import timezone
 
 
-def _send(user, letter):
-    """Отправка фирменного письма из задачи (apps/notifications/emails.py); ответ на письмо — в поддержку."""
+def _send(user, letter, to=None):
+    """Отправка фирменного письма из задачи (apps/notifications/emails.py); ответ на письмо — в поддержку.
+
+    Адрес — `to` (подтверждение логина) или адрес для писем пользователя (`emails.address_for`); нет адреса — нет письма.
+    """
+    from apps.notifications import emails
+
+    to = to or emails.address_for(user)
+    if not to:
+        return
     subject, html, text = letter
-    message = EmailMultiAlternatives(subject, text, settings.DEFAULT_FROM_EMAIL, [user.email],
+    message = EmailMultiAlternatives(subject, text, settings.DEFAULT_FROM_EMAIL, [to],
                                      reply_to=[settings.SUPPORT_EMAIL])
     message.attach_alternative(html, "text/html")
     message.send(fail_silently=False)
@@ -32,7 +40,7 @@ def send_confirmation_email(self, user_id: int):
     )
     confirmation_url = f"{settings.FRONTEND_URL}/confirm-email/{token.token}/"
     try:
-        _send(user, emails.email_confirmation(user, confirmation_url))
+        _send(user, emails.email_confirmation(user, confirmation_url), to=user.email)
     except Exception as exc:
         raise self.retry(exc=exc)
 
@@ -63,7 +71,7 @@ def send_password_reset_email(self, user_id: int):
 def send_welcome_email(self, user_id: int):
     """Приветственное письмо после подтверждения email: своё для рекламодателя и для исполнителя.
 
-    На служебные адреса (вход по SMS, юрлица по ИНН) письмо не шлём.
+    Идёт на адрес для писем (`emails.address_for`): без него (служебный логин, демо) письма нет.
     """
     from apps.notifications import emails
     from .models import User
@@ -72,7 +80,7 @@ def send_welcome_email(self, user_id: int):
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
         return
-    if not emails.is_real_address(user.email):
+    if not emails.address_for(user):
         return
     try:
         _send(user, emails.welcome(user))
