@@ -7,6 +7,8 @@ django-filter==24.2
 psycopg2-binary==2.9.9
 redis==5.0.8
 celery==5.4.0
+# kombu 5.7 требует redis-py >= 6.1; без закрепления сборка 14.11.2026 подтянула 5.7 и celery не запускался.
+kombu==5.6.2
 django-celery-beat==2.6.0
 Pillow==10.4.0
 gunicorn==22.0.0
