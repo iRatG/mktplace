@@ -65,6 +65,9 @@ def confirm_receipt(deal, number):
     deal.self_employed_receipt = number
     deal.receipt_confirmed_at = timezone.now()
     deal.save(update_fields=["self_employed_receipt", "receipt_confirmed_at"])
+    from .payout_terms import refresh_for_deal
+
+    refresh_for_deal(deal)
     return deal
 
 
@@ -127,6 +130,10 @@ def set_status(einvoice_pk, staff, *, status, number="", note="", external_id=""
     if status in (Status.REJECTED, Status.MISMATCH):
         # Уведомление — строка в той же БД: откатится вместе с транзакцией, отдельный on_commit не нужен.
         NotificationService.notify_esf_problem(einvoice)
+    if einvoice.kind == Kind.PERFORMER:
+        from .payout_terms import refresh_for_deal
+
+        refresh_for_deal(einvoice.deal)
     return einvoice
 
 

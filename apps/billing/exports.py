@@ -110,7 +110,7 @@ def payouts_workbook(payouts):
             profile.get_category_display() if profile else "", p.amount, _requisites_text(p.effective_requisites()),
             einvoice.get_status_display() if einvoice else "", einvoice.number if einvoice else "",
             ", ".join(p.blocked_reasons), p.get_status_display(), _naive(p.processed_at), p.admin_comment,
-            p.deal.self_employed_receipt if p.deal_id else "", f"{p.pay_by:%d.%m.%Y}",
+            p.deal.self_employed_receipt if p.deal_id else "", f"{p.pay_by:%d.%m.%Y}" if p.pay_by else "после документов",
         ])
     _finish_sheet(ws, [8, 18, 18, 10, 12, 34, 18, 16, 50, 20, 18, 30, 14, 18, 40, 18, 14], date_columns=(1, 13))
     return _save(wb)

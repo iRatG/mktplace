@@ -239,10 +239,10 @@ class Deal(models.Model):
 
     @property
     def payout_pay_by(self):
-        """Ожидаемая дата выплаты: срок месяца, в котором наступит основание для выплаты."""
-        from apps.billing.models import payment_deadline
+        """Ожидаемая дата выплаты: 5 рабочих дней после основания (ПР 8.2), если документы и реквизиты в порядке."""
+        from apps.billing.payout_terms import due_date
 
-        return payment_deadline(self.payout_due) if self.payout_due else None
+        return due_date(self.payout_due) if self.payout_due else None
 
     @property
     def needs_self_employed_receipt(self):

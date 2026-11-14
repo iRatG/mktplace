@@ -45,7 +45,8 @@ class RegisterTests(DealPayoutBase):
         self.client.force_login(self.staff)
 
     def _created(self, moment):
-        WithdrawalRequest.objects.filter(pk=self.payout.pk).update(created_at=moment)
+        """Выплата создана и готова в moment (срок по ПР 8.2 — от готовности)."""
+        WithdrawalRequest.objects.filter(pk=self.payout.pk).update(created_at=moment, ready_since=moment)
         self.payout.refresh_from_db()
 
     def test_pay_by_and_late(self):

@@ -300,7 +300,7 @@ class BillingService:
         current = current_requisites(deal.blogger)
         payout = WithdrawalRequest.objects.create(
             blogger=deal.blogger, deal=deal, kind=WithdrawalRequest.Kind.DEAL, amount=earning,
-            requisites=current.as_snapshot() if current else {},
+            requisites=current.as_snapshot() if current else {}, deadline_from_basis=True,
         )
         cls.process_withdrawal(payout)
         blogger_wallet.refresh_from_db(fields=["available_balance", "on_withdrawal"])
@@ -318,7 +318,9 @@ class BillingService:
             raise ValueError("Отклонённой выплаты по сделке нет.")
         if wallet.available_balance < last.amount:
             raise ValueError("На балансе исполнителя меньше суммы выплаты.")
-        return cls._open_deal_payout(deal, wallet, last.amount)
+        from .payout_terms import refresh
+
+        return refresh(cls._open_deal_payout(deal, wallet, last.amount))
 
     @classmethod
     @db_transaction.atomic

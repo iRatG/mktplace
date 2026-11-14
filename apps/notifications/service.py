@@ -888,6 +888,21 @@ class NotificationService:
     # ── ЭСФ по сделке (#61) ──────────────────────────────────────────────────
 
     @staticmethod
+    def notify_payout_missing(payout, reasons):
+        """Для выплаты по сделке не хватает документов или реквизитов (ПР 8.2) → исполнителю: что именно."""
+        deal = payout.deal
+        where = f"по сделке #{deal.pk} «{deal.campaign.name}»" if deal else ""
+        NotificationService.notify(
+            user=payout.blogger,
+            notification_type=Notification.Type.PAYOUT_DOCUMENTS_MISSING,
+            title="Для выплаты не хватает документов",
+            body=(f"Выплату {format_money(payout.amount)} {where} нельзя провести: {', '.join(reasons)}. "
+                  f"Срок выплаты — 5 рабочих дней после того, как всё будет в порядке."),
+            deal=deal,
+            url=reverse("web:deal_detail", args=[deal.pk]) if deal else reverse("web:wallet"),
+        )
+
+    @staticmethod
     def notify_receipt_required(blogger, deal, amount):
         """Сделка оплачена, исполнитель самозанятый → выставить чек и внести номер в сделку."""
         NotificationService.notify(

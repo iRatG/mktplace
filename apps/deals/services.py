@@ -300,6 +300,9 @@ def _after_payout(deal):
         _after_commit(NotificationService.notify_esf_to_confirm, deal.advertiser, deal, einvoice)
     if created and esf.receipt_required_for(deal.blogger):
         _after_commit(NotificationService.notify_receipt_required, deal.blogger, deal, einvoice.amount)
+    from apps.billing.payout_terms import refresh
+
+    refresh(payout, opening=True)  # срок выплаты — от готовности (ПР 8.2), о недостающих реквизитах — сразу
 
 
 def checking_overdue(deal, now=None):

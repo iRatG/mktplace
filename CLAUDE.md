@@ -181,8 +181,11 @@ honeypot `hp_note` → капча Turnstile, если заданы `TURNSTILE_*`
 
 ### Выплаты: чек самозанятого и срок
 Самозанятому ЭСФ не нужна: `Deal.self_employed_receipt` вносит блогер на странице сделки, `receipt_confirmed_at` ставит сотрудник в реестре
-(`esf.confirm_receipt`), до этого в `blocked_reasons` — «ждёт чек самозанятого». Выплаты раз в месяц: `payment_deadline` — `PAYOUT_DAY` (5)
-следующего месяца, `WithdrawalRequest.pay_by`, `is_late`; проводить раньше срока можно.
+(`esf.confirm_receipt`), до этого в `blocked_reasons` — «ждёт чек самозанятого». Срок выплаты (ПР 8.2, с 14.11.2026) — 5 рабочих
+дней после готовности: `apps/billing/payout_terms.py`, `WithdrawalRequest.deadline_from_basis` / `ready_since` / `pay_by`, `is_late`;
+пока есть `blocked_reasons`, срока нет, исполнителю — `notify_payout_missing`. `payout_terms.refresh` вызывать везде, где меняется
+причина блокировки (открытие выплаты, реквизиты, статус ЭСФ, чек). Выплаты до правила — `payment_deadline` (`PAYOUT_DAY` следующего
+месяца). Проводить раньше срока можно.
 
 ### Исполнитель — только с подтверждённым статусом (ПС 5.2, редакция 07.11)
 Откликаться (сайт и API), получать оферту (по отклику и прямую), принимать её, попадать в каталог и приглашения может только

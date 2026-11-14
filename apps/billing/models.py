@@ -233,6 +233,12 @@ class WithdrawalRequest(models.Model):
     )
     processed_at = models.DateTimeField(null=True, blank=True)
     admin_comment = models.TextField(blank=True)
+    deadline_from_basis = models.BooleanField(
+        default=False, help_text="Срок — 5 рабочих дней после основания и документов (ПР 8.2); False — до 5 числа",
+    )
+    ready_since = models.DateTimeField(null=True, blank=True, help_text="С какого момента выплату можно провести")
+    missing_notified = models.CharField(max_length=500, blank=True,
+                                        help_text="О каких недостающих документах исполнитель уже уведомлён")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -293,11 +299,18 @@ class WithdrawalRequest(models.Model):
 
     @property
     def pay_by(self):
+        """Срок распоряжения в банк. По ПР 8.2 — 5 рабочих дней после готовности (None, пока чего-то не хватает);
+        выплаты до правила — PAYOUT_DAY следующего месяца."""
+        if self.deadline_from_basis:
+            from .payout_terms import due_date
+
+            return due_date(self.ready_since) if self.ready_since else None
         return payment_deadline(self.created_at)
 
     @property
     def is_late(self):
-        return self.status == self.Status.PENDING and timezone.localdate() > self.pay_by
+        due = self.pay_by
+        return self.status == self.Status.PENDING and due is not None and timezone.localdate() > due
 
 
 class EInvoice(models.Model):

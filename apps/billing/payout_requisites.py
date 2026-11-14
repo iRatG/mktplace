@@ -105,6 +105,9 @@ def approve_payout_requisites(application_pk, staff):
         payout.requisites = application.as_snapshot()
         payout.save(update_fields=["requisites", "updated_at"])
     NotificationService.notify_payout_requisites_approved(application.user, application)
+    from .payout_terms import refresh_for_user
+
+    refresh_for_user(application.user)
     return application
 
 
