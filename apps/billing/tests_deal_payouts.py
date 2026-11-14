@@ -114,7 +114,7 @@ class AutoPayoutTest(DealPayoutBase):
         deal = self._deal()
         t.submit_publication(deal.pk, self.blogger, "https://instagram.com/p/1", {"screenshot": [_file()]})
         t.open_claim(deal.pk, self.adv, **CLAIM_FIELDS)
-        t.resolve_claim(deal.pk, self.staff, "split", "Частично", "40 000")
+        t.resolve_claim(deal.pk, self.staff, "split", "Частично", "40 000", grounds="ПР 10.5", calculation="По решению")
         payout = WithdrawalRequest.objects.get(deal=deal)
         self.assertEqual((payout.amount, self._wallet().on_withdrawal), (D("40000"), D("40000")))
 

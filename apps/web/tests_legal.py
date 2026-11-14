@@ -146,14 +146,14 @@ class REQ1DisputeResolutionWordingTest(TestCase):
 
     def test_resolve_complete_logs_pretrial_comment(self):
         url = reverse("web:admin_dispute_resolve", kwargs={"pk": self.deal.pk})
-        self.client.post(url, {"decision": "to_blogger", "comment": "Обязательства выполнены"})
+        self.client.post(url, {"decision": "to_blogger", "comment": "Обязательства выполнены", "grounds": "ПР 10.5", "calculation": "По решению"})
         log = DealStatusLog.objects.filter(deal=self.deal, new_status=Deal.Status.COMPLETED).first()
         self.assertIsNotNone(log)
         self.assertIn("Решение по претензии", log.comment)
 
     def test_resolve_cancel_logs_pretrial_comment(self):
         url = reverse("web:admin_dispute_resolve", kwargs={"pk": self.deal.pk})
-        self.client.post(url, {"decision": "to_advertiser", "comment": "Блогер не выполнил"})
+        self.client.post(url, {"decision": "to_advertiser", "comment": "Блогер не выполнил", "grounds": "ПР 10.5", "calculation": "По решению"})
         log = DealStatusLog.objects.filter(deal=self.deal, new_status=Deal.Status.CANCELLED).first()
         self.assertIsNotNone(log)
         self.assertIn("Решение по претензии", log.comment)
@@ -743,7 +743,7 @@ class REQ5DataRetentionFieldsTest(TestCase):
         c = Client()
         c.force_login(staff)
         url = reverse("web:admin_dispute_resolve", kwargs={"pk": deal.pk})
-        c.post(url, {"decision": "to_advertiser", "comment": "Возврат"})
+        c.post(url, {"decision": "to_advertiser", "comment": "Возврат", "grounds": "ПР 10.5", "calculation": "По решению"})
 
         deal.refresh_from_db()
         self.assertTrue(deal.is_frozen)

@@ -431,7 +431,7 @@
                 <div><dt class="text-xs text-gray-500">Решение</dt><dd class="text-gray-900 font-medium">{{ claim.get_decision_display }}{% if claim.blogger_part %} — исполнителю {{ claim.blogger_part|money }} {{ currency.symbol }}{% endif %}<span class="block font-normal text-gray-700">{{ claim.decision_comment }}</span></dd></div>
                 {% else %}
                 <div class="text-xs text-gray-600" data-claim-deadlines>
-                    Объяснения второй стороны — до {{ claim.answer_until|date:"d.m.Y H:i" }} · решение сотрудника — до {{ claim.decide_until|date:"d.m.Y" }}{% if claim.extra_docs_until %} · дополнительные документы — до {{ claim.extra_docs_until|date:"d.m.Y" }}{% endif %}. Деньги депонированы до решения.
+                    Объяснения второй стороны — до {{ claim.answer_until|date:"d.m.Y H:i" }} · решение сотрудника — до {{ claim.decide_until|date:"d.m.Y" }}{% if claim.extended_at %} (срок продлён: {{ claim.extension_reason }}){% endif %}{% if claim.extra_docs_until %} · дополнительные документы — до {{ claim.extra_docs_until|date:"d.m.Y" }}{% endif %}. Деньги депонированы до решения.
                 </div>
                 {% endif %}
             </dl>

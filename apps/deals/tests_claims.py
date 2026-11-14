@@ -83,7 +83,7 @@ class ClaimsTest(TestCase):
         self.assertEqual((deal.status, deal.is_frozen), (S.DISPUTED, True))
         second = timedelta(seconds=1)
         self.assertAlmostEqual(claim.answer_until, working_days_after(claim.created_at, 2), delta=second)
-        self.assertAlmostEqual(claim.decide_until, working_days_after(claim.created_at, 5), delta=second)
+        self.assertAlmostEqual(claim.decide_until, working_days_after(claim.created_at, 10), delta=second)
         self.assertTrue(Notification.objects.filter(user=self.blogger, title="Претензия по сделке").exists())
         self.assertTrue(Notification.objects.filter(user=self.staff, title="Новая претензия").exists())
         with self.assertRaises(TransitionError):  # одна претензия за раз, сделка уже в претензии
@@ -137,15 +137,21 @@ class ClaimsTest(TestCase):
         deal = self._published()
         self._claim(deal)
         with self.assertRaises(TransitionError):
-            t.resolve_claim(deal.pk, self.adv, "to_blogger", "x")
-        with self.assertRaisesMessage(TransitionError, "Обоснуйте"):
-            t.resolve_claim(deal.pk, self.staff, "to_blogger", "")
+            t.resolve_claim(deal.pk, self.adv, "to_blogger", "x", grounds="ПР 10.5", calculation="По решению")
+        with self.assertRaisesMessage(TransitionError, "обстоятельства"):
+            t.resolve_claim(deal.pk, self.staff, "to_blogger", "", grounds="ПР 10.5", calculation="Всё исполнителю")
+        with self.assertRaisesMessage(TransitionError, "основания"):
+            t.resolve_claim(deal.pk, self.staff, "to_blogger", "Пост на месте", calculation="Всё исполнителю")
+        with self.assertRaisesMessage(TransitionError, "расчёт"):
+            t.resolve_claim(deal.pk, self.staff, "to_blogger", "Пост на месте", grounds="ПР 10.5")
+        with self.assertRaisesMessage(TransitionError, "Выберите решение"):
+            t.resolve_claim(deal.pk, self.staff, "extra_docs", "Пришлите", grounds="ПР 10.4", calculation="—")
 
     def test_to_advertiser_refunds(self):
         deal = self._published()
         self._claim(deal)
         before = Wallet.objects.get(user=self.adv).available_balance
-        t.resolve_claim(deal.pk, self.staff, "to_advertiser", "Пост не соответствует")
+        t.resolve_claim(deal.pk, self.staff, "to_advertiser", "Пост не соответствует", grounds="ПР 10.5", calculation="По решению")
         deal.refresh_from_db()
         self.assertEqual(deal.status, S.CANCELLED)
         self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, before + deal.reserved_total)
@@ -157,8 +163,8 @@ class ClaimsTest(TestCase):
         adv_before = Wallet.objects.get(user=self.adv).available_balance
         bl_before = Wallet.objects.get(user=self.blogger).on_withdrawal
         with self.assertRaisesMessage(TransitionError, "меньше суммы сделки"):
-            t.resolve_claim(deal.pk, self.staff, "split", "Раздел", deal.amount)
-        t.resolve_claim(deal.pk, self.staff, "split", "Частично выполнено", "40 000")
+            t.resolve_claim(deal.pk, self.staff, "split", "Раздел", deal.amount, grounds="ПР 10.5", calculation="По решению")
+        t.resolve_claim(deal.pk, self.staff, "split", "Частично выполнено", "40 000", grounds="ПР 10.5", calculation="По решению")
         deal.refresh_from_db()
         self.assertEqual((deal.status, deal.paid_amount), (S.COMPLETED, Decimal("40000")))
         # резерв 116 000 (100 000 + 16%): исполнителю 40 000 целиком, комиссия 16% с его части = 6 400,
@@ -175,27 +181,60 @@ class ClaimsTest(TestCase):
     def test_compensation_is_30_percent(self):
         deal = self._deal()
         self._claim(deal, actor=self.blogger, subject="no_review", demand="compensation")
-        t.resolve_claim(deal.pk, self.staff, "compensation", "Рекламодатель не ответил после правок")
+        t.resolve_claim(deal.pk, self.staff, "compensation", "Рекламодатель не ответил после правок", grounds="ПР 10.5", calculation="По решению")
         deal.refresh_from_db()
         self.assertEqual(deal.paid_amount, Decimal("30000.00"))
         self.assertEqual(Claim.objects.get(deal=deal).blogger_part, Decimal("30000.00"))
 
-    def test_extra_docs_keeps_deposit_then_back_to_decision(self):
+    def test_decision_deadline_is_ten_working_days(self):
         deal = self._published()
         claim = self._claim(deal)
-        t.resolve_claim(deal.pk, self.staff, "extra_docs", "Пришлите статистику")
+        self.assertEqual(claim.decide_until.date(), working_days_after(claim.created_at, 10).date())
+
+    def test_extension_once_up_to_seven_days_keeps_deposit(self):
+        deal = self._published()
+        claim = self._claim(deal)
+        before = claim.decide_until
+        with self.assertRaisesMessage(TransitionError, "причину"):
+            t.extend_claim(deal.pk, self.staff, "")
+        with self.assertRaisesMessage(TransitionError, "1–7"):
+            t.extend_claim(deal.pk, self.staff, "Нужна статистика", days=8)
+        with self.assertRaises(TransitionError):
+            t.extend_claim(deal.pk, self.adv, "Нужна статистика")
+        t.extend_claim(deal.pk, self.staff, "Нужна статистика охватов за 7 дней", days=5)
         claim.refresh_from_db()
-        self.assertEqual(claim.status, Claim.Status.EXTRA_DOCS)
-        self.assertEqual(claim.extra_docs_until.date(), working_days_after(timezone.now(), 7).date())
+        self.assertEqual(claim.decide_until.date(), working_days_after(before, 5).date())
+        self.assertEqual(claim.extension_reason, "Нужна статистика охватов за 7 дней")
         deal.refresh_from_db()
         self.assertEqual(deal.status, S.DISPUTED)
-        self.assertTrue(Notification.objects.filter(user=self.blogger,
-                                                    title="Нужны дополнительные документы по претензии").exists())
-        Claim.objects.filter(pk=claim.pk).update(extra_docs_until=timezone.now() - timedelta(hours=1))
+        for user in (self.blogger, self.adv):
+            note = Notification.objects.get(user=user, title="Рассмотрение претензии продлено")
+            self.assertIn(f"{timezone.localtime(claim.decide_until):%d.%m.%Y}", note.body)
+            self.assertIn("статистика охватов", note.body)
+        with self.assertRaisesMessage(TransitionError, "повторно"):
+            t.extend_claim(deal.pk, self.staff, "Ещё раз")
+        t.resolve_claim(deal.pk, self.staff, "to_blogger", "Статистика подтверждает", grounds="ПЭТ 10.3",
+                        calculation="Исполнителю 100 000, комиссия 16 000")
+        deal.refresh_from_db()
+        self.assertEqual(deal.status, S.COMPLETED)
+        claim.refresh_from_db()
+        self.assertEqual((claim.decision_grounds, claim.decision_calculation),
+                         ("ПЭТ 10.3", "Исполнителю 100 000, комиссия 16 000"))
+        self.assertIn("Основания: ПЭТ 10.3", deal.dispute_resolution)
+
+    def test_legacy_extra_docs_claim_returns_to_decision(self):
+        """Претензия до 14.11 с доп. документированием доживает: по сроку — снова к решению, продлить нельзя."""
+        deal = self._published()
+        claim = self._claim(deal)
+        Claim.objects.filter(pk=claim.pk).update(status=Claim.Status.EXTRA_DOCS,
+                                                 extra_docs_until=timezone.now() - timedelta(hours=1))
+        with self.assertRaisesMessage(TransitionError, "повторно"):
+            t.extend_claim(deal.pk, self.staff, "Ещё")
         t.remind_claim_decisions()
         claim.refresh_from_db()
         self.assertEqual(claim.status, Claim.Status.OPEN)
-        t.resolve_claim(deal.pk, self.staff, "to_blogger", "Статистика подтверждает")
+        t.resolve_claim(deal.pk, self.staff, "to_blogger", "Статистика подтверждает", grounds="ПЭТ 10.3",
+                        calculation="Всё исполнителю")
         deal.refresh_from_db()
         self.assertEqual(deal.status, S.COMPLETED)
 
@@ -231,7 +270,7 @@ class ClaimsTest(TestCase):
         self.assertIn("data-claim-details", panel)
         self.assertIn("Объяснение", panel)
         self.client.post(reverse("web:admin_dispute_resolve", kwargs={"pk": deal.pk}),
-                         {"decision": "split", "blogger_part": "50000", "comment": "Половина"})
+                         {"decision": "split", "blogger_part": "50000", "comment": "Половина", "grounds": "ПР 10.5", "calculation": "По решению"})
         deal.refresh_from_db()
         self.assertEqual(deal.paid_amount, Decimal("50000"))
 
@@ -246,6 +285,20 @@ class ClaimsTest(TestCase):
         api.force_authenticate(self.blogger)
         r = api.post(f"/api/v1/deals/{deal.pk}/claim-materials/", {"text": "Ответ"}, format="json")
         self.assertEqual(r.status_code, 200, r.content)
+
+    # Продление из панели сотрудника (ПР 10.4): форма есть до продления, после — только пометка.
+    def test_panel_extend(self):
+        deal = self._published()
+        self._claim(deal)
+        self.client.force_login(self.staff)
+        self.assertContains(self.client.get(reverse("web:admin_disputes")), "data-claim-extend>")
+        self.client.post(reverse("web:admin_dispute_resolve", kwargs={"pk": deal.pk}),
+                         {"decision": "extend", "extension_days": "3", "extension_reason": "Нужна статистика"})
+        claim = Claim.objects.get(deal=deal)
+        self.assertEqual(claim.extension_reason, "Нужна статистика")
+        page = self.client.get(reverse("web:admin_disputes")).content.decode()
+        self.assertNotIn("data-claim-extend>", page)
+        self.assertIn("data-claim-extended", page)
 
 
 class ClaimAfterApprovalTest(TestCase):
@@ -299,3 +352,4 @@ class ClaimAfterApprovalTest(TestCase):
         answer = api.post(f"/api/v1/deals/{deal.pk}/claim/", {**CLAIM_FIELDS, "subject": "placement"}, format="json")
         self.assertEqual(answer.status_code, 400, answer.content)
         self.assertFalse(Claim.objects.filter(deal=deal).exists())
+

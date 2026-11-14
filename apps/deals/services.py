@@ -18,7 +18,7 @@ from apps.billing.services import BillingService
 from apps.notifications.service import NotificationService
 
 from .models import (
-    CLAIM_ANSWER_WORKING_DAYS, CLAIM_DECISION_WORKING_DAYS, CLAIM_EXTRA_DOCS_WORKING_DAYS, COMPENSATION_PERCENT,
+    CLAIM_ANSWER_WORKING_DAYS, CLAIM_DECISION_WORKING_DAYS, CLAIM_EXTENSION_MAX_WORKING_DAYS, COMPENSATION_PERCENT,
     ChatMessage, Claim, ClaimFile, Deal, DealEvidence, DealStatusLog, PublicationDateChange, TerminationRequest,
 )
 
@@ -420,20 +420,64 @@ def add_claim_materials(pk, actor, text="", files=()):
     return claim
 
 
-def resolve_claim(pk, staff, decision, comment, blogger_part=None):
-    """Решение сотрудника по претензии: всё исполнителю, всё рекламодателю, раздел суммы, компенсация 30% или
-    дополнительное документирование (до 7 рабочих дней, деньги остаются депонированными)."""
-    from decimal import Decimal, InvalidOperation
-
+def extend_claim(pk, staff, reason, days=CLAIM_EXTENSION_MAX_WORKING_DAYS):
+    """Однократное продление рассмотрения претензии (ПР 10.4): не более 7 рабочих дней от текущего срока; причина и
+    перечень нужных материалов обязательны; обеим сторонам — уведомление с причиной и новой датой."""
     from apps.campaigns.validation import working_days_after
+
+    if staff is None or not staff.is_staff:
+        raise TransitionError("Продлить рассмотрение может только сотрудник.")
+    reason = (reason or "").strip()
+    if not reason:
+        raise TransitionError("Укажите причину продления и какие материалы нужны.")
+    try:
+        days = int(days)
+    except (TypeError, ValueError):
+        raise TransitionError("Укажите, на сколько рабочих дней продлить.")
+    if not 1 <= days <= CLAIM_EXTENSION_MAX_WORKING_DAYS:
+        raise TransitionError(f"Продлить можно на 1–{CLAIM_EXTENSION_MAX_WORKING_DAYS} рабочих дней.")
+    with transaction.atomic():
+        deal = _lock(pk)
+        _require(deal, (S.DISPUTED,), "Сделка уже не в статусе претензии.")
+        claim = Claim.objects.select_for_update().filter(
+            deal=deal, status__in=[Claim.Status.OPEN, Claim.Status.EXTRA_DOCS]).first()
+        if claim is None:
+            raise TransitionError("Продлить можно только рассматриваемую претензию.")
+        if claim.extended_at or claim.status == Claim.Status.EXTRA_DOCS or claim.extra_docs_until:
+            raise TransitionError("Срок рассмотрения уже продлевался — повторно продлить нельзя.")
+        claim.decide_until = working_days_after(claim.decide_until, days)
+        claim.extended_at = timezone.now()
+        claim.extension_reason = reason
+        claim.decision_reminder_sent_at = None
+        claim.save(update_fields=["decide_until", "extended_at", "extension_reason", "decision_reminder_sent_at"])
+        text = (f"Рассмотрение претензии продлено до {timezone.localtime(claim.decide_until):%d.%m.%Y}. "
+                f"Причина: {reason}")
+        DealStatusLog.log(deal, deal.status, changed_by=staff, comment=text)
+        _chat(deal, text)
+    _after_commit(NotificationService.notify_claim_extended, claim)
+    return claim
+
+
+def resolve_claim(pk, staff, decision, comment, blogger_part=None, *, grounds="", calculation=""):
+    """Решение сотрудника по претензии (ПР 10.5): всё исполнителю, всё рекламодателю, раздел суммы или компенсация 30%.
+
+    Решение содержит установленные обстоятельства (``comment``), договорные и законные основания (``grounds``) и расчёт
+    с порядком движения средств (``calculation``) — все три обязательны (ПР 10.4). Продление — ``extend_claim``.
+    """
+    from decimal import Decimal, InvalidOperation
 
     if staff is None or not staff.is_staff:
         raise TransitionError("Решение по претензии принимает только сотрудник.")
     comment = (comment or "").strip()
+    grounds = (grounds or "").strip()
+    calculation = (calculation or "").strip()
     if not comment:
-        raise TransitionError("Обоснуйте решение.")
-    decisions = set(Claim.Decision.values) | {"extra_docs"}
-    if decision not in decisions:
+        raise TransitionError("Опишите установленные обстоятельства.")
+    if not grounds:
+        raise TransitionError("Укажите договорные и законные основания решения.")
+    if not calculation:
+        raise TransitionError("Укажите расчёт и порядок движения средств.")
+    if decision not in Claim.Decision.values:
         raise TransitionError("Выберите решение.")
     with transaction.atomic():
         deal = _lock(pk)
@@ -441,21 +485,6 @@ def resolve_claim(pk, staff, decision, comment, blogger_part=None):
         claim = Claim.objects.select_for_update().filter(
             deal=deal, status__in=[Claim.Status.OPEN, Claim.Status.EXTRA_DOCS]).first()
         now = timezone.now()
-        if decision == "extra_docs":
-            if claim is None:
-                raise TransitionError("Дополнительное документирование — только по претензии.")
-            if claim.status == Claim.Status.EXTRA_DOCS:
-                raise TransitionError("Дополнительное документирование уже назначено.")
-            claim.status = Claim.Status.EXTRA_DOCS
-            claim.extra_docs_until = working_days_after(now, CLAIM_EXTRA_DOCS_WORKING_DAYS)
-            claim.decision_comment = comment
-            claim.save(update_fields=["status", "extra_docs_until", "decision_comment"])
-            text = (f"Сотрудник запросил дополнительные документы до "
-                    f"{timezone.localtime(claim.extra_docs_until):%d.%m.%Y}: {comment}")
-            DealStatusLog.log(deal, deal.status, changed_by=staff, comment=text)
-            _chat(deal, text)
-            _after_commit(NotificationService.notify_claim_extra_docs, claim)
-            return claim
 
         amount = deal.amount
         part = None
@@ -469,7 +498,8 @@ def resolve_claim(pk, staff, decision, comment, blogger_part=None):
         elif decision == Claim.Decision.COMPENSATION:
             part = (amount * COMPENSATION_PERCENT / Decimal("100")).quantize(Decimal("0.01"))
 
-        fields = {"dispute_resolved_at": now, "dispute_resolution": comment}
+        fields = {"dispute_resolved_at": now,
+                  "dispute_resolution": f"{comment}\nОснования: {grounds}\nРасчёт: {calculation}"}
         label = Claim.Decision(decision).label
         if decision == Claim.Decision.TO_BLOGGER:
             BillingService.complete_deal_payment(deal)
@@ -489,10 +519,12 @@ def resolve_claim(pk, staff, decision, comment, blogger_part=None):
             claim.decision = decision
             claim.blogger_part = part
             claim.decision_comment = comment
+            claim.decision_grounds = grounds
+            claim.decision_calculation = calculation
             claim.decided_by = staff
             claim.decided_at = now
-            claim.save(update_fields=["status", "decision", "blogger_part", "decision_comment", "decided_by",
-                                      "decided_at"])
+            claim.save(update_fields=["status", "decision", "blogger_part", "decision_comment", "decision_grounds",
+                                      "decision_calculation", "decided_by", "decided_at"])
         _chat(deal, f"Решение по претензии: {label}.")
     _after_commit(NotificationService.notify_dispute_resolved, deal)
     return deal

@@ -134,7 +134,7 @@ class TransitionsTest(TestCase):
         transitions.open_claim(deal.pk, self.blogger, **{**CLAIM_FIELDS, "subject": "not_accepted", "demand": "payout"})
         self.client.force_login(self.staff)
         self.client.post(reverse("web:admin_dispute_resolve", kwargs={"pk": deal.pk}),
-                         {"decision": "to_blogger", "comment": "Пост на месте"})
+                         {"decision": "to_blogger", "comment": "Пост на месте", "grounds": "ПР 10.5", "calculation": "По решению"})
         deal.refresh_from_db()
         self.assertEqual(deal.status, S.COMPLETED)
         self.assertIsNotNone(deal.last_distributed_at)

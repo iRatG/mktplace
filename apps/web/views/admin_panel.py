@@ -299,16 +299,21 @@ def admin_disputes(request):
 @_staff_required
 @require_POST
 def admin_dispute_resolve(request, pk):
-    """Решение сотрудника по претензии: всё исполнителю / всё рекламодателю / раздел / компенсация / доп. документы."""
+    """Решение по претензии (всё исполнителю / всё рекламодателю / раздел / компенсация) или однократное продление."""
     deal = get_object_or_404(Deal, pk=pk, status=Deal.Status.DISPUTED)
     decision = request.POST.get("decision", "")
     try:
-        transitions.resolve_claim(deal.pk, request.user, decision, request.POST.get("comment", ""),
-                                  request.POST.get("blogger_part"))
+        if decision == "extend":
+            transitions.extend_claim(deal.pk, request.user, request.POST.get("extension_reason", ""),
+                                     request.POST.get("extension_days") or 7)
+        else:
+            transitions.resolve_claim(deal.pk, request.user, decision, request.POST.get("comment", ""),
+                                      request.POST.get("blogger_part"), grounds=request.POST.get("grounds", ""),
+                                      calculation=request.POST.get("calculation", ""))
     except TransitionError as e:
         messages.error(request, str(e))
         return redirect("web:admin_disputes")
-    messages.success(request, "Запрошены дополнительные документы." if decision == "extra_docs"
+    messages.success(request, "Рассмотрение продлено, стороны уведомлены." if decision == "extend"
                      else "Решение по претензии принято.")
     return redirect("web:admin_disputes")
 

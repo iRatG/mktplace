@@ -340,16 +340,16 @@ class NotificationService:
             )
 
     @staticmethod
-    def notify_claim_extra_docs(claim):
-        """Сотрудник запросил дополнительные документы → обеим сторонам."""
+    def notify_claim_extended(claim):
+        """Сотрудник продлил рассмотрение претензии (ПР 10.4) → обеим сторонам: причина и новая дата."""
         deal = claim.deal
         for user in (deal.blogger, deal.advertiser):
             NotificationService.notify(
                 user=user,
                 notification_type=Notification.Type.DEAL_DISPUTED,
-                title="Нужны дополнительные документы по претензии",
-                body=(f"По сделке #{deal.pk} «{deal.campaign.name}» сотрудник просит дополнительные материалы до "
-                      f"{timezone.localtime(claim.extra_docs_until):%d.%m.%Y}: {claim.decision_comment}"),
+                title="Рассмотрение претензии продлено",
+                body=(f"По сделке #{deal.pk} «{deal.campaign.name}» решение по претензии будет принято до "
+                      f"{timezone.localtime(claim.decide_until):%d.%m.%Y}. Причина: {claim.extension_reason}"),
                 deal=deal,
             )
 

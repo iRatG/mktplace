@@ -279,10 +279,12 @@ class Deal(models.Model):
 
 
 CLAIM_WORKING_DAYS = 3
-# Сроки претензии на платформе (рабочие дни): объяснения второй стороны, решение сотрудника, доп. документирование.
+# Сроки претензии на платформе (рабочие дни, ПР 10.3–10.4 редакции 06.11.2026): объяснения второй стороны — не менее 2,
+# рассмотрение — 10 со дня регистрации, однократное продление — не более 7 с причиной и новой датой.
+# Претензии до 14.11.2026 доживают со своим сохранённым сроком (decide_until) и доп. документированием (EXTRA_DOCS).
 CLAIM_ANSWER_WORKING_DAYS = 2
-CLAIM_DECISION_WORKING_DAYS = 5
-CLAIM_EXTRA_DOCS_WORKING_DAYS = 7
+CLAIM_DECISION_WORKING_DAYS = 10
+CLAIM_EXTENSION_MAX_WORKING_DAYS = 7
 COMPENSATION_PERCENT = 30
 
 
@@ -309,7 +311,7 @@ class Claim(models.Model):
 
     class Status(models.TextChoices):
         OPEN = "open", "Рассматривается"
-        EXTRA_DOCS = "extra_docs", "Дополнительное документирование"
+        EXTRA_DOCS = "extra_docs", "Дополнительное документирование"  # до 14.11.2026; теперь — продление (extended_at)
         RESOLVED = "resolved", "Решение принято"
 
     class Decision(models.TextChoices):
@@ -333,9 +335,13 @@ class Claim(models.Model):
     explanation = models.TextField(blank=True)
     explained_at = models.DateTimeField(null=True, blank=True)
     extra_docs_until = models.DateTimeField(null=True, blank=True)
+    extended_at = models.DateTimeField(null=True, blank=True, help_text="Когда срок рассмотрения продлён (один раз)")
+    extension_reason = models.TextField(blank=True, help_text="Причина продления и какие материалы нужны")
     decision = models.CharField(max_length=20, choices=Decision.choices, blank=True)
     blogger_part = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    decision_comment = models.TextField(blank=True)
+    decision_comment = models.TextField(blank=True, help_text="Установленные обстоятельства (ПР 10.4)")
+    decision_grounds = models.TextField(blank=True, help_text="Договорные и законные основания решения")
+    decision_calculation = models.TextField(blank=True, help_text="Расчёт и порядок движения средств")
     decided_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="decided_claims",
     )
