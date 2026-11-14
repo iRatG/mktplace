@@ -118,6 +118,9 @@
 
 {% if is_advertiser %}{% include "billing/_advertiser_money.html" %}{% endif %}
 
+{% if is_advertiser %}
+<p class="mb-4 text-sm"><a href="{% url 'web:commission_report_list' %}" class="text-orange-600 hover:text-orange-700 font-medium" data-commission-reports-link>Отчёты комиссионера за месяц →</a></p>
+{% endif %}
 {% if budgets and budgets.rows %}
 <!-- Бюджеты кампаний (рекламодатель): сколько денег приходится на каждую кампанию -->
 <div class="card-dark rounded-xl overflow-hidden mb-8" data-campaign-budgets>

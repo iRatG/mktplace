@@ -492,6 +492,43 @@ class PayoutRequisites(models.Model):
         }
 
 
+class CommissionReport(models.Model):
+    """Отчёт комиссионера рекламодателю за месяц (ПР 8.9): данные — снимок `metrics.advertiser_month_report`."""
+
+    class Status(models.TextChoices):
+        SENT = "sent", "Направлен, ждём возражений"
+        OBJECTED = "objected", "Возражение рассматривается"
+        ACCEPTED = "accepted", "Принят"
+        RESOLVED = "resolved", "Возражение рассмотрено"
+
+    advertiser = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="commission_reports")
+    period = models.DateField(help_text="Первое число отчётного месяца")
+    data = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SENT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    objection_until = models.DateTimeField(help_text="До какого момента можно направить возражение (10 рабочих дней)")
+    objection_text = models.TextField(blank=True)
+    objected_at = models.DateTimeField(null=True, blank=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    staff_comment = models.TextField(blank=True)
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="+")
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Отчёт комиссионера"
+        verbose_name_plural = "Отчёты комиссионера"
+        ordering = ["-period", "-created_at"]
+        constraints = [models.UniqueConstraint(fields=["advertiser", "period"], name="one_commission_report_per_month")]
+
+    def __str__(self):
+        return f"Отчёт {self.period:%m.%Y} — {self.advertiser}"
+
+    @property
+    def can_object(self):
+        return self.status == self.Status.SENT and timezone.now() <= self.objection_until
+
+
 class ContractorFeeRate(models.Model):
     """Индивидуальная плата исполнителя за услуги платформы вместо ставки по умолчанию (ПР 7.2; задаёт сотрудник)."""
 

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Отчёты комиссионера — UBlogers!{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{% url 'web:wallet' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Кошелёк</a>
+    <h1 class="text-2xl font-bold text-gray-900 mt-2">Отчёты комиссионера</h1>
+    <p class="text-gray-600 text-sm mt-1">Оператор отчитывается за каждый месяц, в котором были операции: сделки, стоимость услуг, выплаты, зачёты, комиссия, возвраты и остаток. Возражения — в течение 10 рабочих дней после отчёта.</p>
+</div>
+
+<div class="card-dark rounded-xl overflow-hidden" data-commission-reports>
+    {% if reports %}
+    <div class="divide-y divide-gray-100">
+        {% for report, period in reports %}
+        <a href="{% url 'web:commission_report_detail' pk=report.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50">
+            <span class="text-sm font-medium text-gray-900">{{ period|capfirst }}</span>
+            <span class="text-xs text-gray-500">{{ report.get_status_display }}{% if report.status == 'sent' %} · возражения до {{ report.objection_until|date:"d.m.Y" }}{% endif %}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="px-6 py-10 text-sm text-gray-600 text-center">Отчётов пока нет: первый появится в начале следующего месяца после операций.</p>
+    {% endif %}
+</div>
+{% endblock %}

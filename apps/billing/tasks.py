@@ -23,3 +23,11 @@ def sync_einvoices():
     from .esf import sync_waiting
 
     return f"E-invoices synced: {sync_waiting()}."
+
+
+@shared_task
+def commission_reports():
+    """Отчёты комиссионера за прошлый месяц (ПР 8.9) и приёмка отчётов без возражений после 10 рабочих дней."""
+    from .commission_reports import accept_overdue, generate_for_previous_month
+
+    return f"Commission reports: created {generate_for_previous_month()}, accepted {accept_overdue()}."

@@ -238,6 +238,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.billing.tasks.sync_einvoices',
         'schedule': 3600,  # every hour — статусы ЭСФ у внешнего провайдера (ручной — пусто)
     },
+    'commission-reports': {
+        'task': 'apps.billing.tasks.commission_reports',
+        'schedule': 86400,  # daily — отчёт комиссионера за прошлый месяц и приёмка без возражений (ПР 8.9)
+    },
     'cleanup-old-notifications': {
         'task': 'apps.notifications.tasks.cleanup_old_notifications',
         'schedule': 86400,  # daily (24h)

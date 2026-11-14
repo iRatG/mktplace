@@ -125,3 +125,28 @@ def xlsx_response(content, filename):
 
 
 __all__ = ["finance_workbook", "payouts_workbook", "xlsx_response", "TOTAL_COLUMNS", "Transaction"]
+
+
+def commission_report_workbook(report):
+    """Отчёт комиссионера за месяц: строки по сделкам, итог, пополнения и остаток. Возвращает bytes."""
+    from decimal import Decimal
+
+    from .commission_reports import period_label
+    from .metrics import REPORT_COLUMNS
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Отчёт"
+    ws.append(["Сделка", "Договор", "Кампания", "Исполнитель"] + [label for _, label in REPORT_COLUMNS])
+    for row in report.data.get("rows", []):
+        ws.append([row["deal"], row["contract"], row["campaign"], row["contractor"]]
+                  + [Decimal(row[key]) for key, _ in REPORT_COLUMNS])
+    totals = report.data.get("totals", {})
+    ws.append(["Итого", "", "", ""] + [Decimal(totals.get(key, "0")) for key, _ in REPORT_COLUMNS])
+    ws.append([])
+    ws.append(["Период", period_label(report.period)])
+    ws.append(["Пополнения за период", Decimal(report.data.get("deposits", "0"))])
+    ws.append(["Свободный остаток на конец периода", Decimal(report.data.get("available_end", "0"))])
+    ws.append(["Резерв на конец периода", Decimal(report.data.get("reserved_end", "0"))])
+    _finish_sheet(ws, [10, 12, 30, 28] + [20] * len(REPORT_COLUMNS))
+    return _save(wb)

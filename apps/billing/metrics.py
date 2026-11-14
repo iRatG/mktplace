@@ -227,3 +227,70 @@ def daily_totals(start, end):
         totals["day"] = day
         result.append(totals)
     return result
+
+
+REPORT_COLUMNS = (
+    ("services", "Стоимость услуг"), ("paid_out", "Выплачено исполнителю"), ("contractor_fee", "Зачёт: плата исполнителя"),
+    ("commission", "Комиссия рекламодателя"), ("refunds", "Возвраты"), ("reserved", "Зарезервировано"),
+)
+
+
+def advertiser_month_report(advertiser, start, end):
+    """Отчёт комиссионера за [start, end) (ПР 8.9): по сделкам — стоимость услуг, выплата исполнителю, зачёт платы
+    исполнителя, комиссия рекламодателя, возвраты и резервы за период; итоги, пополнения и остаток на конец периода.
+
+    Суммы — строки (данные хранятся в JSON). Стоимость услуг = выплата + зачёт; комиссия = |PAYMENT| − стоимость услуг.
+    """
+    from apps.deals.models import Deal
+
+    zero = Decimal("0")
+    txs = list(
+        Transaction.objects.filter(wallet__user=advertiser, created_at__gte=start, created_at__lt=end)
+        .values("type", "amount", "deal_id")
+    )
+    deal_ids = sorted({t["deal_id"] for t in txs if t["deal_id"]})
+    earnings = {
+        row["deal_id"]: abs(row["total"] or zero)
+        for row in Transaction.objects.filter(type=Transaction.Type.EARNING, deal_id__in=deal_ids,
+                                              created_at__gte=start, created_at__lt=end)
+        .values("deal_id").annotate(total=Sum("amount"))
+    }
+    deals = {d.pk: d for d in Deal.objects.filter(pk__in=deal_ids).select_related("campaign", "blogger")}
+    rows = []
+    totals = {key: zero for key, _ in REPORT_COLUMNS}
+    for pk in deal_ids:
+        deal = deals[pk]
+        mine = [t for t in txs if t["deal_id"] == pk]
+
+        def total(tx_type):
+            return sum((abs(t["amount"]) for t in mine if t["type"] == tx_type), zero)
+
+        payment = total(Transaction.Type.PAYMENT)
+        paid_out = earnings.get(pk, zero)
+        fee = (deal.contractor_fee_withheld or zero) if paid_out else zero
+        services = paid_out + fee
+        row = {
+            "services": services, "paid_out": paid_out, "contractor_fee": fee,
+            "commission": payment - services, "refunds": total(Transaction.Type.RELEASE),
+            "reserved": total(Transaction.Type.RESERVE),
+        }
+        for key in totals:
+            totals[key] += row[key]
+        rows.append({"deal": pk, "contract": deal.contract_number, "campaign": deal.campaign.name,
+                     "contractor": deal.blogger.public_name, **{k: str(v) for k, v in row.items()}})
+
+    before_end = Transaction.objects.filter(wallet__user=advertiser, created_at__lt=end)
+    last = before_end.order_by("-created_at", "-pk").first()
+
+    def sum_abs(tx_type):
+        return _abs_total(before_end.filter(type=tx_type))
+
+    reserved_end = sum_abs(Transaction.Type.RESERVE) - sum_abs(Transaction.Type.RELEASE) - sum_abs(Transaction.Type.PAYMENT)
+    deposits = sum((t["amount"] for t in txs if t["type"] in (Transaction.Type.DEPOSIT, Transaction.Type.TEST_CREDIT)), zero)
+    return {
+        "rows": rows,
+        "totals": {k: str(v) for k, v in totals.items()},
+        "deposits": str(deposits),
+        "available_end": str(last.balance_after if last else zero),
+        "reserved_end": str(max(reserved_end, zero)),
+    }

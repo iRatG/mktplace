@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Отчёты комиссионера — UBlogers!{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center gap-3">
+    <a href="{% url 'web:admin_dashboard' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Панель</a>
+    <h1 class="text-2xl font-bold text-gray-900">Отчёты комиссионера</h1>
+    <form method="get" class="ml-auto text-sm">
+        <select name="status" class="input-dark text-sm" onchange="this.form.submit()">
+            <option value="all"{% if status == 'all' %} selected{% endif %}>Все</option>
+            {% for value, label in statuses %}<option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+    </form>
+</div>
+<p class="text-xs text-gray-600 mb-4">Отчёты формируются автоматически в первый день месяца за прошлый месяц (ПР 8.9). Возражения рекламодателей — здесь; без возражения отчёт принимается через 10 рабочих дней.</p>
+
+<div class="card-dark rounded-xl overflow-hidden" data-admin-commission-reports>
+    {% if reports %}
+    <div class="divide-y divide-gray-100">
+        {% for report, period in reports %}
+        <a href="{% url 'web:commission_report_detail' pk=report.pk %}" class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50">
+            <span class="text-sm text-gray-900">{{ report.advertiser.public_name }} · {{ period }}</span>
+            <span class="text-xs text-gray-500">{{ report.get_status_display }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="px-6 py-10 text-sm text-gray-600 text-center">Отчётов с таким статусом нет.</p>
+    {% endif %}
+</div>
+{% endblock %}

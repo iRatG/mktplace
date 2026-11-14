@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Отчёт комиссионера — UBlogers!{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center gap-3">
+    {% if user.is_staff %}
+    <a href="{% url 'web:admin_commission_reports' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Отчёты</a>
+    {% else %}
+    <a href="{% url 'web:commission_report_list' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Отчёты</a>
+    {% endif %}
+    <h1 class="text-2xl font-bold text-gray-900">Отчёт комиссионера за {{ period }}</h1>
+    <span class="text-sm text-gray-500" data-report-status>{{ report.get_status_display }}</span>
+    <a href="?export=xlsx" class="ml-auto text-sm text-orange-600 hover:text-orange-700 font-medium">Скачать Excel</a>
+</div>
+
+<p class="text-xs text-gray-600 mb-4">Оператор — {{ operator_name }}, ИНН {{ operator_inn }} — комиссионер; рекламодатель {{ report.advertiser.public_name }} — комитент. Плата исполнителя за услуги платформы показана отдельно и не уменьшает стоимость приобретённых для вас услуг.</p>
+
+<div class="card-dark rounded-xl overflow-x-auto mb-6" data-report-table>
+    <table class="w-full text-sm">
+        <thead class="text-xs text-gray-500">
+            <tr class="text-left">
+                <th class="px-4 py-3 font-medium">Сделка</th>
+                <th class="px-4 py-3 font-medium">Кампания · исполнитель</th>
+                {% for label in columns %}<th class="px-3 py-3 font-medium text-right">{{ label }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for row in rows %}
+            <tr>
+                <td class="px-4 py-3 whitespace-nowrap"><a href="{% url 'web:deal_detail' pk=row.deal %}" class="text-orange-700 hover:underline">#{{ row.deal }}</a> · {{ row.contract }}</td>
+                <td class="px-4 py-3">{{ row.campaign }} · {{ row.contractor }}</td>
+                {% for value in row.cells %}<td class="px-3 py-3 text-right whitespace-nowrap">{{ value|money }}</td>{% endfor %}
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="px-4 py-6 text-center text-gray-500">По сделкам операций за месяц не было.</td></tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="border-t border-gray-200 font-semibold text-gray-900">
+            <tr data-report-totals>
+                <td class="px-4 py-3" colspan="2">Итого, {{ currency.symbol }}</td>
+                {% for value in totals %}<td class="px-3 py-3 text-right whitespace-nowrap">{{ value|money }}</td>{% endfor %}
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<dl class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-sm">
+    <div class="card-dark rounded-xl p-4"><dt class="text-xs text-gray-500">Пополнения за месяц</dt><dd class="font-semibold text-gray-900">{{ summary.deposits|money }} {{ currency.symbol }}</dd></div>
+    <div class="card-dark rounded-xl p-4"><dt class="text-xs text-gray-500">Свободный остаток на конец месяца</dt><dd class="font-semibold text-gray-900">{{ summary.available_end|money }} {{ currency.symbol }}</dd></div>
+    <div class="card-dark rounded-xl p-4"><dt class="text-xs text-gray-500">Резерв на конец месяца</dt><dd class="font-semibold text-gray-900">{{ summary.reserved_end|money }} {{ currency.symbol }}</dd></div>
+</dl>
+
+{% if report.objection_text %}
+<div class="card-dark rounded-xl p-5 mb-4" data-report-objection>
+    <div class="text-xs text-gray-500 mb-1">Возражение рекламодателя · {{ report.objected_at|date:"d.m.Y H:i" }}</div>
+    <p class="text-sm text-gray-900 whitespace-pre-line">{{ report.objection_text }}</p>
+    {% if report.staff_comment %}
+    <div class="text-xs text-gray-500 mt-3 mb-1">Ответ Оператора · {{ report.resolved_at|date:"d.m.Y H:i" }}</div>
+    <p class="text-sm text-gray-900 whitespace-pre-line">{{ report.staff_comment }}</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if user == report.advertiser and report.can_object %}
+<form method="post" action="{% url 'web:commission_report_object' pk=report.pk %}" class="card-dark rounded-xl p-5 space-y-2" data-report-object-form>
+    {% csrf_token %}
+    <h2 class="font-semibold text-gray-900">Направить возражение</h2>
+    <p class="text-xs text-gray-600">До {{ report.objection_until|date:"d.m.Y H:i" }}. Укажите, какие операции и почему вы оспариваете. Без возражений отчёт считается принятым в части отражённых операций; это не меняет сроки претензий по сделкам.</p>
+    <textarea name="text" rows="3" required class="input-dark resize-none text-sm"></textarea>
+    <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">Направить возражение</button>
+</form>
+{% endif %}
+
+{% if user.is_staff and report.status == 'objected' %}
+<form method="post" action="{% url 'web:admin_commission_report_resolve' pk=report.pk %}" class="card-dark rounded-xl p-5 space-y-2" data-report-resolve-form>
+    {% csrf_token %}
+    <h2 class="font-semibold text-gray-900">Ответ на возражение</h2>
+    <textarea name="comment" rows="3" required class="input-dark resize-none text-sm"></textarea>
+    <button type="submit" class="btn-orange px-4 py-2 text-sm rounded-xl">Отправить ответ</button>
+</form>
+{% endif %}
+{% endblock %}

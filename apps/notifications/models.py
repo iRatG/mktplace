@@ -42,6 +42,7 @@ class Notification(models.Model):
         ESF_TO_CONFIRM = "esf_to_confirm", "E-Invoice To Confirm"
         ESF_PROBLEM = "esf_problem", "E-Invoice Problem"
         PAYOUT_DOCUMENTS_MISSING = "payout_documents_missing", "Payout Documents Missing"
+        COMMISSION_REPORT = "commission_report", "Commission Report"
         SYSTEM = "system", "System"
 
     user = models.ForeignKey(

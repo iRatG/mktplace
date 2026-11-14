@@ -98,6 +98,9 @@ urlpatterns = [
     path("wallet/invoices/", views.invoice_create, name="invoice_create"),
     path("wallet/invoices/<int:pk>/", views.invoice_print, name="invoice_print"),
     path("wallet/refunds/", views.refund_create, name="refund_create"),
+    path("wallet/reports/", views.commission_report_list, name="commission_report_list"),
+    path("wallet/reports/<int:pk>/", views.commission_report_detail, name="commission_report_detail"),
+    path("wallet/reports/<int:pk>/object/", views.commission_report_object, name="commission_report_object"),
     path("wallet/refunds/<int:pk>/cancel/", views.refund_cancel, name="refund_cancel"),
     path("wallet/refunds/<int:pk>/details/", views.refund_update, name="refund_update"),
     path("profile/payout-requisites/", views.payout_requisites_view, name="payout_requisites"),
@@ -141,6 +144,9 @@ urlpatterns = [
          name="admin_withdrawal_legacy_balance"),
     path("panel/einvoices/<int:pk>/", views.admin_einvoice_update, name="admin_einvoice_update"),
     path("panel/finance/", views.admin_finance, name="admin_finance"),
+    path("panel/commission-reports/", views.admin_commission_reports, name="admin_commission_reports"),
+    path("panel/commission-reports/<int:pk>/resolve/", views.admin_commission_report_resolve,
+         name="admin_commission_report_resolve"),
     path("panel/users/", views.admin_users, name="admin_users"),
 
     # Notifications (Module 11)

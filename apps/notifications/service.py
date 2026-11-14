@@ -888,6 +888,47 @@ class NotificationService:
     # ── ЭСФ по сделке (#61) ──────────────────────────────────────────────────
 
     @staticmethod
+    def notify_commission_report_ready(report):
+        """Отчёт комиссионера за месяц готов (ПР 8.9) → рекламодателю."""
+        from apps.billing.commission_reports import period_label
+
+        NotificationService.notify(
+            user=report.advertiser,
+            notification_type=Notification.Type.COMMISSION_REPORT,
+            title="Отчёт комиссионера за месяц",
+            body=(f"Отчёт Оператора за {period_label(report.period)} готов. Возражения можно направить до "
+                  f"{timezone.localtime(report.objection_until):%d.%m.%Y}; без возражений отчёт считается принятым."),
+            url=reverse("web:commission_report_detail", args=[report.pk]),
+        )
+
+    @staticmethod
+    def notify_commission_report_objected(report):
+        """Рекламодатель возразил по отчёту → сотрудникам."""
+        from apps.billing.commission_reports import period_label
+
+        for staff in NotificationService._staff():
+            NotificationService.notify(
+                user=staff,
+                notification_type=Notification.Type.COMMISSION_REPORT,
+                title="Возражение по отчёту комиссионера",
+                body=f"{report.advertiser.public_name} возражает по отчёту за {period_label(report.period)}.",
+                url=reverse("web:admin_commission_reports"),
+            )
+
+    @staticmethod
+    def notify_commission_report_resolved(report):
+        """Сотрудник рассмотрел возражение → рекламодателю."""
+        from apps.billing.commission_reports import period_label
+
+        NotificationService.notify(
+            user=report.advertiser,
+            notification_type=Notification.Type.COMMISSION_REPORT,
+            title="Возражение по отчёту рассмотрено",
+            body=f"По отчёту за {period_label(report.period)}: {report.staff_comment}",
+            url=reverse("web:commission_report_detail", args=[report.pk]),
+        )
+
+    @staticmethod
     def notify_payout_missing(payout, reasons):
         """Для выплаты по сделке не хватает документов или реквизитов (ПР 8.2) → исполнителю: что именно."""
         deal = payout.deal
