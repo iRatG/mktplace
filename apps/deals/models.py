@@ -435,7 +435,8 @@ class TerminationRequest(models.Model):
 
 
 class PublicationDateChange(models.Model):
-    """Предложение перенести дату публикации — вступает в силу, только когда вторая сторона согласилась."""
+    """Предложение перенести дату публикации — вступает в силу, когда согласилась вторая сторона и перенос подтвердил
+    Оператор (ПЭТ 8.4): платформа проверяет новую дату и фиксирует подтверждение (`operator_confirmed_at`)."""
 
     class Status(models.TextChoices):
         PENDING = "pending", "Ждёт ответа"
@@ -452,6 +453,10 @@ class PublicationDateChange(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     answered_at = models.DateTimeField(null=True, blank=True)
+    operator_confirmed_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Оператор подтвердил перенос (ПЭТ 8.4): платформа проверила дату при согласии второй стороны",
+    )
 
     class Meta:
         ordering = ["-created_at"]

@@ -677,23 +677,29 @@ def _pending_change_for_answer(deal, actor):
 
 
 def accept_publication_date(pk, actor):
-    """Вторая сторона согласна: дата сделки меняется, напоминание и просрочка — заново для новой даты."""
+    """Вторая сторона согласна: Оператор подтверждает перенос (ПЭТ 8.4) — платформа проверяет новую дату (не в прошлом,
+    в пределах сроков кампании) и фиксирует подтверждение; дата сделки меняется, напоминание и просрочка — заново.
+    Дата не проходит проверку — перенос не подтверждается, причина — в ошибке."""
     with transaction.atomic():
         deal = _lock(pk)
         change = _pending_change_for_answer(deal, actor)
         _require(deal, Deal.UNPUBLISHED_STATUSES, "Перенести дату можно, пока публикации нет.")
         error = _date_error(deal, change.new_date)
         if error:
-            raise TransitionError(f"{error} Предложите другую дату.")
-        comment = f"Дата публикации перенесена с {change.old_date:%d.%m.%Y} на {change.new_date:%d.%m.%Y} по согласию сторон."
+            raise TransitionError(f"Оператор не подтвердил перенос: {error} Предложите другую дату.")
+        now = timezone.now()
+        comment = (f"Дата публикации перенесена с {change.old_date:%d.%m.%Y} на {change.new_date:%d.%m.%Y} по согласию "
+                   f"сторон. Оператор подтвердил перенос {timezone.localtime(now):%d.%m.%Y %H:%M}: дата проверена "
+                   f"платформой.")
         DealStatusLog.log(deal, deal.status, changed_by=actor, comment=comment)
         deal.publication_date = change.new_date
         deal.publication_reminder_sent_at = None
         deal.overdue_notified_at = None
         deal.save(update_fields=["publication_date", "publication_reminder_sent_at", "overdue_notified_at", "updated_at"])
         change.status = PublicationDateChange.Status.ACCEPTED
-        change.answered_at = timezone.now()
-        change.save(update_fields=["status", "answered_at"])
+        change.answered_at = now
+        change.operator_confirmed_at = now
+        change.save(update_fields=["status", "answered_at", "operator_confirmed_at"])
         _chat(deal, comment)
     _after_commit(NotificationService.notify_publication_date_answered, change.proposed_by, deal, change)
     return change

@@ -130,6 +130,9 @@ class PublicationScheduleTest(TestCase):
         self.assertEqual(self.deal.status, S.IN_PROGRESS)
         change.refresh_from_db()
         self.assertEqual(change.status, PublicationDateChange.Status.ACCEPTED)
+        # ПЭТ 8.4: перенос подтверждает и Оператор — проверка платформой и запись в журнале.
+        self.assertIsNotNone(change.operator_confirmed_at)
+        self.assertTrue(DealStatusLog.objects.filter(deal=self.deal, comment__contains="Оператор подтвердил перенос").exists())
         self.assertTrue(self._notes(self.blogger).filter(title="Перенос даты принят").exists())
         text = f"Дата публикации перенесена с {old:%d.%m.%Y} на {new:%d.%m.%Y}"
         self.assertTrue(DealStatusLog.objects.filter(deal=self.deal, comment__startswith=text).exists())
@@ -168,8 +171,11 @@ class PublicationScheduleTest(TestCase):
     def test_accept_rechecks_date(self):
         change = transitions.propose_publication_date(self.deal.pk, self.blogger, self.today + timedelta(days=3))
         PublicationDateChange.objects.filter(pk=change.pk).update(new_date=self.today - timedelta(days=1))
-        with self.assertRaisesMessage(TransitionError, "Предложите другую дату"):
+        with self.assertRaisesMessage(TransitionError, "Оператор не подтвердил перенос"):
             transitions.accept_publication_date(self.deal.pk, self.adv)
+        change.refresh_from_db()
+        self.assertEqual(change.status, PublicationDateChange.Status.PENDING)
+        self.assertIsNone(change.operator_confirmed_at)
 
     def test_publication_closes_pending_change(self):
         self._set(publication_date=self.today)
