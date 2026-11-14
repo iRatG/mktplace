@@ -88,9 +88,10 @@ class OfferAcceptanceTest(TestCase):
         self.assertEqual(offer.reserved_amount, Decimal("150000"))
         self.assertEqual(offer.terms["name"], "Кампания")
         self.assertFalse(Deal.objects.exists())
+        # Резерв — в момент Акцепта (ПР 5.4), направление оферты денег не трогает.
         wallet = _wallet(self.adv)
-        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (Decimal("826000"), Decimal("174000")))
-        self.assertTrue(Transaction.objects.filter(offer=offer, type=Transaction.Type.RESERVE).exists())
+        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (Decimal("1000000"), Decimal("0")))
+        self.assertFalse(Transaction.objects.filter(offer=offer, type=Transaction.Type.RESERVE).exists())
         note = Notification.objects.get(user=self.blogger, title="Вам направлена оферта")
         self.assertIn(f"{self.day:%d.%m.%Y}", note.body)
 
@@ -117,8 +118,9 @@ class OfferAcceptanceTest(TestCase):
         self.assertEqual(deal.publication_date, self.day)
         wallet = _wallet(self.adv)
         self.assertEqual((wallet.available_balance, wallet.reserved_balance), (Decimal("826000"), Decimal("174000")))
-        self.assertEqual(Transaction.objects.filter(type=Transaction.Type.RESERVE).count(), 1)
-        self.assertTrue(Transaction.objects.filter(offer=offer, deal=deal, type=Transaction.Type.RESERVE).exists())
+        # Два резерва при Акцепте: стоимость услуг и комиссия.
+        self.assertEqual(Transaction.objects.filter(type=Transaction.Type.RESERVE).count(), 2)
+        self.assertEqual(Transaction.objects.filter(offer=offer, deal=deal, type=Transaction.Type.RESERVE).count(), 2)
         offer.refresh_from_db()
         self.assertEqual((offer.status, offer.deal), (DirectOffer.Status.ACCEPTED, deal))
 
@@ -131,7 +133,7 @@ class OfferAcceptanceTest(TestCase):
         self.assertEqual(deal.status, Deal.Status.IN_PROGRESS)
         self.assertEqual(_wallet(self.adv).reserved_balance, Decimal("150000"))
 
-    def test_blogger_rejects_offer_reserve_returned_can_respond_again(self):
+    def test_blogger_rejects_offer_no_money_moved_can_respond_again(self):
         resp = self._response()
         offer = accept_response(resp.pk, self.adv, self.day)
         reject_offer(offer.pk, self.blogger)
@@ -139,11 +141,11 @@ class OfferAcceptanceTest(TestCase):
         self.assertEqual(resp.status, CampaignResponse.Status.WITHDRAWN)
         wallet = _wallet(self.adv)
         self.assertEqual((wallet.available_balance, wallet.reserved_balance), (Decimal("1000000"), Decimal("0")))
-        self.assertTrue(Transaction.objects.filter(offer=offer, type=Transaction.Type.RELEASE).exists())
+        self.assertFalse(Transaction.objects.filter(offer=offer).exists())
         self._response()  # новый отклик не упирается в ограничения
         self.assertEqual(CampaignResponse.objects.filter(status=CampaignResponse.Status.PENDING).count(), 1)
 
-    def test_expired_offer_released_once(self):
+    def test_expired_offer_moves_no_money(self):
         resp = self._response()
         offer = accept_response(resp.pk, self.adv, self.day)
         DirectOffer.objects.filter(pk=offer.pk).update(expires_at=timezone.now() - timedelta(minutes=1))
@@ -154,8 +156,8 @@ class OfferAcceptanceTest(TestCase):
         self.assertEqual(offer.status, DirectOffer.Status.EXPIRED)
         self.assertEqual(resp.status, CampaignResponse.Status.EXPIRED)
         self.assertEqual(_wallet(self.adv).reserved_balance, Decimal("0"))
-        self.assertEqual(Transaction.objects.filter(offer=offer, type=Transaction.Type.RELEASE).count(), 1)
-        self.assertIn("возвращены", Notification.objects.get(user=self.adv, title="Предложение истекло без ответа").body)
+        self.assertFalse(Transaction.objects.filter(offer=offer).exists())
+        self.assertNotIn("возвращены", Notification.objects.get(user=self.adv, title="Предложение истекло без ответа").body)
 
     def test_campaign_finish_releases_pending_offer(self):
         offer = accept_response(self._response().pk, self.adv, self.day)

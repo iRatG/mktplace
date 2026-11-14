@@ -75,6 +75,32 @@ class BillingService:
 
     @classmethod
     @db_transaction.atomic
+    def reserve_on_acceptance(cls, deal, offer):
+        """Резерв в момент Акцепта (ПЭТ 6.3, ПР 5.2–5.4): два резерва — стоимость услуг и комиссия рекламодателя.
+
+        Обе записи привязаны к сделке и оферте; available → reserved одной суммой под блокировкой кошелька.
+        Не хватает доступных денег — ValueError, ничего не списано (Акцепт не регистрируется).
+        """
+        wallet = cls._get_or_create_wallet(deal.advertiser)
+        price = offer.reserved_amount
+        commission = offer.reserved_commission or 0
+        if wallet.available_balance < price + commission:
+            raise ValueError("Insufficient funds to reserve.")
+        parts = [(price, f"Резерв стоимости услуг по сделке #{deal.pk}")]
+        if commission:
+            parts.append((commission, f"Резерв комиссии по сделке #{deal.pk}"))
+        for amount, description in parts:
+            wallet.available_balance -= amount
+            wallet.reserved_balance += amount
+            Transaction.objects.create(
+                wallet=wallet, type=Transaction.Type.RESERVE, amount=-amount,
+                balance_after=wallet.available_balance, deal=deal, offer=offer, description=description,
+            )
+        wallet.save(update_fields=["available_balance", "reserved_balance", "updated_at"])
+        return wallet
+
+    @classmethod
+    @db_transaction.atomic
     def release_offer(cls, offer):
         """Оферта не стала сделкой (отклонена, истекла, кампания завершена) — резерв обратно в доступный."""
         wallet = cls._get_or_create_wallet(offer.advertiser)

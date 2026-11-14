@@ -260,12 +260,12 @@ class SecondPassTest(_Base):
         self.assertIn("data-expected-payouts", html)
         self.assertIn("Ожидается к выплате", html)
         self.assertIn(reverse("web:deal_detail", kwargs={"pk": deal.pk}), html)
-        self.assertNotIn("Заморожено", html)
+        self.assertNotIn("data-reserve-services", html)
         self.assertEqual(deal.blogger_earning, deal.amount)  # по тарифным уровням исполнитель получает цену целиком
 
         self.client.force_login(self.adv)
         html = self.client.get(reverse("web:wallet")).content.decode()
-        self.assertIn("Заморожено", html)
+        self.assertIn("data-reserve-services", html)
         self.assertNotIn("data-expected-payouts", html)
 
     def test_old_terms_earning_is_amount_minus_commission(self):

@@ -81,6 +81,28 @@ def platform_revenue():
     return _abs_total(_payments()) - _abs_total(_earnings())
 
 
+def advertiser_reserves(user, limit=50):
+    """Резерв рекламодателя раздельно (ПР 5.5): стоимость услуг исполнителям и комиссия, с разбивкой по сделкам.
+
+    Резерв держат сделки, ещё не оплаченные и не прекращённые, и оферты, зарезервированные при направлении (до
+    14.11.2026). services + commission = reserved_balance кошелька. {"services", "commission", "deals": [...]}.
+    """
+    from apps.campaigns.models import DirectOffer
+    from apps.deals.models import Deal
+
+    zero = Decimal("0")
+    deals = list(
+        Deal.objects.filter(advertiser=user).exclude(status__in=(Deal.Status.COMPLETED, Deal.Status.CANCELLED))
+        .select_related("campaign").order_by("-created_at")
+    )
+    offers = DirectOffer.objects.filter(advertiser=user, status=DirectOffer.Status.PENDING, reserved_at__isnull=False,
+                                        reserve_on_accept=False).select_related("campaign")
+    services = sum((d.amount for d in deals), zero) + sum((o.reserved_amount or zero for o in offers), zero)
+    commission = (sum((d.commission_amount or zero for d in deals), zero)
+                  + sum((o.reserved_commission or zero for o in offers), zero))
+    return {"services": services, "commission": commission, "deals": deals[:limit]}
+
+
 def advertiser_spent(user):
     return _abs_total(_payments().filter(wallet__user=user))
 

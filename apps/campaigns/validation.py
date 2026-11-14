@@ -20,11 +20,15 @@ CAP_DEAL_STATUSES = (
 
 
 def pending_offers(campaign):
-    """Оферты кампании, ждущие акцепта, с резервом: занимают место и бюджет."""
+    """Оферты кампании, ждущие акцепта, с суммой: занимают место и бюджет кампании.
+
+    Деньги рекламодателя под них не резервируются (с 14.11.2026 — резерв в момент Акцепта), но место и бюджет
+    кампании держатся, пока исполнитель не ответил. Оферты до 09.10 суммы не имеют и не считаются.
+    """
     from .models import DirectOffer
 
     return DirectOffer.objects.filter(
-        campaign=campaign, status=DirectOffer.Status.PENDING, reserved_at__isnull=False,
+        campaign=campaign, status=DirectOffer.Status.PENDING, reserved_amount__isnull=False,
     )
 
 
@@ -449,7 +453,7 @@ def budget_usage(campaigns):
     zero = Decimal("0")
     usage = {c.pk: {"budget": c.budget or zero, "offers": zero, "deals": zero, "paid": zero} for c in campaigns}
     for row in (DirectOffer.objects.filter(campaign_id__in=ids, status=DirectOffer.Status.PENDING,
-                                           reserved_at__isnull=False)
+                                           reserved_amount__isnull=False)
                 .values("campaign_id").annotate(total=Sum("reserved_amount"))):
         usage[row["campaign_id"]]["offers"] += row["total"] or zero
     for row in (Deal.objects.filter(campaign_id__in=ids).exclude(status=Deal.Status.CANCELLED)

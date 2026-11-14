@@ -107,14 +107,15 @@ def create_deal(*, campaign, blogger, platform, advertiser, amount, actor, comme
                 offer=None, publication_date=None):
     """Сделка по акцепту индивидуальной оферты — сразу «В работе».
 
-    Деньги зарезервированы при направлении оферты (``offer.reserved_at``) — повторного резерва нет, записи
-    резерва привязываются к сделке. Оферта без резерва (направлена до этого правила) — резерв здесь.
+    Оферта с ``reserve_on_accept`` (с 14.11.2026, ПР 5.4) — два резерва здесь, в момент Акцепта. Оферта,
+    зарезервированная при направлении (``offer.reserved_at``, 09.10–14.11), — повторного резерва нет, записи резерва
+    привязываются к сделке. Оферта без суммы (до 09.10) — резерв цены здесь.
     Вызывать внутри atomic после блокировки кампании. Нехватка денег — ValueError из BillingService.
     """
     from apps.billing.models import Transaction
 
     commission = {}
-    if offer is not None and offer.reserved_at and offer.commission_percent is not None:
+    if offer is not None and offer.reserved_amount is not None and offer.commission_percent is not None:
         commission = {"commission_percent": offer.commission_percent, "commission_amount": offer.reserved_commission}
     deal = Deal.objects.create(
         **commission,
@@ -123,7 +124,11 @@ def create_deal(*, campaign, blogger, platform, advertiser, amount, actor, comme
         **approval_terms(offer.terms if offer is not None else None),
         **placement_terms(offer.terms if offer is not None else None),
     )
-    if offer is not None and offer.reserved_at:
+    if offer is not None and offer.reserve_on_accept:
+        BillingService.reserve_on_acceptance(deal, offer)
+        offer.reserved_at = timezone.now()
+        offer.save(update_fields=["reserved_at", "updated_at"])
+    elif offer is not None and offer.reserved_at:
         Transaction.objects.filter(offer=offer, type=Transaction.Type.RESERVE).update(deal=deal)
     else:
         BillingService.reserve_funds(deal)

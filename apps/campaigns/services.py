@@ -197,14 +197,16 @@ class AcceptError(Exception):
 
 def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, content_type="post",
                price=None, message="", response=None):
-    """Направить исполнителю индивидуальную оферту: резерв суммы, срок акцепта 3 рабочих дня.
+    """Направить исполнителю индивидуальную оферту: сумма и комиссия фиксируются, срок акцепта 3 рабочих дня.
 
-    Под блокировкой кампании: кампания активна и не истекла, дата публикации (Р9), лимит блогеров и бюджет
-    вместе с другими ожидающими офертами, баланс рекламодателя. Любая причина отказа — AcceptError.
+    Деньги не резервируются — резерв создаётся в момент Акцепта (ПЭТ 6.3, ПР 5.4); здесь только проверка, что
+    доступного баланса сейчас хватает на стоимость и комиссию. Под блокировкой кампании: кампания активна и не
+    истекла, исполнитель допущен (ПС 5.2), дата публикации (Р9), лимит блогеров и бюджет вместе с другими ожидающими
+    офертами. Любая причина отказа — AcceptError.
     """
     from django.db import IntegrityError
 
-    from apps.billing.services import BillingService
+    from apps.billing.models import Wallet
     from apps.web.campaign_proposals import campaign_snapshot
 
     from .validation import content_lead_error, deal_acceptance_error, publication_date_error, working_days_after
@@ -232,27 +234,26 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
 
         percent = commission_percent_for(advertiser)
         commission = commission_amount(amount, percent)
+        available = Wallet.objects.filter(user=advertiser).values_list("available_balance", flat=True).first() or 0
+        if available < amount + commission:
+            raise AcceptError(
+                f"Недостаточно средств на балансе: для оферты нужно {_money(amount + commission)} "
+                f"(вознаграждение {_money(amount)} + комиссия платформы {percent.normalize()}% {_money(commission)}). "
+                f"Деньги резервируются, когда исполнитель примет оферту."
+            )
         now = timezone.now()
         try:
             with transaction.atomic():
                 offer = DirectOffer.objects.create(
                     advertiser=advertiser, blogger=blogger, campaign=campaign, platform=platform,
                     content_type=content_type, proposed_price=price, message=message, response=response,
-                    publication_date=publication_date, reserved_amount=amount, reserved_at=now,
+                    publication_date=publication_date, reserved_amount=amount, reserve_on_accept=True,
                     commission_percent=percent, reserved_commission=commission,
                     expires_at=working_days_after(now, OFFER_ACCEPT_WORKING_DAYS),
                     terms=campaign_snapshot(campaign),
                 )
         except IntegrityError as e:
             raise AcceptError("По этой площадке в кампании уже есть оферта или сделка.") from e
-        try:
-            BillingService.reserve_for_offer(offer)
-        except ValueError as e:
-            transaction.set_rollback(True)
-            raise AcceptError(
-                f"Недостаточно средств на балансе для резерва {_money(amount + commission)} "
-                f"(вознаграждение {_money(amount)} + комиссия платформы {percent.normalize()}% {_money(commission)})."
-            ) from e
     NotificationService.notify_offer_sent(offer)
     return offer
 
@@ -323,10 +324,12 @@ def increase_budget(campaign_pk, new_budget, actor):
 
 
 def accept_direct_offer(offer_pk, actor):
-    """Исполнитель принимает оферту («Принять оферту»): заключается сделка «В работе».
+    """Исполнитель принимает оферту («Принять оферту»): два резерва и сделка «В работе» в одной транзакции.
 
-    Деньги и место зарезервированы при направлении — проверяем только оферту и кампанию. Оферта без резерва
-    (направлена до этого правила) проходит прежние проверки лимита и бюджета и резервирует сейчас.
+    Место и бюджет кампании держатся ожидающей офертой — проверяем оферту и кампанию, затем резервируем стоимость и
+    комиссию (ПР 5.4). Не хватает денег — Акцепт не регистрируется: исполнителю AcceptError, рекламодателю просьба
+    пополнить баланс, оферта остаётся в силе до своего срока. Оферта, зарезервированная при направлении (09.10–14.11),
+    резерв не повторяет; оферта без суммы (до 09.10) проходит прежние проверки лимита и бюджета.
     """
     from apps.deals.services import create_deal
 
@@ -347,7 +350,7 @@ def accept_direct_offer(offer_pk, actor):
             raise AcceptError(f"Срок ответа на предложение истёк ({timezone.localtime(offer.expires_at):%d.%m.%Y %H:%M}).")
         if campaign.status != Campaign.Status.ACTIVE:
             raise AcceptError("Кампания больше не активна.")
-        if offer.reserved_at:
+        if offer.reserved_amount is not None:
             amount = offer.reserved_amount
             error = expired_error(campaign)
         else:
@@ -357,19 +360,27 @@ def accept_direct_offer(offer_pk, actor):
             error = deal_acceptance_error(campaign, amount)
         if error:
             raise AcceptError(error)
+        deal = None
         try:
-            deal = create_deal(
-                campaign=campaign, blogger=actor, platform=offer.platform, advertiser=offer.advertiser,
-                amount=amount, actor=actor, response=offer.response, offer=offer,
-                publication_date=offer.publication_date,
-                comment="Исполнитель принял оферту — сделка заключена, деньги в резерве.",
-            )
-        except ValueError as e:
-            transaction.set_rollback(True)
-            raise AcceptError(f"Недостаточно средств у рекламодателя: {e}") from e
-        offer.status = DirectOffer.Status.ACCEPTED
-        offer.deal = deal
-        offer.save(update_fields=["status", "deal", "updated_at"])
+            with transaction.atomic():
+                deal = create_deal(
+                    campaign=campaign, blogger=actor, platform=offer.platform, advertiser=offer.advertiser,
+                    amount=amount, actor=actor, response=offer.response, offer=offer,
+                    publication_date=offer.publication_date,
+                    comment="Исполнитель принял оферту — сделка заключена, деньги в резерве.",
+                )
+        except ValueError:
+            deal = None
+        if deal is not None:
+            offer.status = DirectOffer.Status.ACCEPTED
+            offer.deal = deal
+            offer.save(update_fields=["status", "deal", "updated_at"])
+    if deal is None:
+        NotificationService.notify_direct_offer_needs_funds(offer)
+        raise AcceptError(
+            "У рекламодателя сейчас не хватает денег для резерва — Акцепт не зарегистрирован. Мы попросили "
+            f"рекламодателя пополнить баланс; оферту можно принять до {timezone.localtime(offer.expires_at):%d.%m.%Y %H:%M}."
+        )
     NotificationService.notify_direct_offer_accepted(offer.advertiser, campaign, actor, deal)
     return deal
 

@@ -28,11 +28,11 @@ class DemoResetTest(TestCase):
         self.assertTrue(admin.is_staff and admin.is_demo)
         self.assertEqual(PersonalDataAccess.objects.filter(staff=admin).count(), 1)
 
-    def test_seed_offer_is_reserved(self):
+    def test_seed_offer_has_amount_reserved_on_accept(self):
         _run("create_demo_users")
         _run("seed_demo_data")
         offer = DirectOffer.objects.get(status=DirectOffer.Status.PENDING, response__isnull=True,
                                         advertiser__email="advertiser@demo.com")
-        self.assertIsNotNone(offer.reserved_at)
+        self.assertTrue(offer.reserve_on_accept)  # резерв — при Акцепте (ПР 5.4)
         self.assertEqual(offer.reserved_amount, offer.proposed_price)
         self.assertIsNotNone(offer.commission_percent)

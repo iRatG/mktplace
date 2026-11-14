@@ -16,7 +16,7 @@ from apps.billing.services import BillingService
 from apps.billing.tariffs import commission_percent_for, monthly_turnover, tier_percent
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.models import Response as CampaignResponse
-from apps.campaigns.services import accept_response, reject_offer
+from apps.campaigns.services import accept_direct_offer, accept_response
 from apps.campaigns.testing import CARD_FIELDS, blogger_accepts, publication_day
 from apps.deals import services as t
 from apps.deals.models import Deal
@@ -92,14 +92,14 @@ class CommissionTest(TestCase):
 
     # ── Резерв, выплата, возврат ─────────────────────────────────────────────
 
-    def test_offer_reserves_price_plus_commission_and_releases_all(self):
+    def test_offer_fixes_commission_and_reserves_price_plus_commission_on_accept(self):
         offer = accept_response(self._response().pk, self.adv, publication_day(self.campaign))
         self.assertEqual((offer.commission_percent, offer.reserved_commission), (Decimal("16"), Decimal("16000")))
         wallet = Wallet.objects.get(user=self.adv)
-        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (Decimal("884000"), Decimal("116000")))
-        reject_offer(offer.pk, self.blogger)
-        wallet.refresh_from_db()
         self.assertEqual((wallet.available_balance, wallet.reserved_balance), (Decimal("1000000"), Decimal("0")))
+        accept_direct_offer(offer.pk, self.blogger)
+        wallet.refresh_from_db()
+        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (Decimal("884000"), Decimal("116000")))
 
     def test_rate_fixed_at_offer_and_blogger_gets_full_price(self):
         resp = self._response()

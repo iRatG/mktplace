@@ -331,9 +331,11 @@ class Response(models.Model):
 class DirectOffer(models.Model):
     """Индивидуальная оферта рекламодателя исполнителю.
 
-    Два пути: прямое предложение из каталога и оферта по принятому отклику (``response``). Сумма резервируется при
-    направлении (``reserved_at``), сделка заключается только акцептом исполнителя. Оферты, направленные до этого
-    правила, резерва не имеют — резервируют при акцепте.
+    Два пути: прямое предложение из каталога и оферта по принятому отклику (``response``). Сумма и комиссия
+    фиксируются при направлении (``reserved_amount``, ``reserved_commission``), а резервируются в момент Акцепта
+    (``reserve_on_accept``, ПЭТ 6.3, ПР 5.2–5.4, редакция 06–07.11.2026): до Сделки резервов нет. Оферты,
+    направленные с 09.10 до этого правила, зарезервированы при направлении (``reserved_at`` при PENDING); оферты до
+    09.10 суммы не имеют — проходят проверки и резервируют при акцепте.
     """
 
     class Status(models.TextChoices):
@@ -386,8 +388,14 @@ class DirectOffer(models.Model):
         help_text="Отклик, по которому направлена оферта (пусто — прямое предложение)",
     )
     publication_date = models.DateField(null=True, blank=True, help_text="Дата публикации")
-    reserved_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    reserved_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="Стоимость услуг по оферте — резервируется при акцепте (у оферт до 14.11 — при направлении)",
+    )
     reserved_at = models.DateTimeField(null=True, blank=True, help_text="Когда сумма зарезервирована")
+    reserve_on_accept = models.BooleanField(
+        default=False, help_text="Резерв в момент Акцепта (ПР 5.4); False — оферта до правила 14.11.2026",
+    )
     commission_percent = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True,
         help_text="Ставка комиссии платформы, зафиксированная при направлении; пусто — оферта до тарифных уровней",

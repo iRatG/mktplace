@@ -5,6 +5,7 @@ from django.views.decorators.http import require_POST
 
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.services import AcceptError, accept_direct_offer, reject_offer, send_offer
+from apps.billing.formatting import format_money
 from apps.profiles.admission import admitted_q
 from apps.campaigns.validation import publication_calendar
 from apps.notifications.service import NotificationService
@@ -145,7 +146,7 @@ def direct_offer_create(request, platform_pk):
             messages.error(request, "Предложение для этой площадки в рамках данной кампании уже отправлено.")
             return redirect("web:blogger_public_profile", pk=blogger.pk)
 
-        # Индивидуальная оферта: резерв суммы, дата публикации, срок акцепта (apps/campaigns/services.send_offer).
+        # Индивидуальная оферта: сумма, дата публикации, срок акцепта; резерв — при Акцепте (apps/campaigns/services.send_offer).
         try:
             offer = send_offer(
                 campaign_pk=campaign.pk, advertiser=request.user, blogger=blogger, platform=platform,
@@ -160,7 +161,8 @@ def direct_offer_create(request, platform_pk):
             messages.success(
                 request,
                 f"Оферта направлена блогеру {blogger.public_name}: публикация {offer.publication_date:%d.%m.%Y}, "
-                f"сумма в резерве. Сделка будет заключена, когда блогер примет оферту.",
+                f"Деньги зарезервируются и сделка будет заключена, когда блогер примет оферту — держите на балансе "
+                f"{format_money(offer.reserved_total)}.",
             )
             return redirect("web:blogger_catalog")
 

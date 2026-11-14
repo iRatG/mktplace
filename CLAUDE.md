@@ -334,9 +334,12 @@ apps/web/           — Django Templates frontend
   отметка `completed_early_at`, ожидающее предложение правок → CLOSED. API: `complete`; `cancel` делает то же,
   статус CANCELLED больше не ставится.
 - Сделка — акцептом индивидуальной оферты (#33): оферта = `DirectOffer` (прямое предложение или по
-  отклику, поле `response`), сумма резервируется при направлении (`BillingService.reserve_for_offer`,
-  `Transaction.offer`), возврат — `release_offer` при отклонении, истечении, завершении кампании; ожидающие оферты
-  занимают бюджет и места (`pending_offers` в `validation.py`). Срок акцепта — 3 рабочих дня (`working_days_after`).
+  отклику, поле `response`), сумма и комиссия фиксируются при направлении, а резервируются в момент Акцепта (ПР 5.4, с 14.11.2026:
+  `DirectOffer.reserve_on_accept`, `BillingService.reserve_on_acceptance` — две записи RESERVE: стоимость и комиссия);
+  направление проверяет только доступный баланс, не хватает денег при Акцепте — сделки нет, рекламодателю
+  `notify_direct_offer_needs_funds`. Оферты, зарезервированные при направлении (09.10–14.11, `reserved_at` при PENDING),
+  при отклонении/истечении возвращают резерв `release_offer`. Резерв раздельно в кошельке — `metrics.advertiser_reserves`.
+  Ожидающие оферты занимают бюджет и места (`pending_offers` в `validation.py`). Срок акцепта — 3 рабочих дня (`working_days_after`).
   Дата публикации — в оферте и сделке (`publication_date_error`, `publication_calendar`), публикация раньше даты
   отклоняется. Даты кампании обязательны для модерации (`moderation_dates_error`), правка не сужает сроки под
   назначенные публикации. Тестам, которым нужна сделка по отклику, — `apps/campaigns/testing.py`.

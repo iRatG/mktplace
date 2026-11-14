@@ -42,15 +42,48 @@
         <div class="text-2xl font-bold text-green-600">{{ wallet.available_balance|money }} {{ currency.symbol }}</div>
     </div>
     <div class="card-dark rounded-xl p-5">
-        <div class="text-xs text-gray-500 mb-1">Заморожено</div>
+        <div class="text-xs text-gray-500 mb-1">В резерве</div>
         <div class="text-2xl font-bold text-yellow-700">{{ wallet.reserved_balance|money }} {{ currency.symbol }}</div>
-        <div class="text-xs text-gray-400 mt-1">По активным сделкам и офертам</div>
+        {% if reserves %}
+        <div class="text-xs text-gray-600 mt-1" data-reserve-services>Оплата исполнителям: {{ reserves.services|money }} {{ currency.symbol }}</div>
+        <div class="text-xs text-gray-600" data-reserve-commission>Комиссия: {{ reserves.commission|money }} {{ currency.symbol }}</div>
+        {% else %}
+        <div class="text-xs text-gray-400 mt-1">По заключённым сделкам</div>
+        {% endif %}
     </div>
     <div class="card-dark rounded-xl p-5">
         <div class="text-xs text-gray-500 mb-1">На выводе</div>
         <div class="text-2xl font-bold text-blue-600">{{ wallet.on_withdrawal|money }} {{ currency.symbol }}</div>
     </div>
 </div>
+{% endif %}
+
+{% if reserves and reserves.deals %}
+<!-- Резерв по сделкам (ПР 5.5): стоимость услуг и комиссия раздельно -->
+<details class="card-dark rounded-xl overflow-hidden mb-8" data-reserve-deals>
+    <summary class="px-6 py-4 cursor-pointer font-semibold text-gray-900">Резерв по сделкам</summary>
+    <p class="px-6 text-xs text-gray-500">Деньги резервируются, когда исполнитель принимает оферту, и списываются при оплате сделки.</p>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="text-xs text-gray-500">
+            <tr class="text-left">
+                <th class="px-6 py-3 font-medium">Сделка</th>
+                <th class="px-3 py-3 font-medium text-right">Оплата исполнителю</th>
+                <th class="px-6 py-3 font-medium text-right">Комиссия</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for deal in reserves.deals %}
+            <tr>
+                <td class="px-6 py-3"><a href="{% url 'web:deal_detail' pk=deal.pk %}" class="text-orange-700 hover:underline">#{{ deal.pk }} · {{ deal.campaign.name }}</a></td>
+                <td class="px-3 py-3 text-right">{{ deal.amount|money }} {{ currency.symbol }}</td>
+                <td class="px-6 py-3 text-right">{{ deal.commission_amount|default:0|money }} {{ currency.symbol }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</details>
 {% endif %}
 
 {% if expected and expected.deals %}
@@ -90,7 +123,7 @@
 <div class="card-dark rounded-xl overflow-hidden mb-8" data-campaign-budgets>
     <div class="px-6 py-4 border-b border-gray-200">
         <h2 class="font-semibold text-gray-900">Бюджеты кампаний</h2>
-        <p class="text-xs text-gray-500 mt-1">Бюджет — предел трат кампании, деньги под него не замораживаются: резерв ставится при направлении оферты (цена + комиссия).</p>
+        <p class="text-xs text-gray-500 mt-1">Бюджет — предел трат кампании, деньги под него не замораживаются: резерв ставится, когда исполнитель принимает оферту (цена + комиссия). Держите на балансе сумму ожидающих оферт — иначе Акцепт не пройдёт.</p>
     </div>
     {% if budgets.shortage %}
     <div class="alert-error mx-6 mt-4" data-budget-shortage>

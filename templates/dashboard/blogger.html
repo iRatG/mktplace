@@ -62,7 +62,7 @@
                     <div class="text-sm font-medium text-gray-900">Оферта · {{ offer.campaign.name }}{% if offer.response_id %} <span class="text-xs font-normal text-green-700">· по вашему отклику</span>{% endif %}</div>
                     <div class="text-xs text-gray-500 mt-0.5">
                         от {{ offer.advertiser.public_name }} · {{ offer.platform.get_social_type_display }} ·
-                        {% if offer.reserved_amount %}{{ offer.reserved_amount|money }} {{ currency.symbol }} (в резерве){% elif offer.proposed_price %}{{ offer.proposed_price|money }} {{ currency.symbol }}{% else %}цена по кампании{% endif %}
+                        {% if offer.reserved_amount %}{{ offer.reserved_amount|money }} {{ currency.symbol }}{% if offer.reserved_at %} (в резерве){% endif %}{% elif offer.proposed_price %}{{ offer.proposed_price|money }} {{ currency.symbol }}{% else %}цена по кампании{% endif %}
                         {% if offer.publication_date %}· публикация {{ offer.publication_date|date:"d.m.Y" }}{% endif %}
                         · ответить до {{ offer.expires_at|date:"d.m.Y H:i" }}
                     </div>

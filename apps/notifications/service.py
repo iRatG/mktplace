@@ -167,6 +167,24 @@ class NotificationService:
         )
 
     @staticmethod
+    def notify_direct_offer_needs_funds(offer):
+        """Исполнитель принимает оферту, а денег на резерв не хватает (ПР 5.4) → рекламодателю: пополнить баланс."""
+        NotificationService.notify(
+            user=offer.advertiser,
+            notification_type=Notification.Type.DIRECT_OFFER_NEEDS_FUNDS,
+            title="Пополните баланс: исполнитель готов принять оферту",
+            body=(
+                f"Исполнитель {offer.blogger.public_name} принимает вашу оферту по кампании «{offer.campaign.name}», "
+                f"но на балансе не хватает денег для резерва {format_money(offer.reserved_total)} "
+                f"(стоимость услуг {format_money(offer.reserved_amount)} + комиссия {format_money(offer.reserved_commission or 0)}). "
+                f"Пока резерва нет, сделка не заключается. Оферта действует до "
+                f"{timezone.localtime(offer.expires_at):%d.%m.%Y %H:%M}."
+            ),
+            url=reverse("web:wallet"),
+            campaign=offer.campaign,
+        )
+
+    @staticmethod
     def notify_direct_offer_rejected(advertiser, campaign, blogger):
         """Блогер отклонил прямое предложение → рекламодателю."""
         NotificationService.notify(

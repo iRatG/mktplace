@@ -37,7 +37,7 @@ def _responses_with_blogger_data(campaign):
 
 
 def _with_offer_amounts(campaign, responses):
-    """Сколько встанет в резерв, если по отклику направить оферту: цена (как в send_offer) + комиссия по текущей ставке."""
+    """Сколько встанет в резерв при акцепте, если по отклику направить оферту: цена (как в send_offer) + комиссия."""
     from apps.billing.tariffs import commission_amount, commission_percent_for
 
     percent = commission_percent_for(campaign.advertiser)

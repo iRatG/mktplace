@@ -46,12 +46,13 @@ def wallet_view(request):
     budgets = None
     money = {}
     if user.role == User.Role.ADVERTISER:
+        from apps.billing import metrics
         from apps.campaigns.validation import advertiser_budgets
 
         from .topups import wallet_context
 
         budgets = advertiser_budgets(user)
-        money = wallet_context(user)
+        money = {**wallet_context(user), "reserves": metrics.advertiser_reserves(user)}
 
     return render(request, "billing/wallet.html", {
         **money,
