@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.billing.formatting import format_money
-from apps.campaigns.models import Campaign, CampaignBrandDocument, CampaignEditProposal
+from apps.campaigns.models import Campaign, CampaignBrandDocument, CampaignEditProposal, DirectOffer
 from apps.campaigns.services import AcceptError, accept_response, expired_error, increase_budget
 from apps.campaigns.models import Response as CampaignResponse
 from apps.campaigns.validation import (
@@ -48,6 +48,14 @@ def _with_offer_amounts(campaign, responses):
             resp.offer_commission = commission_amount(resp.offer_price, percent)
             resp.offer_reserve = resp.offer_price + resp.offer_commission
     return responses
+
+
+def _pending_direct_offers(campaign):
+    """Прямые предложения (без отклика), ждущие Акцепта, — у владельца их можно отозвать (Р17)."""
+    return list(
+        DirectOffer.objects.filter(campaign=campaign, status=DirectOffer.Status.PENDING, response__isnull=True)
+        .select_related("blogger", "platform").order_by("-created_at")
+    )
 
 
 def _budget_context(campaign):
@@ -157,6 +165,7 @@ def campaign_detail(request, pk):
             "is_owner": True,
             "responses": responses,
             "advertiser_verification_error": advertiser_verification_error(campaign.advertiser),
+            "pending_direct_offers": _pending_direct_offers(campaign),
             **_pending_proposal_context(campaign),
             **_budget_context(campaign),
             "publication_calendar": publication_calendar(campaign),
@@ -169,6 +178,7 @@ def campaign_detail(request, pk):
             "is_owner": True,
             "responses": responses,
             "advertiser_verification_error": advertiser_verification_error(campaign.advertiser),
+            "pending_direct_offers": _pending_direct_offers(campaign),
             **_pending_proposal_context(campaign),
             **_budget_context(campaign),
             "publication_calendar": publication_calendar(campaign),

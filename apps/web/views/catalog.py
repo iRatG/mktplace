@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.campaigns.models import Campaign, DirectOffer
-from apps.campaigns.services import AcceptError, accept_direct_offer, reject_offer, send_offer
+from apps.campaigns.services import AcceptError, accept_direct_offer, reject_offer, send_offer, withdraw_offer
 from apps.billing.formatting import format_money
 from apps.profiles.admission import admitted_q
 from apps.campaigns.validation import publication_calendar
@@ -142,7 +142,8 @@ def direct_offer_create(request, platform_pk):
         # Guard: no duplicate offer for same advertiser+campaign+platform
         if DirectOffer.objects.filter(
             advertiser=request.user, campaign=campaign, platform=platform
-        ).exclude(status__in=[DirectOffer.Status.REJECTED, DirectOffer.Status.EXPIRED]).exists():
+        ).exclude(status__in=[DirectOffer.Status.REJECTED, DirectOffer.Status.EXPIRED,
+                              DirectOffer.Status.WITHDRAWN]).exists():
             messages.error(request, "Предложение для этой площадки в рамках данной кампании уже отправлено.")
             return redirect("web:blogger_public_profile", pk=blogger.pk)
 
@@ -220,3 +221,17 @@ def direct_offer_reject(request, pk):
         return redirect("web:blogger_dashboard")
     messages.success(request, "Оферта отклонена.")
     return redirect("web:blogger_dashboard")
+
+
+@login_required
+@require_POST
+def direct_offer_withdraw(request, pk):
+    """Рекламодатель отзывает оферту до Акцепта (Р17, ПЭТ 6.4) — apps/campaigns/services.withdraw_offer."""
+    offer = get_object_or_404(DirectOffer, pk=pk, advertiser=request.user)
+    try:
+        withdraw_offer(offer.pk, request.user, request.POST.get("reason", ""))
+    except AcceptError as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, f"Оферта отозвана — исполнитель {offer.blogger.public_name} получил уведомление.")
+    return redirect("web:campaign_detail", pk=offer.campaign_id)

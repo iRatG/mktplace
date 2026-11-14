@@ -343,6 +343,7 @@ class DirectOffer(models.Model):
         ACCEPTED = "accepted", "Принято"
         REJECTED = "rejected", "Отклонено"
         EXPIRED = "expired", "Истекло"  # кампания завершилась или прошёл срок ответа (expires_at)
+        WITHDRAWN = "withdrawn", "Отозвано"  # рекламодатель отозвал до Акцепта (ПЭТ 6.4)
 
     advertiser = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -393,6 +394,8 @@ class DirectOffer(models.Model):
         help_text="Стоимость услуг по оферте — резервируется при акцепте (у оферт до 14.11 — при направлении)",
     )
     reserved_at = models.DateTimeField(null=True, blank=True, help_text="Когда сумма зарезервирована")
+    withdrawn_at = models.DateTimeField(null=True, blank=True, help_text="Когда оферта отозвана до Акцепта")
+    withdrawal_reason = models.CharField(max_length=500, blank=True, help_text="Причина отзыва оферты")
     reserve_on_accept = models.BooleanField(
         default=False, help_text="Резерв в момент Акцепта (ПР 5.4); False — оферта до правила 14.11.2026",
     )
@@ -416,7 +419,7 @@ class DirectOffer(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["advertiser", "campaign", "platform"],
-                condition=~Q(status__in=["rejected", "expired"]),
+                condition=~Q(status__in=["rejected", "expired", "withdrawn"]),
                 name="unique_active_direct_offer_per_platform",
             ),
         ]

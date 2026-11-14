@@ -1,0 +1,10 @@
+<details class="mt-2" data-withdraw-offer>
+    <summary class="text-xs text-red-700 cursor-pointer">Отозвать оферту</summary>
+    <form method="post" action="{% url 'web:direct_offer_withdraw' pk=offer.pk %}" class="mt-2 space-y-2">
+        {% csrf_token %}
+        <label class="block text-xs text-gray-600">Причина (необязательно, увидит исполнитель)</label>
+        <textarea name="reason" rows="2" maxlength="500" class="input-dark resize-none text-xs"></textarea>
+        <p class="text-xs text-gray-500">До Акцепта оферту можно отозвать. Принять её исполнитель уже не сможет, место и бюджет кампании освободятся.</p>
+        <button class="bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg text-xs hover:bg-red-200 transition-colors">Отозвать</button>
+    </form>
+</details>

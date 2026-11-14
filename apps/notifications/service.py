@@ -185,6 +185,21 @@ class NotificationService:
         )
 
     @staticmethod
+    def notify_direct_offer_withdrawn(offer):
+        """Рекламодатель отозвал оферту до Акцепта (ПЭТ 6.4) → исполнителю."""
+        reason = f" Причина: {offer.withdrawal_reason}" if offer.withdrawal_reason else ""
+        NotificationService.notify(
+            user=offer.blogger,
+            notification_type=Notification.Type.DIRECT_OFFER_WITHDRAWN,
+            title="Оферта отозвана",
+            body=(
+                f"Рекламодатель {offer.advertiser.public_name} отозвал оферту по кампании «{offer.campaign.name}» — "
+                f"принять её больше нельзя.{reason}"
+            ),
+            url=reverse("web:blogger_dashboard"),
+        )
+
+    @staticmethod
     def notify_direct_offer_rejected(advertiser, campaign, blogger):
         """Блогер отклонил прямое предложение → рекламодателю."""
         NotificationService.notify(

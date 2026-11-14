@@ -296,6 +296,32 @@ def reject_offer(offer_pk, actor):
     return offer
 
 
+def withdraw_offer(offer_pk, actor, reason=""):
+    """Рекламодатель отзывает оферту до Акцепта (ПЭТ 6.4, 11.1): «Отозвано», исполнителю уведомление.
+
+    Отозванную нельзя принять даже в открытом окне. Место и бюджет кампании освобождаются; по оферте, зарезервированной
+    при направлении (до 14.11), резерв возвращается. Отклик, по которому направлена оферта, — «Отклонён» с пометкой,
+    исполнитель может откликнуться снова.
+    """
+    reason = (reason or "").strip()[:500]
+    with transaction.atomic():
+        offer = DirectOffer.objects.select_for_update().select_related("campaign", "blogger").filter(pk=offer_pk).first()
+        if offer is None or offer.advertiser_id != getattr(actor, "pk", None):
+            raise AcceptError("Оферта не найдена.")
+        if offer.status != DirectOffer.Status.PENDING:
+            raise AcceptError("Отозвать можно только оферту, которая ждёт ответа исполнителя.")
+        offer.status = DirectOffer.Status.WITHDRAWN
+        offer.withdrawn_at = timezone.now()
+        offer.withdrawal_reason = reason
+        offer.save(update_fields=["status", "withdrawn_at", "withdrawal_reason", "updated_at"])
+        _close_offers([offer], Response.Status.REJECTED)
+        if offer.response_id:
+            note = "Рекламодатель отозвал оферту" + (f": {reason}" if reason else ".")
+            Response.objects.filter(pk=offer.response_id).update(rejection_reason=note[:1000])
+    NotificationService.notify_direct_offer_withdrawn(offer)
+    return offer
+
+
 # ── Увеличение бюджета без паузы и модерации (решение бизнеса 07.10.2026) ────
 
 def increase_budget(campaign_pk, new_budget, actor):
@@ -340,6 +366,8 @@ def accept_direct_offer(offer_pk, actor):
         if offer is None or offer.blogger_id != getattr(actor, "pk", None):
             raise AcceptError("Предложение не найдено.")
         campaign = Campaign.objects.select_for_update().get(pk=offer.campaign_id)
+        if offer.status == DirectOffer.Status.WITHDRAWN:
+            raise AcceptError("Рекламодатель отозвал эту оферту — принять её нельзя.")
         if offer.status != DirectOffer.Status.PENDING:
             raise AcceptError("Предложение уже обработано.")
         from apps.profiles.admission import NOT_ADMITTED_MESSAGE, is_admitted

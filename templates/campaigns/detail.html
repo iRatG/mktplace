@@ -255,9 +255,28 @@
                         {% elif resp.status == 'accepted' and resp.offer.status == 'accepted' %}Оферта принята — сделка заключена
                         {% else %}{{ resp.get_status_display }}{% endif %}
                     </span>
+                    {% if resp.status == 'accepted' and resp.offer.status == 'pending' and not user.is_staff %}{% include "campaigns/_withdraw_offer.html" with offer=resp.offer %}{% endif %}
                     {% endif %}
                 </div>
                 {% endwith %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if pending_direct_offers %}
+        <!-- Прямые предложения из каталога, ждущие Акцепта -->
+        <div class="card-dark rounded-xl" data-pending-direct-offers>
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="font-semibold text-gray-900">Прямые предложения ждут ответа ({{ pending_direct_offers|length }})</h2>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for offer in pending_direct_offers %}
+                <div class="px-6 py-4">
+                    <div class="text-sm text-gray-900">{{ offer.blogger.public_name }} · {{ offer.platform.get_social_type_display }} · {{ offer.reserved_amount|default:offer.proposed_price|money }} {{ currency.symbol }}</div>
+                    <div class="text-xs text-gray-500 mt-0.5">Публикация {{ offer.publication_date|date:"d.m.Y" }} · ждём ответа до {{ offer.expires_at|date:"d.m.Y H:i" }}</div>
+                    {% if not user.is_staff %}{% include "campaigns/_withdraw_offer.html" with offer=offer %}{% endif %}
+                </div>
                 {% endfor %}
             </div>
         </div>

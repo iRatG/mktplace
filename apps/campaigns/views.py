@@ -219,6 +219,24 @@ class ResponseViewSet(
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=True, methods=["post"], url_path="withdraw-offer")
+    def withdraw_offer(self, request, pk=None):
+        """Отзыв оферты по отклику до Акцепта — apps/campaigns/services.withdraw_offer (одна логика с сайтом)."""
+        from .models import DirectOffer
+        from .services import withdraw_offer
+
+        response_obj = self.get_object()
+        if response_obj.campaign.advertiser != request.user:
+            raise PermissionDenied("Only the campaign advertiser can withdraw the offer.")
+        offer = DirectOffer.objects.filter(response=response_obj).first()
+        if offer is None:
+            return DRFResponse({"detail": "По этому отклику оферта не направлялась."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            withdraw_offer(offer.pk, request.user, str(request.data.get("reason", "")))
+        except AcceptError as e:
+            return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return DRFResponse({"detail": "Оферта отозвана.", "offer_id": offer.pk})
+
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         response_obj = self.get_object()

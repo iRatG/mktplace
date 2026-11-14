@@ -48,6 +48,7 @@ urlpatterns = [
     path("bloggers/<int:platform_pk>/offer/", views.direct_offer_create, name="direct_offer_create"),
     path("offers/<int:pk>/accept/", views.direct_offer_accept, name="direct_offer_accept"),
     path("offers/<int:pk>/reject/", views.direct_offer_reject, name="direct_offer_reject"),
+    path("offers/<int:pk>/withdraw/", views.direct_offer_withdraw, name="direct_offer_withdraw"),
 
     # Responses
     path("responses/<int:pk>/accept/", views.response_accept, name="response_accept"),
