@@ -229,7 +229,8 @@
                                        min="{{ offer_min_date.isoformat }}" title="Не раньше {{ offer_min_date|date:'d.m.Y' }}"{% if campaign.end_date %} max="{{ campaign.end_date.isoformat }}"{% endif %}>
                                 {% include "campaigns/_publication_calendar.html" with calendar=publication_calendar %}
                                 <p class="text-xs text-gray-500" data-commission>Блогеру уйдёт оферта.{% if resp.offer_reserve %} Когда он её примет, в резерв встанет <b class="text-gray-900" data-offer-reserve>{{ resp.offer_reserve|money }} {{ currency.symbol }}</b>: {{ resp.offer_price|money }} блогеру + {{ resp.offer_commission|money }} комиссия платформы {{ commission_label }}, {{ vat_note }}.{% else %} Когда он её примет, в резерв встанет его цена + комиссия платформы {{ commission_label }}, {{ vat_note }}.{% endif %} Сделка заключится акцептом блогера (3 рабочих дня); если на балансе не хватит денег, акцепт не пройдёт.</p>
-                                <button class="bg-green-100 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs hover:bg-green-200 transition-colors">Направить оферту</button>
+                                <p class="text-xs text-gray-600" data-mandate-note>Нажимая кнопку, вы подтверждаете Поручение Оператору ({{ operator_name }}) на этих условиях и свою комиссию. Оферту блогеру Оператор направит от своего имени; сделка — между Оператором и блогером, вы — комитент.</p>
+                                <button class="bg-green-100 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs hover:bg-green-200 transition-colors">Подтвердить Поручение</button>
                             </form>
                         </details>
                         {% endif %}

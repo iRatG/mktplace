@@ -43,3 +43,24 @@ class CampaignEditProposalAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     raw_id_fields = ("campaign", "author")
     readonly_fields = ("status",)
+
+
+from .models import Mandate  # noqa: E402
+
+
+@admin.register(Mandate)
+class MandateAdmin(admin.ModelAdmin):
+    """Поручения рекламодателей — только просмотр: запись создаёт send_offer при подтверждении (ПЭТ 6.2)."""
+
+    list_display = ("number", "campaign", "advertiser", "blogger", "price", "commission_amount", "confirmed_at",
+                    "confirmed_via")
+    search_fields = ("advertiser__email", "blogger__email", "campaign__name")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

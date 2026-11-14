@@ -430,14 +430,17 @@ def response_accept(request, pk):
     """Рекламодатель принимает отклик — логика в apps/campaigns/services.accept_response (общая с API)."""
     resp = get_object_or_404(CampaignResponse, pk=pk, campaign__advertiser=request.user)
     try:
-        offer = accept_response(resp.pk, request.user, _parse_date(request.POST.get("publication_date")))
+        from apps.users.security import client_ip
+
+        offer = accept_response(resp.pk, request.user, _parse_date(request.POST.get("publication_date")),
+                                confirmed_ip=client_ip(request))
     except AcceptError as e:
         messages.error(request, str(e))
         return redirect("web:campaign_detail", pk=resp.campaign_id)
     messages.success(
         request,
-        f"Отклик принят: блогеру направлена оферта с публикацией {offer.publication_date:%d.%m.%Y}. "
-        f"Сделка будет заключена, когда блогер примет оферту.",
+        f"Поручение {offer.mandate.number} подтверждено: Оператор направил блогеру оферту с публикацией "
+        f"{offer.publication_date:%d.%m.%Y}. Сделка будет заключена, когда блогер примет оферту.",
     )
     return redirect("web:campaign_detail", pk=resp.campaign_id)
 

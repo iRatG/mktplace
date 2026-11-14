@@ -328,6 +328,53 @@ class Response(models.Model):
         return self.expires_at <= timezone.now()
 
 
+# Редакция документов, по которой рекламодатель подтверждает Поручение, если LEGAL_EDITION не задана.
+MANDATE_DOCS_EDITION = "ПЭТ и ПР в редакции 06–07.11.2026"
+
+
+class Mandate(models.Model):
+    """Поручение рекламодателя (комитента) оператору (ПЭТ 6.2, 7.3; ТО 4.3).
+
+    Рекламодатель подтверждает окончательные условия приобретения услуг и свою комиссию; на основании Поручения
+    платформа направляет исполнителю Индивидуальную оферту от имени Оператора. Подтверждение фиксируется отдельно от
+    Акцепта исполнителя: кто, когда, откуда, каким способом и по какой редакции. Запись не меняется.
+    """
+
+    class Via(models.TextChoices):
+        WEB = "web", "Сайт"
+        API = "api", "API"
+        SYSTEM = "system", "Демо-данные"
+
+    # Учётные записи на проде не удаляются (закрытие аккаунта их сохраняет); удаляются только демо — вместе с кампаниями.
+    advertiser = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="mandates")
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="mandates")
+    blogger = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    platform = models.ForeignKey("platforms.Platform", on_delete=models.SET_NULL, null=True, related_name="+")
+    price = models.DecimalField(max_digits=12, decimal_places=2, help_text="Полная стоимость услуг исполнителя")
+    commission_percent = models.DecimalField(max_digits=5, decimal_places=2)
+    commission_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    publication_date = models.DateField(null=True, blank=True)
+    content_type = models.CharField(max_length=50, blank=True)
+    terms = models.JSONField(default=dict, blank=True, help_text="Снимок карточки кампании — условия задания")
+    edition = models.CharField(max_length=100, help_text="Редакция документов, по которой подтверждено")
+    confirmed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    confirmed_at = models.DateTimeField(auto_now_add=True)
+    confirmed_ip = models.GenericIPAddressField(null=True, blank=True)
+    confirmed_via = models.CharField(max_length=10, choices=Via.choices, default=Via.WEB)
+
+    class Meta:
+        verbose_name = "Поручение рекламодателя"
+        verbose_name_plural = "Поручения рекламодателей"
+        ordering = ["-confirmed_at"]
+
+    def __str__(self):
+        return f"{self.number} ({self.campaign_id})"
+
+    @property
+    def number(self):
+        return f"П-{self.pk}"
+
+
 class DirectOffer(models.Model):
     """Индивидуальная оферта рекламодателя исполнителю.
 
@@ -409,6 +456,10 @@ class DirectOffer(models.Model):
         help_text="Плата исполнителя за услуги платформы, % (ПР 7.1); пусто — оферта до двух плат",
     )
     contractor_fee_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    mandate = models.OneToOneField(
+        Mandate, on_delete=models.SET_NULL, null=True, blank=True, related_name="offer",
+        help_text="Поручение рекламодателя, на основании которого Оператор направил оферту; пусто — оферта до правила",
+    )
 
     @property
     def contractor_payout(self):

@@ -154,8 +154,10 @@ def deal_detail(request, pk):
     payout = deal.payout if deal.status == Deal.Status.COMPLETED else None
     einvoice = deal.performer_einvoice if deal.status == Deal.Status.COMPLETED else None
 
+    offer = getattr(deal, "direct_offer", None) if hasattr(deal, "direct_offer") else None
     return render(request, "deals/detail.html", {
         "deal": deal,
+        "deal_mandate": offer.mandate if offer is not None and offer.mandate_id else None,
         "payout": payout,
         "einvoice": einvoice,
         "offer_terms_rows": offer_terms_rows,

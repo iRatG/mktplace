@@ -12,6 +12,9 @@ def currency(request):
             "min_fixed_price": getattr(settings, "CAMPAIGN_MIN_FIXED_PRICE", 10000),
         },
         "vat_note": settings.VAT_NOTE,
+        # Оператор — заказчик-комиссионер в оферте и сделке (ТО 4.3).
+        "operator_name": getattr(settings, "OPERATOR_NAME", ""),
+        "operator_inn": getattr(settings, "OPERATOR_INN", ""),
     }
 
 

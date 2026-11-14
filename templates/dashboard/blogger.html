@@ -67,6 +67,9 @@
                         {% if offer.publication_date %}· публикация {{ offer.publication_date|date:"d.m.Y" }}{% endif %}
                         · ответить до {{ offer.expires_at|date:"d.m.Y H:i" }}
                     </div>
+                    {% if offer.mandate_id %}
+                    <p class="text-xs text-gray-500 mt-1" data-offer-operator>Оферта Оператора — {{ operator_name }}, ИНН {{ operator_inn }} (заказчик-комиссионер) · Поручение {{ offer.mandate.number }} от {{ offer.mandate.confirmed_at|date:"d.m.Y" }}, рекламодатель {{ offer.advertiser.public_name }} — комитент · ответ до {{ offer.expires_at|date:"d.m.Y H:i" }}</p>
+                    {% endif %}
                     {% if offer.message %}
                     <p class="text-xs text-gray-600 mt-1 italic">"{{ offer.message|truncatechars:100 }}"</p>
                     {% endif %}

@@ -7,6 +7,7 @@ from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.services import AcceptError, accept_direct_offer, reject_offer, send_offer, withdraw_offer
 from apps.billing.formatting import format_money
 from apps.profiles.admission import admitted_q
+from apps.users.security import client_ip
 from apps.campaigns.validation import publication_calendar
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
@@ -155,13 +156,15 @@ def direct_offer_create(request, platform_pk):
                 content_type=form.cleaned_data["content_type"],
                 price=form.cleaned_data.get("proposed_price"),
                 message=form.cleaned_data.get("message", ""),
+                confirmed_ip=client_ip(request),
             )
         except AcceptError as e:
             form.add_error(None, str(e))
         else:
             messages.success(
                 request,
-                f"Оферта направлена блогеру {blogger.public_name}: публикация {offer.publication_date:%d.%m.%Y}, "
+                f"Поручение {offer.mandate.number} подтверждено — Оператор направил оферту блогеру {blogger.public_name}: "
+                f"публикация {offer.publication_date:%d.%m.%Y}. "
                 f"Деньги зарезервируются и сделка будет заключена, когда блогер примет оферту — держите на балансе "
                 f"{format_money(offer.reserved_total)}.",
             )

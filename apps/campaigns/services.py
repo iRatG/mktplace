@@ -196,13 +196,16 @@ class AcceptError(Exception):
 
 
 def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, content_type="post",
-               price=None, message="", response=None):
+               price=None, message="", response=None, confirmed_ip=None, confirmed_via="web"):
     """Направить исполнителю индивидуальную оферту: сумма и комиссия фиксируются, срок акцепта 3 рабочих дня.
 
     Деньги не резервируются — резерв создаётся в момент Акцепта (ПЭТ 6.3, ПР 5.4); здесь только проверка, что
     доступного баланса сейчас хватает на стоимость и комиссию. Под блокировкой кампании: кампания активна и не
     истекла, исполнитель допущен (ПС 5.2), дата публикации (Р9), лимит блогеров и бюджет вместе с другими ожидающими
     офертами. Любая причина отказа — AcceptError.
+
+    Вызов — подтверждение рекламодателем Поручения (ПЭТ 6.2): в той же транзакции записывается `Mandate` с условиями,
+    комиссией, временем, IP и способом подтверждения; оферта направляется от имени Оператора на его основании.
     """
     from django.db import IntegrityError
 
@@ -248,14 +251,25 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
         now = timezone.now()
         try:
             with transaction.atomic():
-                offer = DirectOffer.objects.create(
+                from django.conf import settings
+
+                from .models import MANDATE_DOCS_EDITION, Mandate
+
+                terms = campaign_snapshot(campaign)
+                mandate = Mandate.objects.create(
+                    advertiser=advertiser, campaign=campaign, blogger=blogger, platform=platform, price=amount,
+                    commission_percent=percent, commission_amount=commission, publication_date=publication_date,
+                    content_type=content_type, terms=terms, confirmed_by=advertiser, confirmed_ip=confirmed_ip or None,
+                    confirmed_via=confirmed_via, edition=getattr(settings, "LEGAL_EDITION", "") or MANDATE_DOCS_EDITION,
+                )
+                offer = DirectOffer.objects.create(mandate=mandate,
                     advertiser=advertiser, blogger=blogger, campaign=campaign, platform=platform,
                     content_type=content_type, proposed_price=price, message=message, response=response,
                     publication_date=publication_date, reserved_amount=amount, reserve_on_accept=True,
                     commission_percent=percent, reserved_commission=commission,
                     contractor_fee_percent=fee_percent, contractor_fee_amount=fee,
                     expires_at=working_days_after(now, OFFER_ACCEPT_WORKING_DAYS),
-                    terms=campaign_snapshot(campaign),
+                    terms=terms,
                 )
         except IntegrityError as e:
             raise AcceptError("По этой площадке в кампании уже есть оферта или сделка.") from e
@@ -263,7 +277,7 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
     return offer
 
 
-def accept_response(response_pk, actor, publication_date):
+def accept_response(response_pk, actor, publication_date, confirmed_ip=None, confirmed_via="web"):
     """Рекламодатель принимает отклик: исполнителю направляется оферта с датой публикации.
 
     Сделка — только после акцепта исполнителя (accept_direct_offer). Отклик → ACCEPTED.
@@ -279,7 +293,7 @@ def accept_response(response_pk, actor, publication_date):
         offer = send_offer(
             campaign_pk=resp.campaign_id, advertiser=actor, blogger=resp.blogger, platform=resp.platform,
             publication_date=publication_date, content_type=resp.content_type, price=resp.proposed_price,
-            message="", response=resp,
+            message="", response=resp, confirmed_ip=confirmed_ip, confirmed_via=confirmed_via,
         )
         resp.status = Response.Status.ACCEPTED
         resp.save(update_fields=["status", "updated_at"])

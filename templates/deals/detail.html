@@ -45,6 +45,9 @@
         <!-- Deal info card -->
         <div class="card-dark rounded-xl p-6">
             <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Детали сделки</h2>
+            {% if deal_mandate %}
+            <p class="text-xs text-gray-600 mb-4" data-deal-parties>Сделка — между Оператором ({{ operator_name }}, ИНН {{ operator_inn }}) и исполнителем; рекламодатель — комитент по Поручению {{ deal_mandate.number }} от {{ deal_mandate.confirmed_at|date:"d.m.Y H:i" }}.</p>
+            {% endif %}
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <div class="text-xs text-gray-500 mb-0.5">Сумма</div>

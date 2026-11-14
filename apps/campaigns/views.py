@@ -210,11 +210,15 @@ class ResponseViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-            offer = accept_response(response_obj.pk, request.user, publication_date)
+            from apps.users.security import client_ip
+
+            offer = accept_response(response_obj.pk, request.user, publication_date,
+                                    confirmed_ip=client_ip(request), confirmed_via="api")
         except AcceptError as e:
             return DRFResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return DRFResponse(
             {"detail": "Response accepted. Offer sent to the blogger.", "offer_id": offer.pk,
+             "mandate": offer.mandate.number,
              "publication_date": str(offer.publication_date), "accept_until": offer.expires_at.isoformat()},
             status=status.HTTP_201_CREATED,
         )

@@ -263,7 +263,7 @@ class Command(BaseCommand):
                 offer_e = send_offer(
                     campaign_pk=campaigns[0].pk, advertiser=advertiser, blogger=blogger, platform=platform,
                     publication_date=earliest_offer_date(campaigns[0]), content_type="post",
-                    price=Decimal("300_000"),
+                    price=Decimal("300_000"), confirmed_via="system",
                     message=(
                         "Здравствуйте! Ваша аудитория отлично подходит для нашего продукта FitLife. "
                         "Предлагаем разместить пост об опыте использования приложения. "

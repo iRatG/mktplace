@@ -212,7 +212,7 @@ class OfferAcceptanceTest(TestCase):
         self.client.force_login(self.adv)
         page = self.client.get(reverse("web:campaign_detail", kwargs={"pk": self.campaign.pk}))
         self.assertContains(page, 'name="publication_date"')
-        self.assertContains(page, "Направить оферту")
+        self.assertContains(page, "Подтвердить Поручение")
         self.client.post(reverse("web:response_accept", kwargs={"pk": resp.pk}),
                          {"publication_date": self.day.isoformat()})
         page = self.client.get(reverse("web:campaign_detail", kwargs={"pk": self.campaign.pk}))
