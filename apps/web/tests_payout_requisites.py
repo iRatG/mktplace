@@ -11,6 +11,7 @@ from apps.billing.payout_requisites import (
     PayoutRequisitesError, create_withdrawal_request, expected_requisite_type, submit_payout_requisites,
 )
 from apps.profiles.models import BloggerProfile
+from apps.profiles.testing import make_individual
 from apps.registration.models import IdentityVerification, IPApplication
 from apps.users.models import User
 
@@ -30,8 +31,8 @@ def _verify_identity(user, full_name="Test Bloggerov"):
 
 class CategoryDefaultsTest(TestCase):
     def test_default_category_is_individual(self):
-        profile = BloggerProfile.objects.get(user=_blogger())
-        self.assertEqual(profile.category, BloggerProfile.Category.INDIVIDUAL)
+        # Тестовые данные по умолчанию — самозанятый (apps/profiles/testing.py); на сайте — физлицо.
+        self.assertEqual(BloggerProfile._meta.get_field("category").default, BloggerProfile.Category.INDIVIDUAL)
 
     def test_ip_category_unavailable_without_confirmed_status(self):
         user = _blogger()
@@ -46,7 +47,7 @@ class CategoryDefaultsTest(TestCase):
         staff.role = User.Role.ADVERTISER
         staff.is_staff = True
         staff.save(update_fields=["role", "is_staff"])
-        blogger = _blogger()
+        blogger = make_individual(_blogger())
         verification = _verify_identity(blogger)
         application = IPApplication.objects.create(
             user=blogger, identity_verification=verification, document_type=IPApplication.DocType.PATENT,

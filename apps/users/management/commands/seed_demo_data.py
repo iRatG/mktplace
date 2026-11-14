@@ -113,6 +113,12 @@ class Command(BaseCommand):
 
         advertiser = self._get_user(ADVERTISER_EMAIL, User.Role.ADVERTISER)
         blogger = self._get_user(BLOGGER_EMAIL, User.Role.BLOGGER)
+        from apps.profiles.models import BloggerProfile
+
+        # ПС 5.2: к сделкам — только подтверждённый статус; демо-блогер — самозанятый.
+        BloggerProfile.objects.filter(user=blogger).update(
+            category=BloggerProfile.Category.SELF_EMPLOYED, is_self_employed_confirmed=True,
+        )
         blogger2 = self._get_or_create_extra_blogger(BLOGGER2_EMAIL, "blogger2")
         blogger3 = self._get_or_create_extra_blogger(BLOGGER3_EMAIL, "blogger3")
 
@@ -442,9 +448,12 @@ class Command(BaseCommand):
         # Обеспечиваем профиль с никнеймом
         from apps.profiles.models import BloggerProfile
         profile, _ = BloggerProfile.objects.get_or_create(user=user)
-        if not profile.show_in_catalog:
+        if not profile.show_in_catalog or not profile.is_self_employed_confirmed:
+            # ПС 5.2: к сделкам — только подтверждённый статус; демо-блогер — самозанятый.
             profile.show_in_catalog = True
-            profile.save(update_fields=["show_in_catalog"])
+            profile.category = BloggerProfile.Category.SELF_EMPLOYED
+            profile.is_self_employed_confirmed = True
+            profile.save(update_fields=["show_in_catalog", "category", "is_self_employed_confirmed"])
         if not profile.nickname:
             profile.nickname = nickname
             profile.bio = f"Демо-блогер {nickname} — автоматически созданный аккаунт для каталога."

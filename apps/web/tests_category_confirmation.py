@@ -5,6 +5,7 @@ from django.urls import reverse
 
 from apps.notifications.models import Notification
 from apps.profiles.models import BloggerProfile
+from apps.profiles.testing import make_individual
 from apps.registration.models import IdentityVerification, IPApplication
 from apps.users.models import User
 
@@ -12,6 +13,7 @@ from apps.users.models import User
 def _blogger(email="bl@test.com"):
     user = User.objects.create_user(email=email, password="pass1234", role=User.Role.BLOGGER, status=User.Status.ACTIVE)
     BloggerProfile.objects.get_or_create(user=user)
+    make_individual(user)  # новый блогер на сайте — физлицо без подтверждённого статуса
     return user
 
 

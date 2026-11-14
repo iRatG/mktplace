@@ -175,6 +175,7 @@ def campaign_detail(request, pk):
         }
     else:
         from apps.campaigns.validation import campaigns_visible_to, response_last_day, responses_closed_error
+        from apps.profiles.admission import is_admitted
 
         campaign = get_object_or_404(campaigns_visible_to(user), pk=pk)
         already_responded = active_response(campaign, user) is not None
@@ -193,6 +194,7 @@ def campaign_detail(request, pk):
             "my_platforms": my_platforms,
             "responses_until": response_last_day(campaign),
             "responses_closed": responses_closed_error(campaign),
+            "status_not_admitted": user.role == User.Role.BLOGGER and not is_admitted(user),
         }
     from apps.web.campaign_proposals import CARD_TERMS_FIELDS, campaign_snapshot, describe_terms
 
@@ -370,6 +372,12 @@ def campaign_respond(request, pk):
     from apps.campaigns.validation import campaigns_visible_to
 
     campaign = get_object_or_404(campaigns_visible_to(request.user), pk=pk)
+
+    from apps.profiles.admission import NOT_ADMITTED_MESSAGE, is_admitted
+
+    if not is_admitted(request.user):
+        messages.error(request, NOT_ADMITTED_MESSAGE)
+        return redirect("web:campaign_detail", pk=pk)
 
     if active_response(campaign, request.user) is not None:
         messages.error(request, "Вы уже откликнулись на эту кампанию — дождитесь решения рекламодателя.")

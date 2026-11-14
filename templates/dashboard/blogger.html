@@ -48,6 +48,7 @@
 </div>
 
 <!-- Needs action -->
+{% if status_not_admitted %}{% include "partials/status_required.html" %}{% endif %}
 {% if incoming_offers or action_date_changes or action_deals or rejected_responses %}
 <div class="card-dark rounded-xl overflow-hidden mb-6 border border-orange-200">
     <div class="px-6 py-4 border-b border-gray-200">

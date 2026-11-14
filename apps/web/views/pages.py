@@ -218,6 +218,8 @@ def rejected_responses_to_retry(blogger, limit=10):
 
 @login_required
 def blogger_dashboard(request):
+    from apps.profiles.admission import profile_admitted
+
     user = request.user
     if user.is_staff:
         return redirect("web:admin_dashboard")
@@ -253,6 +255,7 @@ def blogger_dashboard(request):
         "active_deals": active_deals,
         "has_platforms": Platform.objects.filter(blogger=user).exists(),
         "profile_complete": profile.is_complete,
+        "status_not_admitted": not profile_admitted(profile),
         "incoming_offers": incoming_offers,
         # «Требует действия»: где ждут шага блогера (по 10 записей).
         "action_deals": (

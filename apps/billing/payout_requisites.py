@@ -51,6 +51,16 @@ def submit_payout_requisites(user, *, card_number="", card_holder_name="", accou
     if PayoutRequisites.objects.filter(user=user, status=PayoutRequisites.Status.PENDING).exists():
         raise PayoutRequisitesError("У вас уже есть заявка на реквизиты, которая рассматривается.")
 
+    from apps.deals.models import Deal
+    from apps.profiles.admission import is_admitted
+
+    # ПС 5.2: физлицо исполнителем не допускается; реквизиты физлица — только чтобы получить оплату по сделке,
+    # заключённой до этого правила.
+    if not is_admitted(user) and not Deal.objects.filter(blogger=user).exists():
+        raise PayoutRequisitesError(
+            "Реквизиты выплаты подаются после подтверждения статуса ИП, самозанятого или юрлица."
+        )
+
     requisite_type = expected_requisite_type(user)
     fields = {}
     if requisite_type == PayoutRequisites.RequisiteType.CARD:

@@ -327,6 +327,7 @@ LOGIN_BLOCK_DURATION_MINUTES = 15
 # Защита от ботов (apps/users/security.py). В тестах лимиты выключены по
 # умолчанию, чтобы счётчики в Redis не копились между тестами.
 TESTING = 'test' in sys.argv
+TEST_RUNNER = 'config.test_runner.Runner'
 RATELIMIT_ENABLED = env.bool('RATELIMIT_ENABLED', default=not TESTING)
 # Множитель всех лимитов приложения (кроме DRF /api/v1/): на время массового тестирования
 # можно поставить RATELIMIT_MULTIPLIER=10 в .env и перезапустить web, без правок кода.

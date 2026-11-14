@@ -23,6 +23,7 @@ from apps.deals.models import Deal
 from apps.notifications.models import Notification
 from apps.platforms.models import Platform
 from apps.profiles.models import BloggerProfile
+from apps.profiles.testing import contracted_before_rule, make_individual
 from apps.users.models import User
 
 S = Deal.Status
@@ -52,7 +53,8 @@ class DealPayoutBase(TestCase):
         self.today = timezone.localdate()
         self.adv = _user("adv@test.com", User.Role.ADVERTISER)
         Wallet.objects.filter(user=self.adv).update(available_balance=D("1000000"))
-        self.blogger = _user("bl@test.com")
+        # Исполнитель — физлицо со сделкой, заключённой до правила ПС 5.2 (contracted_before_rule в _deal).
+        self.blogger = make_individual(_user("bl@test.com"))
         self.staff = _user("staff@test.com", User.Role.ADVERTISER, is_staff=True)
         self.campaign = Campaign.objects.create(
             advertiser=self.adv, name="Кампания", payment_type=Campaign.PaymentType.FIXED,
@@ -71,7 +73,8 @@ class DealPayoutBase(TestCase):
         )
         resp = CampaignResponse.objects.create(campaign=self.campaign, blogger=blogger, platform=platform,
                                                content_type="post", proposed_price=D("100000"))
-        return deal_from_response(resp, self.adv, publication_date=self.today)
+        with contracted_before_rule(blogger):
+            return deal_from_response(resp, self.adv, publication_date=self.today)
 
     def _paid(self, blogger=None):
         """Сделка опубликована и оплачена по сроку → COMPLETED."""

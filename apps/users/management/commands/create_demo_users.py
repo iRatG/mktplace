@@ -113,7 +113,10 @@ class Command(BaseCommand):
             user.status = User.Status.ACTIVE
             user.save(update_fields=["is_staff", "is_superuser", "is_email_confirmed", "is_demo", "status"])
             if data["role"] == User.Role.BLOGGER:
-                BloggerProfile.objects.filter(user=user).update(show_in_catalog=True)
+                # ПС 5.2: к сделкам — только подтверждённый статус; демо-блогер — самозанятый.
+                BloggerProfile.objects.filter(user=user).update(
+                    show_in_catalog=True, category=BloggerProfile.Category.SELF_EMPLOYED, is_self_employed_confirmed=True,
+                )
 
             if data["is_staff"]:
                 from django.contrib.auth.models import Group

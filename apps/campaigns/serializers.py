@@ -233,6 +233,10 @@ class ResponseSerializer(serializers.ModelSerializer):
 
         if request.user.role != "blogger":
             raise serializers.ValidationError({"detail": "Only bloggers can respond to campaigns."})
+        from apps.profiles.admission import NOT_ADMITTED_MESSAGE, is_admitted
+
+        if not is_admitted(request.user):
+            raise serializers.ValidationError({"detail": NOT_ADMITTED_MESSAGE})
         if platform and platform.blogger != request.user:
             raise serializers.ValidationError(
                 {"platform": "You can only respond with your own platform."}

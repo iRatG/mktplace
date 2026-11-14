@@ -215,6 +215,10 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
             raise AcceptError("Кампания не найдена.")
         if campaign.status != Campaign.Status.ACTIVE:
             raise AcceptError("Направить оферту можно только по активной кампании.")
+        from apps.profiles.admission import NOT_ADMITTED_FOR_ADVERTISER, is_admitted
+
+        if not is_admitted(blogger):
+            raise AcceptError(NOT_ADMITTED_FOR_ADVERTISER)
         error = publication_date_error(campaign, publication_date) or content_lead_error(campaign, publication_date)
         if error:
             raise AcceptError(error)
@@ -335,6 +339,10 @@ def accept_direct_offer(offer_pk, actor):
         campaign = Campaign.objects.select_for_update().get(pk=offer.campaign_id)
         if offer.status != DirectOffer.Status.PENDING:
             raise AcceptError("Предложение уже обработано.")
+        from apps.profiles.admission import NOT_ADMITTED_MESSAGE, is_admitted
+
+        if not is_admitted(actor):
+            raise AcceptError(NOT_ADMITTED_MESSAGE)
         if offer.is_overdue:
             raise AcceptError(f"Срок ответа на предложение истёк ({timezone.localtime(offer.expires_at):%d.%m.%Y %H:%M}).")
         if campaign.status != Campaign.Status.ACTIVE:
@@ -384,7 +392,9 @@ def invite_bloggers(campaign_pk, advertiser, bloggers):
     if campaign.status != Campaign.Status.ACTIVE:
         raise AcceptError("Пригласить можно в активную кампанию.")
     existing = set(CampaignInvitation.objects.filter(campaign=campaign).values_list("blogger_id", flat=True))
-    new = [b for b in dict.fromkeys(bloggers) if b.pk not in existing and b.role == "blogger"]
+    from apps.profiles.admission import is_admitted
+
+    new = [b for b in dict.fromkeys(bloggers) if b.pk not in existing and b.role == "blogger" and is_admitted(b)]
     CampaignInvitation.objects.bulk_create(
         [CampaignInvitation(campaign=campaign, blogger=b, invited_by=advertiser) for b in new]
     )
@@ -403,6 +413,9 @@ def invite_by_criteria(campaign_pk, advertiser, *, social_type="", min_subscribe
         platforms = platforms.filter(social_type=social_type)
     if category is not None:
         platforms = platforms.filter(categories=category)
+    from apps.profiles.admission import admitted_q
+
+    platforms = platforms.filter(admitted_q("blogger__"))
     blogger_ids = list(platforms.values_list("blogger_id", flat=True).distinct()[:INVITE_BY_CRITERIA_LIMIT])
     bloggers = list(User.objects.filter(pk__in=blogger_ids))
     return invite_bloggers(campaign_pk, advertiser, bloggers)

@@ -5,6 +5,7 @@ from django.views.decorators.http import require_POST
 
 from apps.campaigns.models import Campaign, DirectOffer
 from apps.campaigns.services import AcceptError, accept_direct_offer, reject_offer, send_offer
+from apps.profiles.admission import admitted_q
 from apps.campaigns.validation import publication_calendar
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
@@ -45,6 +46,7 @@ def blogger_catalog(request):
     form = CatalogFilterForm(request.GET or None)
     qs = (
         Platform.objects.filter(status=Platform.Status.APPROVED, blogger__blogger_profile__show_in_catalog=True)
+        .filter(admitted_q("blogger__"))
         .select_related("blogger__blogger_profile")
         .prefetch_related("categories")
     )
