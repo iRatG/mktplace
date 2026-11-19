@@ -15,6 +15,7 @@ from apps.campaigns.models import Campaign
 from apps.campaigns.models import Response as CampaignResponse
 from apps.deals.models import Deal
 from apps.notifications.models import Notification
+from apps.users import blocklist
 from apps.notifications.service import NotificationService
 from apps.platforms.models import Platform
 from apps.profiles.models import BloggerProfile
@@ -200,10 +201,14 @@ class ResponseCardTest(TestCase):
     def test_queries_do_not_grow_with_responses(self):
         self._respond("b1")
         url = reverse("web:campaign_detail", args=[self.campaign.pk])
+        # Проверка блока по IP кэшируется на 60 секунд в общем кэше: на медленном сервере запись могла истечь между
+        # замерами — лишний запрос к BlockedIP (28 != 29, 19.11.2026). Сбрасываем её перед каждым замером.
+        blocklist.invalidate("127.0.0.1")
         with CaptureQueriesContext(connection) as one:
             self.client.get(url)
         self._respond("b2")
         self._respond("b3")
+        blocklist.invalidate("127.0.0.1")
         with CaptureQueriesContext(connection) as three:
             self.client.get(url)
         self.assertEqual(len(one), len(three))
