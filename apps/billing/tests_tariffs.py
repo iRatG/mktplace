@@ -247,3 +247,23 @@ class TariffPanelTest(TestCase):
         self.client.force_login(self.adv)
         self.client.post(reverse("web:admin_user_tariff", kwargs={"pk": self.adv.pk}), {"tariff": free.pk})
         self.assertFalse(TariffAssignment.objects.exists())
+
+
+class TariffVisibleTest(TestCase):
+    """ПС 8.1: пользователь знакомится с тарифами — таблица в FAQ, свой тариф и лимит в кошельке рекламодателя."""
+
+    def test_faq_shows_all_tariffs(self):
+        page = self.client.get(reverse("web:faq")).content.decode()
+        self.assertIn("data-tariffs-table", page)
+        for name in ("Бесплатно", "SMM", "Корпоративный", "Премиум", "без ограничений", "3 000 000"):
+            self.assertIn(name, page)
+
+    def test_wallet_shows_own_tariff_and_usage(self):
+        adv = _advertiser()
+        _draft(adv, status=Campaign.Status.MODERATION, submitted_at=timezone.now())
+        self.client.force_login(adv)
+        page = self.client.get(reverse("web:wallet")).content.decode()
+        self.assertIn("data-my-tariff", page)
+        self.assertIn("Ваш тариф — «Бесплатно»", page)
+        self.assertIn("Кампаний в месяц: 1 из 1", page)
+        self.assertIn("бюджет кампании от 1 000 000", page)

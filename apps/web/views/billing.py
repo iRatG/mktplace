@@ -19,6 +19,16 @@ from django.views.decorators.http import require_POST
 
 from .admin_panel import _staff_required
 
+
+def _my_tariff(advertiser):
+    """Свой тариф в кошельке (ПС 8.1 — пользователь знакомится с тарифами): ставка, лимит и сколько использовано."""
+    from apps.billing.tariffs import commission_description, tariff_for
+    from apps.campaigns.validation import campaigns_submitted_this_month
+
+    return {"tariff": tariff_for(advertiser), "commission": commission_description(advertiser),
+            "used": campaigns_submitted_this_month(advertiser)}
+
+
 @login_required
 def wallet_view(request):
     """Кошелёк. У исполнителя формы вывода нет (с 13.10.2026): выплаты формируются по сделкам, здесь — их состояние."""
@@ -52,7 +62,7 @@ def wallet_view(request):
         from .topups import wallet_context
 
         budgets = advertiser_budgets(user)
-        money = {**wallet_context(user), "reserves": metrics.advertiser_reserves(user)}
+        money = {**wallet_context(user), "reserves": metrics.advertiser_reserves(user), "my_tariff": _my_tariff(user)}
 
     return render(request, "billing/wallet.html", {
         **money,

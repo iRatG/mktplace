@@ -87,7 +87,9 @@ def faq(request):
         ("Оспорена", "bg-red-100 text-red-600", "Подана претензия, деньги депонированы — Платформа рассматривает и принимает решение"),
         ("Отменена", "bg-gray-100 text-gray-600", "Сделка отменена, зарезервированные средства возвращены рекламодателю"),
     ]
-    return render(request, "faq.html", {"deal_statuses": deal_statuses})
+    from apps.billing.models import Tariff
+
+    return render(request, "faq.html", {"deal_statuses": deal_statuses, "tariffs": Tariff.objects.all()})
 
 
 def support_view(request):

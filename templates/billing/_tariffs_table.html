@@ -1,0 +1,24 @@
+{% load money %}
+<div class="card-dark rounded-xl overflow-x-auto mb-4" data-tariffs-table>
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-200 text-gray-600">
+                <th class="text-left px-4 py-3 font-medium">Тариф рекламодателя</th>
+                <th class="text-right px-4 py-3 font-medium">Комиссия</th>
+                <th class="text-right px-4 py-3 font-medium">Кампаний в месяц</th>
+                <th class="text-right px-4 py-3 font-medium">Бюджет кампании от</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for t in tariffs %}
+            <tr>
+                <td class="px-4 py-2 text-gray-900">{{ t.name }}{% if t.is_default %} <span class="text-xs text-gray-500">(для новых)</span>{% endif %}</td>
+                <td class="px-4 py-2 text-right text-gray-900">{{ t.commission_percent|floatformat:"-2" }}%</td>
+                <td class="px-4 py-2 text-right text-gray-900">{% if t.campaigns_per_month %}{{ t.campaigns_per_month }}{% else %}без ограничений{% endif %}</td>
+                <td class="px-4 py-2 text-right text-gray-900">{{ t.min_campaign_budget|money }} {{ currency.symbol }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p class="px-4 py-3 text-xs text-gray-500 border-t border-gray-100">Комиссия — сверх цены блогера, {{ vat_note }}. Тариф меняет сотрудник по обращению в поддержку; ставка фиксируется в Поручении и не меняется для уже направленных оферт и заключённых сделок.</p>
+</div>

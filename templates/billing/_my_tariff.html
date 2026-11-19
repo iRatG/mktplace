@@ -1,0 +1,14 @@
+{% load money %}
+<div class="card-dark rounded-xl p-5 mb-6" data-my-tariff>
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-1">Ваш тариф — «{{ my_tariff.tariff.name }}»</h2>
+            <p class="text-sm text-gray-700">Комиссия платформы {{ my_tariff.commission }} сверх цены блогера, {{ vat_note }}.</p>
+            <p class="text-sm text-gray-700">
+                Кампаний в месяц: {% if my_tariff.tariff.campaigns_per_month %}{{ my_tariff.used }} из {{ my_tariff.tariff.campaigns_per_month }}{% else %}без ограничений (в этом месяце — {{ my_tariff.used }}){% endif %}
+                · бюджет кампании от {{ my_tariff.tariff.min_campaign_budget|money }} {{ currency.symbol }}.
+            </p>
+        </div>
+        <a href="{% url 'web:faq' %}#section-billing" class="text-sm text-orange-600 hover:text-orange-700 font-medium">Все тарифы →</a>
+    </div>
+</div>
