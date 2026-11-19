@@ -84,13 +84,13 @@ class CampaignBudgetsWalletTest(TestCase):
     def test_shortage_warning_counts_commission(self):
         Wallet.objects.filter(user=self.adv).update(available_balance=Decimal("1000000"))
         budgets = advertiser_budgets(self.adv)
-        # остатки 1 500 000 + комиссия 16% = 1 740 000, свободно 1 000 000
-        self.assertEqual(budgets["need"], Decimal("1740000.00"))
-        self.assertEqual(budgets["shortage"], Decimal("740000.00"))
+        # остатки 1 500 000 + комиссия 10% (тариф «Бесплатно») = 1 650 000, свободно 1 000 000
+        self.assertEqual(budgets["need"], Decimal("1650000.00"))
+        self.assertEqual(budgets["shortage"], Decimal("650000.00"))
         self.client.force_login(self.adv)
         page = self.client.get(reverse("web:wallet")).content.decode()
         self.assertIn("data-budget-shortage", page)
-        self.assertIn("не хватает 740 000", page)
+        self.assertIn("не хватает 650 000", page)
 
     def test_blogger_wallet_has_no_block(self):
         self.client.force_login(self.blogger)

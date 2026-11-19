@@ -599,22 +599,22 @@ def _pending_termination(deal, actor):
 
 
 def accept_termination(pk, actor):
-    """Вторая сторона согласна: сделка прекращена, рекламодателю — возврат за вычетом комиссии платформы."""
+    """Вторая сторона согласна: сделка прекращена, рекламодателю — весь резерв. Комиссии нет: принятого объёма нет
+    (ПР 7.7; ответ бизнеса 19.11.2026 — без выплат исполнителю наш процент не удерживается)."""
     with transaction.atomic():
         deal = _lock(pk)
         request = _pending_termination(deal, actor)
         _require(deal, Deal.UNPUBLISHED_STATUSES, "Прекратить по соглашению можно, пока публикации нет.")
-        _, commission = BillingService.refund_minus_commission(deal)
+        BillingService.release_funds(deal)
         request.status = TerminationRequest.Status.ACCEPTED
         request.answered_at = timezone.now()
         request.save(update_fields=["status", "answered_at"])
         from apps.billing.formatting import format_money
 
-        # Возвращается весь резерв за вычетом комиссии: у новых сделок это цена, у старых — сумма минус комиссия.
         comment = (f"Сделка прекращена по соглашению сторон. Причина: {request.reason}. Рекламодателю возвращено "
-                   f"{format_money(deal.reserved_total - commission)}, комиссия платформы {format_money(commission)}.")
+                   f"{format_money(deal.reserved_total)}, комиссия платформы не взимается.")
         _move(deal, S.CANCELLED, actor, comment, paid_amount=0)
-        _chat(deal, "Сделка прекращена по соглашению сторон. Резерв возвращён рекламодателю за вычетом комиссии платформы.")
+        _chat(deal, "Сделка прекращена по соглашению сторон. Весь резерв возвращён рекламодателю, комиссия платформы не взимается.")
     _after_commit(NotificationService.notify_termination_answered, request)
     return request
 

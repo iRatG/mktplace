@@ -6,8 +6,15 @@
     <div>
         <a href="{% url 'web:profile' %}" class="text-gray-600 hover:text-gray-900 text-sm transition-colors">← Профиль</a>
         <h1 class="text-2xl font-bold mt-2">Мои данные</h1>
-        <p class="text-sm text-gray-600 mt-1">Что мы храним и как этим управлять. Обращение можно также отправить на claim@ublogers.uz.</p>
+        <p class="text-sm text-gray-600 mt-1">Что мы храним и как этим управлять.{% if pd_contact_email %} Обращение можно также отправить на {{ pd_contact_email }}.{% endif %}</p>
     </div>
+
+    {% if pd_officer %}
+    <div class="card-dark rounded-xl p-4 text-sm text-gray-700" data-pd-officer>
+        Ответственный за обработку и защиту персональных данных — {{ pd_officer }}{% if operator_name %}, {{ operator_name }}{% endif %}.
+        {% if pd_contact_email %}Обращения: <a href="mailto:{{ pd_contact_email }}" class="text-orange-600 hover:text-orange-700">{{ pd_contact_email }}</a>.{% endif %}
+    </div>
+    {% endif %}
 
     <div class="card-dark rounded-xl p-6" data-held-data>
         <h2 class="text-lg font-semibold mb-3">Что хранится</h2>

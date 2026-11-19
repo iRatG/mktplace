@@ -37,8 +37,8 @@ class FinancePageTest(DealPayoutBase):
         self.client.force_login(self.staff)
         html = self.client.get(reverse("web:admin_finance")).content.decode()
         self.assertIn("Комиссия платформы", html)
-        self.assertIn("16 000", html)
-        self.assertIn("116 000", html)
+        self.assertIn("20 000", html)  # комиссия 10 000 + плата исполнителя 10 000
+        self.assertIn("110 000", html)
         r = self.client.get(reverse("web:admin_finance") + "?export=xlsx")
         self.assertEqual(r.status_code, 200)
         self.assertIn("finance_", r["Content-Disposition"])
@@ -51,8 +51,8 @@ class FinancePageTest(DealPayoutBase):
         totals = list(wb["Итого"].iter_rows(values_only=True))
         self.assertEqual(totals[-1][0], "Итого")
         header = totals[0]
-        self.assertEqual(totals[-1][header.index("Комиссия платформы")], D("16000"))
-        self.assertEqual(totals[-1][header.index("Выплаты")], D("100000"))
+        self.assertEqual(totals[-1][header.index("Комиссия платформы")], D("20000"))
+        self.assertEqual(totals[-1][header.index("Выплаты")], D("90000"))
         self.assertTrue(PersonalDataAccess.objects.filter(staff=self.staff, action__startswith="Выгрузка").exists())
 
     def test_period_swap_and_empty(self):

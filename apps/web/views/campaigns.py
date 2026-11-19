@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
+from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -212,10 +213,10 @@ def campaign_detail(request, pk):
     if context.get("is_owner"):
         context["brand_documents"] = campaign.brand_documents.all()
         context["can_upload_brand_document"] = user == campaign.advertiser and campaign.status in BRAND_DOCUMENT_STATUSES
-        from apps.billing.tariffs import tier_description
+        from apps.billing.tariffs import commission_description
         from apps.platforms.models import Category, Platform as PlatformModel
 
-        context["commission_label"] = tier_description(campaign.advertiser)
+        context["commission_label"] = commission_description(campaign.advertiser)
         context["responses"] = _with_offer_amounts(campaign, context["responses"])
         from apps.campaigns.validation import earliest_offer_date
 
@@ -302,7 +303,8 @@ def campaign_submit(request, pk):
             else NotificationService.MODERATION_FIRST
         )
         campaign.status = Campaign.Status.MODERATION
-        campaign.save(update_fields=["status"])
+        campaign.submitted_at = campaign.submitted_at or timezone.now()  # лимит тарифа — по первой отправке
+        campaign.save(update_fields=["status", "submitted_at"])
         NotificationService.notify_campaign_moderation_requested(campaign, source)
         messages.success(request, "Кампания отправлена на модерацию.")
     return redirect("web:campaign_detail", pk=pk)

@@ -249,9 +249,9 @@ class SecondPassTest(_Base):
         self._response()
         self.client.force_login(self.adv)
         html = self.client.get(reverse("web:campaign_detail", kwargs={"pk": self.campaign.pk})).content.decode()
-        # Новый рекламодатель — 16%: 150 000 + 24 000.
-        self.assertIn('data-offer-reserve>174 000', html)
-        self.assertIn("150 000 блогеру + 24 000 комиссия платформы 16% (ваш оборот за", html)
+        # Новый рекламодатель — тариф «Бесплатно», 10%: 150 000 + 15 000.
+        self.assertIn('data-offer-reserve>165 000', html)
+        self.assertIn("150 000 блогеру + 15 000 комиссия платформы 10% — тариф «Бесплатно»", html)
 
     def test_blogger_wallet_shows_expected_payouts(self):
         deal = self._deal()
@@ -261,7 +261,7 @@ class SecondPassTest(_Base):
         self.assertIn("Ожидается к выплате", html)
         self.assertIn(reverse("web:deal_detail", kwargs={"pk": deal.pk}), html)
         self.assertNotIn("data-reserve-services", html)
-        self.assertEqual(deal.blogger_earning, deal.amount)  # по тарифным уровням исполнитель получает цену целиком
+        self.assertEqual(deal.blogger_earning, deal.amount * 9 / 10)  # цена − плата исполнителя 10% (Б-19.11-4)
 
         self.client.force_login(self.adv)
         html = self.client.get(reverse("web:wallet")).content.decode()

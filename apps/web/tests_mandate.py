@@ -46,7 +46,7 @@ class MandateTest(TestCase):
         self.assertEqual(mandate.number, f"П-{mandate.pk}")
         self.assertEqual((mandate.advertiser, mandate.blogger, mandate.platform), (self.adv, self.blogger, self.platform))
         self.assertEqual((mandate.price, mandate.commission_percent, mandate.commission_amount),
-                         (D("100000"), D("16"), D("16000")))
+                         (D("100000"), D("10"), D("10000")))
         self.assertEqual((mandate.confirmed_by, mandate.confirmed_ip, mandate.confirmed_via), (self.adv, "10.0.0.1", "web"))
         self.assertIn("06–07.11.2026", mandate.edition)
         self.assertEqual(mandate.terms["name"], "Кампания")

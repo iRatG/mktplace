@@ -167,14 +167,14 @@ class ClaimsTest(TestCase):
         t.resolve_claim(deal.pk, self.staff, "split", "Частично выполнено", "40 000", grounds="ПР 10.5", calculation="По решению")
         deal.refresh_from_db()
         self.assertEqual((deal.status, deal.paid_amount), (S.COMPLETED, Decimal("40000")))
-        # резерв 116 000 (100 000 + 16%): исполнителю 40 000 целиком, комиссия 16% с его части = 6 400,
-        # рекламодателю возврат 116 000 − 46 400 = 69 600
-        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, adv_before + Decimal("69600"))
-        self.assertEqual(Wallet.objects.get(user=self.blogger).on_withdrawal, bl_before + Decimal("40000"))
+        # резерв 110 000 (100 000 + 10%): исполнителю 40 000 минус плата 10% = 36 000, комиссия 10% с его части = 4 000,
+        # рекламодателю возврат 110 000 − 44 000 = 66 000
+        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, adv_before + Decimal("66000"))
+        self.assertEqual(Wallet.objects.get(user=self.blogger).on_withdrawal, bl_before + Decimal("36000"))
         payment = Transaction.objects.get(deal=deal, type=Transaction.Type.PAYMENT)
-        self.assertEqual(payment.amount, Decimal("-46400"))
+        self.assertEqual(payment.amount, Decimal("-44000"))
         self.assertEqual(budget_committed(self.campaign), Decimal("40000"))
-        self.assertEqual(metrics.platform_revenue(), Decimal("6400"))  # комиссия только с части исполнителя
+        self.assertEqual(metrics.platform_revenue(), Decimal("8000"))  # комиссия 4 000 и плата 4 000 — только с части исполнителя
         note = Notification.objects.filter(user=self.adv, title="Решение по претензии").latest("created_at")
         self.assertIn("возвращён рекламодателю", note.body)
 

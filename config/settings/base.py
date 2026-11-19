@@ -150,9 +150,9 @@ CAMPAIGN_MIN_FIXED_PRICE = env.int('CAMPAIGN_MIN_FIXED_PRICE', default=10000)
 ESF_REQUIRED_CATEGORIES = env.list('ESF_REQUIRED_CATEGORIES', default=['ip', 'legal_entity'])
 # Выплаты проводятся раз в месяц: до этого числа за предыдущий месяц.
 PAYOUT_DAY = env.int('PAYOUT_DAY', default=5)
-# Плата исполнителя за услуги платформы по умолчанию, % от полной стоимости услуг (ПР 7.1–7.3). Пока бизнес не
-# назвал ставку (вопрос В21) — 0: исполнитель получает цену целиком, как раньше. Индивидуальная — ContractorFeeRate.
-CONTRACTOR_FEE_PERCENT = env.str('CONTRACTOR_FEE_PERCENT', default='0')
+# Плата исполнителя за услуги платформы по умолчанию, % от полной стоимости услуг (ПР 7.1–7.3): 10% — ответ бизнеса
+# 19.11.2026 (В21). Индивидуальная, по переговорам с согласия директора — ContractorFeeRate.
+CONTRACTOR_FEE_PERCENT = env.str('CONTRACTOR_FEE_PERCENT', default='10')
 # Предельный размер документа на бренд.
 BRAND_DOCUMENT_MAX_BYTES = env.int('BRAND_DOCUMENT_MAX_BYTES', default=10 * 1024 * 1024)
 # Реквизиты оператора для счёта на оплату. Пока банк не задан, форма счёта скрыта.
@@ -320,6 +320,9 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='UBlogers! <noreply@ublog
 SUPPORT_EMAIL = env('SUPPORT_EMAIL', default='support@ublogers.uz')
 # Адрес для претензий в подвале писем (apps/notifications/emails.py); на почтовом сервере пересылается в SUPPORT_EMAIL.
 CLAIM_EMAIL = env('CLAIM_EMAIL', default='claim@ublogers.uz')
+# Ответственный за обработку и защиту персональных данных и адрес обращений по ПД (ответ бизнеса 19.11.2026, В4).
+PD_OFFICER = env('PD_OFFICER', default='Чумичев А.М., директор')
+PD_CONTACT_EMAIL = env('PD_CONTACT_EMAIL', default='info@ublogers.uz')
 
 # Frontend URL (used in email confirmation and password reset links)
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8000')

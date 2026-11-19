@@ -257,8 +257,8 @@ class DirectOfferCreateTest(TestCase):
         self.assertEqual(offer.proposed_price, Decimal("50000"))
         # Оферта фиксирует сумму и комиссию; резерв — при Акцепте (ПР 5.4).
         self.assertEqual(offer.reserved_amount, Decimal("50000"))
-        # к резерву = вознаграждение 50 000 + комиссия платформы 16% (новый рекламодатель)
-        self.assertEqual(offer.reserved_total, Decimal("58000"))
+        # к резерву = вознаграждение 50 000 + комиссия платформы 10% (тариф «Бесплатно»)
+        self.assertEqual(offer.reserved_total, Decimal("55000"))
         self.assertEqual(Wallet.objects.get(user=self.advertiser).reserved_balance, Decimal("0"))
 
     def test_404_for_pending_platform(self):

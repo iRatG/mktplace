@@ -34,10 +34,10 @@ class CommissionReportTest(DealPayoutBase):
         row = report.data["rows"][0]
         self.assertEqual(row["deal"], deal.pk)
         self.assertEqual((D(row["services"]), D(row["paid_out"]), D(row["contractor_fee"]), D(row["commission"])),
-                         (D("100000"), D("90000"), D("10000"), D("16000")))
-        self.assertEqual(D(row["reserved"]), D("116000"))
+                         (D("100000"), D("90000"), D("10000"), D("10000")))
+        self.assertEqual(D(row["reserved"]), D("110000"))
         self.assertEqual(D(report.data["reserved_end"]), D("0"))
-        self.assertEqual(D(report.data["available_end"]), D("884000"))
+        self.assertEqual(D(report.data["available_end"]), D("890000"))
         self.assertTrue(Notification.objects.filter(user=self.adv, type=Notification.Type.COMMISSION_REPORT).exists())
         # Повторный запуск в тот же месяц нового отчёта не создаёт.
         self.assertEqual(reports.generate_for_previous_month(timezone.localdate().replace(day=1)), 0)

@@ -111,4 +111,4 @@ class OtherCategoriesTest(DealPayoutBase):
         deal = self._paid()
         self.assertNotIn("ждёт чек самозанятого", WithdrawalRequest.objects.get(deal=deal).blocked_reasons)
         self.assertFalse(Notification.objects.filter(title="Выставьте чек самозанятого").exists())
-        self.assertEqual(Decimal(deal.blogger_earning), Decimal("100000"))
+        self.assertEqual(Decimal(deal.blogger_earning), Decimal("90000"))  # цена − плата исполнителя 10%

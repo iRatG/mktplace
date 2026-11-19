@@ -126,6 +126,7 @@ from .admin_panel import (
     admin_withdrawal_legacy_balance,
     admin_einvoice_update,
     admin_user_block,
+    admin_user_tariff,
     admin_user_unblock,
     admin_categories,
     admin_category_delete,

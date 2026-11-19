@@ -487,7 +487,7 @@
         <div class="card-dark rounded-xl p-6 border border-gray-200" data-termination>
             <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Прекращение по соглашению сторон</h2>
             <p class="text-sm text-gray-700">{% if request.proposed_by == user %}Вы предложили{% else %}{{ request.proposed_by.public_name }} предлагает{% endif %} прекратить сделку. Причина: {{ request.reason }}</p>
-            <p class="text-xs text-gray-500 mt-1">Если вторая сторона согласится, рекламодателю вернётся резерв за вычетом комиссии платформы, исполнителю ничего не перечисляется.</p>
+            <p class="text-xs text-gray-500 mt-1">Если вторая сторона согласится, рекламодателю вернётся весь резерв (комиссия платформы не берётся), исполнителю ничего не перечисляется.</p>
             {% if request.proposed_by != user %}
             <div class="flex gap-2 mt-3">
                 <form method="post" action="{% url 'web:deal_accept_termination' deal.pk %}" onsubmit="return confirm('Прекратить сделку по соглашению сторон?');">

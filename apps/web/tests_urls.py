@@ -327,7 +327,7 @@ class CampaignPagesTest(TestCase):
         self.campaign_draft = Campaign.objects.create(
             advertiser=self.adv,
             name="UNIQUE_DRAFT_XZ99",
-            budget=Decimal("100000"),
+            budget=Decimal("1000000"),
             **CARD_FIELDS,
             status=Campaign.Status.DRAFT,
             # Даты обязательны для отправки на модерацию (Р4, #33).

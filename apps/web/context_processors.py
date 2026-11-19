@@ -15,6 +15,9 @@ def currency(request):
         # Оператор — заказчик-комиссионер в оферте и сделке (ТО 4.3).
         "operator_name": getattr(settings, "OPERATOR_NAME", ""),
         "operator_inn": getattr(settings, "OPERATOR_INN", ""),
+        # Ответственный за обработку и защиту ПД и адрес обращений (Положение о ПД, п. 6).
+        "pd_officer": getattr(settings, "PD_OFFICER", ""),
+        "pd_contact_email": getattr(settings, "PD_CONTACT_EMAIL", ""),
     }
 
 

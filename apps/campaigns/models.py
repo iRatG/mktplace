@@ -201,6 +201,9 @@ class Campaign(models.Model):
     completed_early_at = models.DateTimeField(
         null=True, blank=True, help_text="Когда рекламодатель завершил кампанию досрочно (не по сроку)",
     )
+    submitted_at = models.DateTimeField(
+        null=True, blank=True, help_text="Первая отправка на модерацию — по ней считается лимит кампаний тарифа",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

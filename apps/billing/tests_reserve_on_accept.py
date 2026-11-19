@@ -70,13 +70,13 @@ class SendOfferTest(ReserveOnAcceptBase):
         self.assertFalse(Transaction.objects.filter(type=Transaction.Type.RESERVE).exists())
         self.assertTrue(offer.reserve_on_accept)
         self.assertIsNone(offer.reserved_at)
-        # Сумма и комиссия зафиксированы в оферте: 100 000 + 16%.
+        # Сумма и комиссия зафиксированы в оферте: 100 000 + 10% (тариф «Бесплатно»).
         self.assertEqual((offer.reserved_amount, offer.reserved_commission, offer.reserved_total),
-                         (D("100000"), D("16000"), D("116000")))
+                         (D("100000"), D("10000"), D("110000")))
 
     def test_offer_needs_available_balance(self):
         self._balance("100000")
-        with self.assertRaisesMessage(AcceptError, "Недостаточно средств на балансе: для оферты нужно 116 000"):
+        with self.assertRaisesMessage(AcceptError, "Недостаточно средств на балансе: для оферты нужно 110 000"):
             self._offer()
         self.assertFalse(DirectOffer.objects.exists())
 
@@ -91,14 +91,14 @@ class AcceptTest(ReserveOnAcceptBase):
         offer = self._offer()
         deal = accept_direct_offer(offer.pk, self.blogger)
         wallet = self._wallet()
-        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (D("884000"), D("116000")))
+        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (D("890000"), D("110000")))
         reserves = list(Transaction.objects.filter(type=Transaction.Type.RESERVE).order_by("pk"))
-        self.assertEqual([r.amount for r in reserves], [D("-100000"), D("-16000")])
+        self.assertEqual([r.amount for r in reserves], [D("-100000"), D("-10000")])
         self.assertTrue(all(r.deal_id == deal.pk and r.offer_id == offer.pk for r in reserves))
         self.assertIn("стоимости услуг", reserves[0].description)
         self.assertIn("комиссии", reserves[1].description)
         self.assertEqual((deal.amount, deal.commission_percent, deal.commission_amount, deal.reserved_total),
-                         (D("100000"), D("16"), D("16000"), D("116000")))
+                         (D("100000"), D("10"), D("10000"), D("110000")))
         offer.refresh_from_db()
         self.assertEqual(offer.status, DirectOffer.Status.ACCEPTED)
         self.assertIsNotNone(offer.reserved_at)
@@ -114,7 +114,7 @@ class AcceptTest(ReserveOnAcceptBase):
         self.assertEqual(offer.status, DirectOffer.Status.PENDING)
         self.assertEqual(self._wallet().available_balance, D("50000"))
         note = Notification.objects.get(user=self.adv, type=Notification.Type.DIRECT_OFFER_NEEDS_FUNDS)
-        self.assertIn("116 000", note.body)
+        self.assertIn("110 000", note.body)
         self.assertEqual(note.url, reverse("web:wallet"))
         # Пополнил баланс — тот же Акцепт проходит.
         self._balance("200000")
@@ -130,7 +130,7 @@ class AcceptTest(ReserveOnAcceptBase):
         with self.assertRaises(AcceptError):
             accept_direct_offer(second.pk, other)
         wallet = self._wallet()
-        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (D("34000"), D("116000")))
+        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (D("40000"), D("110000")))
 
     def test_metrics_after_full_payment_match_reserve(self):
         from apps.billing import metrics
@@ -138,10 +138,10 @@ class AcceptTest(ReserveOnAcceptBase):
         offer = self._offer()
         deal = accept_direct_offer(offer.pk, self.blogger)
         BillingService.complete_deal_payment(deal)
-        self.assertEqual(metrics.platform_revenue(), D("16000"))
-        self.assertEqual(metrics.advertiser_spent(self.adv), D("116000"))
+        self.assertEqual(metrics.platform_revenue(), D("20000"))  # комиссия 10 000 + плата исполнителя 10 000 (по умолчанию 10%)
+        self.assertEqual(metrics.advertiser_spent(self.adv), D("110000"))
         wallet = self._wallet()
-        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (D("884000"), D("0")))
+        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (D("890000"), D("0")))
 
 
 class NoReserveNoReleaseTest(ReserveOnAcceptBase):
@@ -171,7 +171,7 @@ class LegacyReservedOfferTest(ReserveOnAcceptBase):
 
     def test_reject_returns_reserve(self):
         offer = self._legacy_offer()
-        self.assertEqual(self._wallet().reserved_balance, D("116000"))
+        self.assertEqual(self._wallet().reserved_balance, D("110000"))
         reject_offer(offer.pk, self.blogger)
         wallet = self._wallet()
         self.assertEqual((wallet.available_balance, wallet.reserved_balance), (D("1000000"), D("0")))
@@ -182,7 +182,7 @@ class LegacyReservedOfferTest(ReserveOnAcceptBase):
         self.assertEqual(Transaction.objects.filter(type=Transaction.Type.RESERVE).count(), 1)
         self.assertEqual(Transaction.objects.get(type=Transaction.Type.RESERVE).deal_id, deal.pk)
         wallet = self._wallet()
-        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (D("884000"), D("116000")))
+        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (D("890000"), D("110000")))
 
 
 class WalletShowsTwoReservesTest(ReserveOnAcceptBase):
@@ -194,4 +194,4 @@ class WalletShowsTwoReservesTest(ReserveOnAcceptBase):
         self.assertIn("data-reserve-services", page)
         self.assertIn("data-reserve-commission", page)
         self.assertIn("100 000", page)
-        self.assertIn("16 000", page)
+        self.assertIn("10 000", page)

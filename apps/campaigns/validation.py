@@ -2,6 +2,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.utils import timezone
 
 from apps.billing.formatting import format_money
 from apps.registration.models import LegalEntityApplication
@@ -250,7 +251,56 @@ def moderation_error(campaign):
     if missing:
         names = ", ".join(CARD_REQUIRED_FOR_MODERATION[name] for name in missing)
         return f"Заполните в карточке кампании: {names} — без них кампанию нельзя отправить на модерацию."
-    return permit_error(campaign)
+    return permit_error(campaign) or min_budget_error(campaign) or campaign_limit_error(campaign)
+
+
+def min_budget_error(campaign):
+    """Минимальный бюджет кампании по тарифу рекламодателя (таблица бизнеса 19.11.2026) — сообщение или None.
+
+    Только для кампании, ещё ни разу не одобренной: одобренные раньше правила при повторной модерации не проверяются."""
+    from apps.billing.tariffs import tariff_for
+
+    if campaign.approved_snapshot:
+        return None
+    tariff = tariff_for(campaign.advertiser)
+    if tariff.min_campaign_budget and (campaign.budget or 0) < tariff.min_campaign_budget:
+        return (f"Минимальный бюджет кампании на тарифе «{tariff.name}» — {_spaced(tariff.min_campaign_budget)}. "
+                f"Увеличьте бюджет.")
+    return None
+
+
+def campaigns_submitted_this_month(advertiser, exclude=None, today=None):
+    """Кампании, впервые отправленные на модерацию в этом календарном месяце (кроме отклонённых и черновиков)."""
+    today = today or timezone.localdate()
+    qs = Campaign.objects.filter(
+        advertiser=advertiser, submitted_at__date__gte=today.replace(day=1), submitted_at__date__lte=today,
+    ).exclude(status__in=[Campaign.Status.DRAFT, Campaign.Status.REJECTED])
+    if exclude is not None:
+        qs = qs.exclude(pk=exclude.pk)
+    return qs.count()
+
+
+def campaign_limit_error(campaign):
+    """Лимит кампаний в месяц по тарифу — сообщение или None. Повторная отправка (после отклонения) лимит не тратит;
+    демо-аккаунты не ограничены (как и проверка подтверждения аккаунта)."""
+    from apps.billing.tariffs import tariff_for
+
+    if campaign.submitted_at or campaign.advertiser.is_demo:
+        return None
+    tariff = tariff_for(campaign.advertiser)
+    limit = tariff.campaigns_per_month
+    if limit is not None and campaigns_submitted_this_month(campaign.advertiser, exclude=campaign) >= limit:
+        return (f"На тарифе «{tariff.name}» можно отправить на модерацию {limit} {_campaigns_word(limit)} в месяц — "
+                f"лимит этого месяца исчерпан. Чтобы сменить тариф, напишите в поддержку.")
+    return None
+
+
+def _campaigns_word(n):
+    if n % 10 == 1 and n % 100 != 11:
+        return "кампанию"
+    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+        return "кампании"
+    return "кампаний"
 
 
 def moderation_missing(campaign):
@@ -265,6 +315,15 @@ def moderation_missing(campaign):
     missing += [CARD_REQUIRED_FOR_MODERATION[name] for name in CARD_REQUIRED_FOR_MODERATION if name in empty]
     if permit_error(campaign):
         missing.append(f"подтверждённый разрешительный документ для категории «{campaign.category.name}»")
+    if min_budget_error(campaign) or campaign_limit_error(campaign):
+        from apps.billing.tariffs import tariff_for
+
+        tariff = tariff_for(campaign.advertiser)
+        if min_budget_error(campaign):
+            missing.append(f"бюджет не меньше {_spaced(tariff.min_campaign_budget)} (тариф «{tariff.name}»)")
+        if campaign_limit_error(campaign):
+            missing.append(f"свободное место в лимите тарифа «{tariff.name}» — {tariff.campaigns_per_month} "
+                           f"{_campaigns_word(tariff.campaigns_per_month)} в месяц, лимит этого месяца исчерпан")
     return missing
 
 

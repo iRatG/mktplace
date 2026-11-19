@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
 from .models import (
-    BalanceRefund, CommissionReport, ContractorFeeRate, EInvoice, PaymentInvoice, SpecialTariff, TestBalanceGrant, Transaction, Wallet, WithdrawalRequest,
+    BalanceRefund, CommissionReport, ContractorFeeRate, EInvoice, PaymentInvoice, SpecialTariff, Tariff, TariffAssignment, TestBalanceGrant, Transaction, Wallet, WithdrawalRequest,
 )
 from .services import BillingService
 
@@ -138,7 +138,7 @@ class BalanceRefundAdmin(_ReadOnlyMoneyAdmin):
 
 @admin.register(SpecialTariff)
 class SpecialTariffAdmin(admin.ModelAdmin):
-    list_display = ("advertiser", "percent", "valid_until", "note")
+    list_display = ("advertiser", "percent", "valid_until", "approved_by", "note")
     search_fields = ("advertiser__email",)
 
 
@@ -161,8 +161,23 @@ class CommissionReportAdmin(admin.ModelAdmin):
 class ContractorFeeRateAdmin(admin.ModelAdmin):
     """Индивидуальная плата исполнителя (ПР 7.2). Действует для новых оферт; заключённые сделки не меняются (ПР 7.4)."""
 
-    list_display = ("blogger", "percent", "valid_until", "note")
+    list_display = ("blogger", "percent", "valid_until", "approved_by", "note")
     search_fields = ("blogger__email",)
+
+
+@admin.register(Tariff)
+class TariffAdmin(admin.ModelAdmin):
+    """Тарифы рекламодателей (набросок бизнеса 19.11.2026). Правка ставки — только для новых оферт (ПР 7.4)."""
+
+    list_display = ("name", "code", "commission_percent", "campaigns_per_month", "min_campaign_budget", "is_default")
+
+
+@admin.register(TariffAssignment)
+class TariffAssignmentAdmin(admin.ModelAdmin):
+    """Назначения тарифов; назначает сотрудник в панели «Пользователи»."""
+
+    list_display = ("advertiser", "tariff", "assigned_by", "assigned_at")
+    search_fields = ("advertiser__email",)
 
 
 @admin.register(EInvoice)

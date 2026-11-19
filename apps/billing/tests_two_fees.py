@@ -2,7 +2,8 @@
 
 Комиссия рекламодателя — сверх стоимости услуг, резервируется отдельно; плата исполнителя — внутри стоимости,
 удерживается зачётом при выплате. Обе фиксируются в оферте и сделке; при частичной оплате — от принятой части; при одной
-компенсации — ни той, ни другой. Ставка исполнителя по умолчанию — CONTRACTOR_FEE_PERCENT (до ответа бизнеса — 0).
+компенсации — без комиссии рекламодателя (ПР 7.5), с платой исполнителя (Б-19.11-7). Ставка исполнителя по умолчанию —
+CONTRACTOR_FEE_PERCENT (10%, Б-19.11-4); комиссия рекламодателя — по тарифу «Бесплатно» (10%).
 """
 from datetime import timedelta
 from decimal import Decimal
@@ -26,27 +27,27 @@ class TwoFeesTest(DealPayoutBase):
     def test_offer_and_deal_fix_both_fees(self):
         deal = self._deal()
         offer = DirectOffer.objects.get(deal=deal)
-        self.assertEqual((offer.commission_percent, offer.reserved_commission), (D("16"), D("16000")))
+        self.assertEqual((offer.commission_percent, offer.reserved_commission), (D("10"), D("10000")))
         self.assertEqual((offer.contractor_fee_percent, offer.contractor_fee_amount, offer.contractor_payout),
                          (D("10"), D("10000"), D("90000")))
         self.assertTrue(deal.two_fees)
         self.assertEqual((deal.contractor_fee_percent, deal.contractor_fee_amount, deal.blogger_earning),
                          (D("10"), D("10000"), D("90000")))
         # Резерв рекламодателя — стоимость + его комиссия; плата исполнителя в резерв не добавляется.
-        self.assertEqual(deal.reserved_total, D("116000"))
+        self.assertEqual(deal.reserved_total, D("110000"))
 
     def test_full_payment_withholds_contractor_fee(self):
         approved_card(self.blogger)
         deal = self._paid()
         self.assertEqual(deal.contractor_fee_withheld, D("10000"))
-        self.assertEqual(Transaction.objects.get(deal=deal, type=Transaction.Type.PAYMENT).amount, D("-116000"))
+        self.assertEqual(Transaction.objects.get(deal=deal, type=Transaction.Type.PAYMENT).amount, D("-110000"))
         self.assertEqual(Transaction.objects.get(deal=deal, type=Transaction.Type.EARNING).amount, D("90000"))
         self.assertEqual(WithdrawalRequest.objects.get(deal=deal).amount, D("90000"))
-        self.assertEqual(metrics.platform_revenue(), D("26000"))  # комиссия 16 000 + плата 10 000
-        self.assertEqual(metrics.deal_commission(deal), D("16000"))
+        self.assertEqual(metrics.platform_revenue(), D("20000"))  # комиссия 10 000 + плата 10 000
+        self.assertEqual(metrics.deal_commission(deal), D("10000"))
         self.assertEqual(metrics.deal_contractor_fee(deal), D("10000"))
         adv = Wallet.objects.get(user=self.adv)
-        self.assertEqual((adv.available_balance, adv.reserved_balance), (D("884000"), D("0")))
+        self.assertEqual((adv.available_balance, adv.reserved_balance), (D("890000"), D("0")))
 
     def test_performer_einvoice_on_full_price(self):
         from apps.profiles.models import BloggerProfile
@@ -62,20 +63,20 @@ class TwoFeesTest(DealPayoutBase):
         BillingService.split_deal_payment(deal, D("40000"))
         deal.refresh_from_db()
         self.assertEqual(deal.contractor_fee_withheld, D("4000"))
-        self.assertEqual(Transaction.objects.get(deal=deal, type=Transaction.Type.PAYMENT).amount, D("-46400"))
+        self.assertEqual(Transaction.objects.get(deal=deal, type=Transaction.Type.PAYMENT).amount, D("-44000"))
         self.assertEqual(Transaction.objects.get(deal=deal, type=Transaction.Type.EARNING).amount, D("36000"))
-        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, D("884000") + D("69600"))
-        self.assertEqual(metrics.platform_revenue(), D("10400"))
+        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, D("890000") + D("66000"))
+        self.assertEqual(metrics.platform_revenue(), D("8000"))  # комиссия 4 000 + плата 4 000
 
-    def test_compensation_only_has_no_fees(self):
+    def test_compensation_withholds_fee_without_commission(self):
         deal = self._deal()
         BillingService.split_deal_payment(deal, D("30000"), compensation=True)
         deal.refresh_from_db()
-        self.assertEqual(deal.contractor_fee_withheld, D("0"))
+        self.assertEqual(deal.contractor_fee_withheld, D("3000"))  # плата исполнителя — с компенсации (Б-19.11-7)
         self.assertEqual(Transaction.objects.get(deal=deal, type=Transaction.Type.PAYMENT).amount, D("-30000"))
-        self.assertEqual(Transaction.objects.get(deal=deal, type=Transaction.Type.EARNING).amount, D("30000"))
-        self.assertEqual(metrics.platform_revenue(), D("0"))
-        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, D("884000") + D("86000"))
+        self.assertEqual(Transaction.objects.get(deal=deal, type=Transaction.Type.EARNING).amount, D("27000"))
+        self.assertEqual(metrics.platform_revenue(), D("3000"))  # комиссии рекламодателя нет (ПР 7.5)
+        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, D("890000") + D("80000"))
 
     def test_individual_rate_and_fixed_in_deal(self):
         ContractorFeeRate.objects.create(blogger=self.blogger, percent=D("5"), note="Соглашение")
@@ -118,8 +119,9 @@ class TwoFeesTest(DealPayoutBase):
         self.assertNotContains(self.client.get(reverse("web:deal_detail", kwargs={"pk": deal.pk})), "data-contractor-fee")
 
 
-class DefaultZeroFeeTest(DealPayoutBase):
-    """До ответа бизнеса (В21) плата исполнителя — 0%: исполнитель получает цену целиком, как раньше."""
+@override_settings(CONTRACTOR_FEE_PERCENT="0")
+class ZeroFeeTest(DealPayoutBase):
+    """При ставке 0% (так было до ответа В21) исполнитель получает цену целиком."""
 
     def test_zero_fee_keeps_full_price(self):
         approved_card(self.blogger)
@@ -127,7 +129,7 @@ class DefaultZeroFeeTest(DealPayoutBase):
         self.assertTrue(deal.two_fees)
         self.assertEqual((deal.contractor_fee_percent, deal.contractor_fee_withheld), (D("0"), D("0")))
         self.assertEqual(WithdrawalRequest.objects.get(deal=deal).amount, D("100000"))
-        self.assertEqual(metrics.platform_revenue(), D("16000"))
+        self.assertEqual(metrics.platform_revenue(), D("10000"))
 
     def test_deal_before_rule_has_no_contractor_fee(self):
         deal = self._deal()

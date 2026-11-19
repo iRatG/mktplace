@@ -29,6 +29,7 @@
                 <th class="text-left px-4 py-3 text-gray-600 font-medium">Email</th>
                 <th class="text-left px-4 py-3 text-gray-600 font-medium">Роль</th>
                 <th class="text-left px-4 py-3 text-gray-600 font-medium">Статус</th>
+                <th class="text-left px-4 py-3 text-gray-600 font-medium">Тариф</th>
                 <th class="text-left px-4 py-3 text-gray-600 font-medium">Email подтверждён</th>
                 <th class="text-left px-4 py-3 text-gray-600 font-medium">Дата регистрации</th>
                 <th class="text-left px-4 py-3 text-gray-600 font-medium">Действия</th>
@@ -59,6 +60,23 @@
                     <span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">Заблокирован</span>
                     {% else %}
                     <span class="text-xs text-gray-500">{{ u.status }}</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    {% if u.role == 'advertiser' %}
+                    {% with current=u.tariff_assignment.tariff|default:default_tariff %}
+                    <form method="post" action="{% url 'web:admin_user_tariff' u.pk %}" class="flex items-center gap-1" data-tariff-form>
+                        {% csrf_token %}
+                        <select name="tariff" class="input-dark text-xs py-1">
+                            {% for t in tariffs %}
+                            <option value="{{ t.pk }}"{% if t.pk == current.pk %} selected{% endif %}>{{ t.name }} — {{ t.commission_percent|floatformat:"-2" }}%</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">Сохранить</button>
+                    </form>
+                    {% endwith %}
+                    {% else %}
+                    <span class="text-xs text-gray-400">—</span>
                     {% endif %}
                 </td>
                 <td class="px-4 py-3">

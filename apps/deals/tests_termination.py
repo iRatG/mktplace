@@ -68,7 +68,7 @@ class TerminationTest(TestCase):
         self.assertEqual(deal.status, S.CANCELLED)
         self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, before + deal.reserved_total)
 
-    def test_terminate_by_agreement_refunds_minus_commission(self):
+    def test_terminate_by_agreement_refunds_everything(self):
         deal = self._deal()
         before = Wallet.objects.get(user=self.adv).available_balance
         t.propose_termination(deal.pk, self.blogger, "Заболел, не успею")
@@ -78,16 +78,16 @@ class TerminationTest(TestCase):
         t.accept_termination(deal.pk, self.adv)
         deal.refresh_from_db()
         self.assertEqual((deal.status, deal.paid_amount), (S.CANCELLED, Decimal("0")))
-        # резерв 100 000 + 16% = 116 000; возврат — вознаграждение, комиссия платформы удержана
-        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, before + Decimal("100000"))
+        # резерв 100 000 + 10% = 110 000 возвращается целиком: принятого объёма нет, комиссии нет (ПР 7.7, Б-19.11-7)
+        self.assertEqual(Wallet.objects.get(user=self.adv).available_balance, before + Decimal("110000"))
         self.assertEqual(Wallet.objects.get(user=self.adv).reserved_balance, Decimal("0"))
-        self.assertEqual(metrics.platform_revenue(), Decimal("16000"))
+        self.assertEqual(metrics.platform_revenue(), Decimal("0"))
         self.assertTrue(Notification.objects.filter(user=self.blogger, title="Сделка прекращена по соглашению").exists())
         from apps.deals.models import DealStatusLog
 
-        # в истории — фактический возврат (вся цена), а не цена минус комиссия
+        # в истории — фактический возврат: весь резерв, комиссия не взимается
         log = DealStatusLog.objects.filter(deal=deal, new_status=S.CANCELLED).get().comment
-        self.assertIn("возвращено 100 000, комиссия платформы 16 000", log)
+        self.assertIn("возвращено 110 000, комиссия платформы не взимается", log)
 
     def test_decline_keeps_deal(self):
         deal = self._deal()

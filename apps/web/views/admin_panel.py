@@ -405,11 +405,32 @@ def admin_users(request):
         users — QuerySet[User] (все или отфильтрованные), новые первые
         q     — строка поиска
     """
+    from apps.billing.models import Tariff
+    from apps.billing.tariffs import default_tariff
+
     q = request.GET.get("q", "").strip()
-    users = User.objects.all().order_by("-date_joined")
+    users = User.objects.select_related("tariff_assignment__tariff").order_by("-date_joined")
     if q:
         users = users.filter(email__icontains=q)
-    return render(request, "admin_panel/users.html", {"users": users, "q": q})
+    return render(request, "admin_panel/users.html", {
+        "users": users, "q": q, "tariffs": Tariff.objects.all(), "default_tariff": default_tariff(),
+    })
+
+
+@_staff_required
+@require_POST
+def admin_user_tariff(request, pk):
+    """Сотрудник назначает тариф рекламодателю (таблица бизнеса 19.11.2026). Новая ставка — для новых оферт (ПР 7.4)."""
+    from apps.billing.models import Tariff
+    from apps.billing.formatting import format_percent
+    from apps.billing.tariffs import assign_tariff
+
+    advertiser = get_object_or_404(User, pk=pk, role=User.Role.ADVERTISER)
+    tariff = get_object_or_404(Tariff, pk=request.POST.get("tariff"))
+    assign_tariff(advertiser, tariff, request.user)
+    messages.success(request, f"{advertiser.login_display}: тариф «{tariff.name}», комиссия "
+                              f"{format_percent(tariff.commission_percent)}% — для новых оферт.")
+    return redirect("web:admin_users")
 
 
 @_staff_required

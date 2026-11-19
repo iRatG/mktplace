@@ -536,6 +536,10 @@ class ContractorFeeRate(models.Model):
     percent = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0)])
     valid_until = models.DateField(null=True, blank=True, help_text="Пусто — бессрочно")
     note = models.CharField(max_length=255, blank=True, help_text="Основание: соглашение, скидка и т. п.")
+    approved_by = models.CharField(
+        "Согласовал (ФИО, должность)", max_length=255, default="",
+        help_text="Индивидуальную ставку согласует директор (ответ бизнеса 19.11.2026)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -547,12 +551,16 @@ class ContractorFeeRate(models.Model):
 
 
 class SpecialTariff(models.Model):
-    """Специальная ставка комиссии рекламодателя вместо тарифных уровней (задаёт сотрудник)."""
+    """Специальная ставка комиссии рекламодателя вместо ставки его тарифа (задаёт сотрудник, согласует директор)."""
 
     advertiser = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="special_tariff")
     percent = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0)])
     valid_until = models.DateField(null=True, blank=True, help_text="Пусто — бессрочно")
     note = models.CharField(max_length=255, blank=True, help_text="Основание: договор, скидка и т. п.")
+    approved_by = models.CharField(
+        "Согласовал (ФИО, должность)", max_length=255, default="",
+        help_text="Индивидуальную ставку согласует директор (ответ бизнеса 19.11.2026)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -561,3 +569,46 @@ class SpecialTariff(models.Model):
 
     def __str__(self):
         return f"{self.advertiser} — {self.percent}%"
+
+
+class Tariff(models.Model):
+    """Тариф рекламодателя (таблица бизнеса 19.11.2026): ставка комиссии, лимит кампаний в месяц, минимальный бюджет.
+
+    Абонентская плата, число сотрудников, ИИ и расширенная аналитика из той же таблицы — не здесь: их на сайте пока нет.
+    Ставка фиксируется в Поручении при направлении оферты (ПР 7.4) — правка тарифа меняет только новые оферты."""
+
+    code = models.SlugField(max_length=20, unique=True)
+    name = models.CharField(max_length=50)
+    commission_percent = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0)])
+    campaigns_per_month = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Сколько кампаний в календарный месяц можно отправить на модерацию; пусто — без ограничений")
+    min_campaign_budget = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    is_default = models.BooleanField(default=False, help_text="Тариф нового рекламодателя")
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "id"]
+        verbose_name = "Тариф рекламодателя"
+        verbose_name_plural = "Тарифы рекламодателей"
+
+    def __str__(self):
+        from .formatting import format_percent
+
+        return f"{self.name} — {format_percent(self.commission_percent)}%"
+
+
+class TariffAssignment(models.Model):
+    """Тариф, назначенный рекламодателю сотрудником; нет записи — тариф по умолчанию."""
+
+    advertiser = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tariff_assignment")
+    tariff = models.ForeignKey(Tariff, on_delete=models.PROTECT, related_name="assignments")
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    assigned_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Тариф рекламодателя (назначение)"
+        verbose_name_plural = "Тарифы рекламодателей (назначения)"
+
+    def __str__(self):
+        return f"{self.advertiser} — {self.tariff.name}"

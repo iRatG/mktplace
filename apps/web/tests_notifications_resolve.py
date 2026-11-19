@@ -35,7 +35,7 @@ def _campaign(advertiser, status=Campaign.Status.ACTIVE, name="Кампания"
         **{**CARD_FIELDS, "description": "desc"},
         advertiser=advertiser, name=name,
         payment_type=Campaign.PaymentType.FIXED, fixed_price=Decimal("50000"),
-        budget=Decimal("500000"), status=status,
+        budget=Decimal("1000000"), status=status,
         start_date=today, end_date=today + timedelta(days=30),  # даты обязательны для модерации (Р4)
     )
 

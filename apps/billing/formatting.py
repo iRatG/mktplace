@@ -18,3 +18,13 @@ def format_money(value):
     if amount == amount.to_integral_value():
         return f"{int(amount):,}".replace(",", " ")
     return f"{amount.quantize(Decimal('0.01')):,}".replace(",", " ")
+
+
+def format_percent(value):
+    """Ставка без нулевых долей и без экспоненты: Decimal("10.00") → «10», Decimal("7.50") → «7,5»."""
+    if value is None or value == "":
+        return ""
+    number = Decimal(str(value))
+    if number == number.to_integral_value():
+        return str(int(number))
+    return format(number.normalize(), "f").replace(".", ",")

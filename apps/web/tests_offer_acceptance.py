@@ -117,7 +117,7 @@ class OfferAcceptanceTest(TestCase):
         self.assertEqual(deal.status, Deal.Status.IN_PROGRESS)
         self.assertEqual(deal.publication_date, self.day)
         wallet = _wallet(self.adv)
-        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (Decimal("826000"), Decimal("174000")))
+        self.assertEqual((wallet.available_balance, wallet.reserved_balance), (Decimal("835000"), Decimal("165000")))
         # Два резерва при Акцепте: стоимость услуг и комиссия.
         self.assertEqual(Transaction.objects.filter(type=Transaction.Type.RESERVE).count(), 2)
         self.assertEqual(Transaction.objects.filter(offer=offer, deal=deal, type=Transaction.Type.RESERVE).count(), 2)

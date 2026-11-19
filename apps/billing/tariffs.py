@@ -1,85 +1,68 @@
-"""Комиссия платформы по тарифным уровням (#38).
+"""Комиссия рекламодателя по тарифу (таблица бизнеса 19.11.2026; до неё — уровни 16/13/8% по обороту, #38).
 
-Ставка зависит от месячного оборота рекламодателя — суммы вознаграждений исполнителей по сделкам, оплаченным через
-платформу за календарный месяц, без комиссии. Ставка на весь месяц считается по обороту прошлого календарного месяца,
-новый рекламодатель — первый уровень. Комиссия начисляется на вознаграждение исполнителя и оплачивается рекламодателем
-сверх него; фиксируется при направлении оферты (резерв = вознаграждение + комиссия). Специальный тариф рекламодателя
-(`SpecialTariff`) действует вместо уровней.
+У каждого рекламодателя тариф (`TariffAssignment`, нет записи — тариф по умолчанию «Бесплатно»): ставка комиссии, лимит
+кампаний в месяц и минимальный бюджет кампании. Комиссия начисляется на стоимость услуг исполнителя и оплачивается
+рекламодателем сверх неё (ПР 7.1, 7.3); фиксируется при направлении оферты (ПР 7.4). Специальный тариф рекламодателя
+(`SpecialTariff`, согласует директор) действует вместо ставки тарифа.
 """
-from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.utils import timezone
 
-# (верхняя граница оборота включительно, ставка %); None — без верхней границы.
-TIERS = (
-    (Decimal("120000000"), Decimal("16")),
-    (Decimal("1200000000"), Decimal("13")),
-    (None, Decimal("8")),
-)
+# Если в базе нет ни одного тарифа (не должно быть: их создаёт миграция billing.0015) — ставка «Бесплатно».
+FALLBACK = {"code": "free", "name": "Бесплатно", "commission_percent": Decimal("10"), "campaigns_per_month": 1,
+            "min_campaign_budget": Decimal("1000000")}
 
 
-def _previous_month(today):
-    first = today.replace(day=1)
-    prev_last = first - timedelta(days=1)
-    return prev_last.year, prev_last.month
+def default_tariff():
+    from .models import Tariff
+
+    tariff = Tariff.objects.filter(is_default=True).first() or Tariff.objects.first()
+    return tariff or Tariff(**FALLBACK)
 
 
-def monthly_turnover(advertiser, year, month):
-    """Оборот за календарный месяц: вознаграждения по сделкам, оплаченным исполнителю в этом месяце (без комиссии,
-    частично оплаченные — оплаченной частью)."""
-    from django.db.models import Sum
-    from django.db.models.functions import Coalesce
+def tariff_for(advertiser):
+    from .models import TariffAssignment
 
-    from apps.deals.models import Deal
-
-    start = timezone.make_aware(datetime(year, month, 1))
-    end = timezone.make_aware(datetime(year + (month == 12), month % 12 + 1, 1))
-    total = (
-        Deal.objects.filter(advertiser=advertiser, status=Deal.Status.COMPLETED,
-                            last_distributed_at__gte=start, last_distributed_at__lt=end)
-        .aggregate(total=Sum(Coalesce("paid_amount", "amount")))["total"]
-    )
-    return total or Decimal("0")
+    assignment = TariffAssignment.objects.select_related("tariff").filter(advertiser=advertiser).first()
+    return assignment.tariff if assignment else default_tariff()
 
 
-def tier_percent(turnover):
-    for limit, percent in TIERS:
-        if limit is None or turnover <= limit:
-            return percent
-    return TIERS[-1][1]
+def _special(advertiser, today):
+    from .models import SpecialTariff
+
+    special = SpecialTariff.objects.filter(advertiser=advertiser).first()
+    if special and (special.valid_until is None or special.valid_until >= today):
+        return special
+    return None
 
 
 def commission_percent_for(advertiser, today=None):
-    """Ставка комиссии рекламодателя на сегодня: специальный тариф или уровень по обороту прошлого месяца."""
-    from .models import SpecialTariff
-
-    today = today or timezone.localdate()
-    special = SpecialTariff.objects.filter(advertiser=advertiser).first()
-    if special and (special.valid_until is None or special.valid_until >= today):
-        return special.percent
-    year, month = _previous_month(today)
-    return tier_percent(monthly_turnover(advertiser, year, month))
+    """Ставка комиссии рекламодателя на сегодня: специальный тариф или ставка его тарифа."""
+    special = _special(advertiser, today or timezone.localdate())
+    return special.percent if special else tariff_for(advertiser).commission_percent
 
 
 def commission_amount(amount, percent):
     return (Decimal(amount) * Decimal(percent) / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def tier_description(advertiser, today=None):
-    """Подпись для интерфейса: ставка и почему она такая."""
-    from .models import SpecialTariff
+def commission_description(advertiser, today=None):
+    """Подпись для интерфейса: ставка и откуда она."""
+    from .formatting import format_percent
 
-    today = today or timezone.localdate()
-    special = SpecialTariff.objects.filter(advertiser=advertiser).first()
-    if special and (special.valid_until is None or special.valid_until >= today):
-        return f"{special.percent.normalize()}% — специальный тариф"
-    year, month = _previous_month(today)
-    turnover = monthly_turnover(advertiser, year, month)
-    from .formatting import format_money
+    special = _special(advertiser, today or timezone.localdate())
+    if special:
+        return f"{format_percent(special.percent)}% — специальный тариф"
+    tariff = tariff_for(advertiser)
+    return f"{format_percent(tariff.commission_percent)}% — тариф «{tariff.name}»"
 
-    return (f"{tier_percent(turnover).normalize()}% (ваш оборот за {date(year, month, 1):%m.%Y} — "
-            f"{format_money(turnover)} сум)")
+
+def assign_tariff(advertiser, tariff, staff):
+    """Сотрудник назначает тариф рекламодателю. Сделки и направленные оферты не меняются (ПР 7.4)."""
+    from .models import TariffAssignment
+
+    TariffAssignment.objects.update_or_create(advertiser=advertiser, defaults={"tariff": tariff, "assigned_by": staff})
 
 
 # ── Плата исполнителя за услуги платформы (ПР 7.1–7.6, редакция 06.11.2026) ──
@@ -94,4 +77,4 @@ def contractor_fee_percent_for(blogger, today=None):
     rate = ContractorFeeRate.objects.filter(blogger=blogger).first()
     if rate and (rate.valid_until is None or rate.valid_until >= today):
         return rate.percent
-    return Decimal(str(getattr(settings, "CONTRACTOR_FEE_PERCENT", "0")))
+    return Decimal(str(getattr(settings, "CONTRACTOR_FEE_PERCENT", "10")))

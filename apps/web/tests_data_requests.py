@@ -61,7 +61,8 @@ class MyDataPageTests(TestCase):
         response = self.client.get(self.url)
         self.assertContains(response, "data-held-data")
         self.assertContains(response, "data-closure-info")
-        self.assertContains(response, "claim@ublogers.uz")
+        self.assertContains(response, "info@ublogers.uz")  # адрес обращений по ПД (Б-19.11-15)
+        self.assertContains(response, "Ответственный за обработку и защиту персональных данных — Чумичев А.М., директор")
         self.assertContains(response, "data-my-consents")
 
     def test_create_notifies_staff(self):

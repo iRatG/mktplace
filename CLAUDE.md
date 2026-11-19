@@ -138,15 +138,19 @@ honeypot `hp_note` → капча Turnstile, если заданы `TURNSTILE_*`
   «Принять публикацию» — `confirm_publication` без оплаты; таймер `auto_complete_overdue`.
 - Претензия — `open_claim` / `add_claim_materials` / `resolve_claim` (5 решений, раздел — `BillingService.split_deal_payment`);
   старых `open_dispute`/`resolve_dispute` нет. Бюджет кампании — по `paid_amount`, если он есть.
-- Одностороннего отказа по новым условиям нет — `propose/accept/decline_termination`, возврат за вычетом комиссии.
-- Две платы (ПР 7, с 14.11.2026): комиссия рекламодателя — `apps/billing/tariffs.py` (16/13/8% по обороту прошлого месяца,
-  `SpecialTariff`), сверх цены, резерв = цена + комиссия (`reserved_total`); плата исполнителя — `contractor_fee_percent_for`
-  (`ContractorFeeRate` или `CONTRACTOR_FEE_PERCENT`, пока 0 — ждём В21), внутри цены, удерживается зачётом при оплате
-  (`Deal.contractor_fee_withheld`), `blogger_earning` = цена − плата. Обе фиксируются при оферте и копируются в сделку
-  (`Deal.two_fees`); раздел по претензии — обе от принятой части, одна компенсация — без обеих. Доход платформы —
-  |PAYMENT| − EARNING (обе платы), комиссия рекламодателя по сделке — `metrics.deal_commission` (без платы исполнителя).
+- Одностороннего отказа по новым условиям нет — `propose/accept/decline_termination`, полный возврат без комиссии (ПР 7.7).
+- Две платы (ПР 7, с 14.11.2026): комиссия рекламодателя — по тарифу (`apps/billing/tariffs.py`: `Tariff` / `TariffAssignment`,
+  по умолчанию «Бесплатно» 10%; особая — `SpecialTariff`), сверх цены, резерв = цена + комиссия (`reserved_total`); плата
+  исполнителя — `contractor_fee_percent_for` (`ContractorFeeRate` или `CONTRACTOR_FEE_PERCENT`, 10%), внутри цены, удерживается
+  зачётом при оплате (`Deal.contractor_fee_withheld`), `blogger_earning` = цена − плата. Обе фиксируются при оферте и копируются
+  в сделку (`Deal.two_fees`); раздел по претензии — обе от принятой части; компенсация — без комиссии рекламодателя (ПР 7.5), с
+  платой исполнителя. Доход платформы — |PAYMENT| − EARNING (обе платы), комиссия рекламодателя по сделке —
+  `metrics.deal_commission` (без платы исполнителя). Ставку в тексте — `formatting.format_percent`, не `Decimal.normalize()`.
+- Бюджет кампании — стоимость услуг исполнителей, комиссия сверх него (ПР 7.1, 7.3). Тариф задаёт минимальный бюджет и лимит
+  кампаний в месяц — `min_budget_error`, `campaign_limit_error` в `moderation_error` (лимит — по `Campaign.submitted_at`, первой
+  отправке; отклонённые не считаются, демо не ограничены). Тариф назначает сотрудник в `/panel/users/`.
 - Закрытая кампания — `Campaign.visibility`; что видит исполнитель — только `campaigns_visible_to(blogger)` (веб и API).
-- На модерацию — `moderation_error` (даты, обязательные поля карточки, разрешительный документ — `permit_error`).
+- На модерацию — `moderation_error` (даты, обязательные поля карточки, разрешительный документ — `permit_error`, тариф).
 - Тестам: `apps.campaigns.testing` — `CARD_FIELDS`, `CLAIM_FIELDS`, `publication_day`, `deal_from_response`.
 
 ### Загруженные файлы — только через проверку прав, доступ сотрудника к ПД — в журнал

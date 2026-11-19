@@ -1,5 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
+from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -88,7 +89,8 @@ class CampaignViewSet(viewsets.ModelViewSet):
             else NotificationService.MODERATION_FIRST
         )
         campaign.status = Campaign.Status.MODERATION
-        campaign.save(update_fields=["status"])
+        campaign.submitted_at = campaign.submitted_at or timezone.now()  # лимит тарифа — по первой отправке
+        campaign.save(update_fields=["status", "submitted_at"])
         NotificationService.notify_campaign_moderation_requested(campaign, source)
         return DRFResponse({"detail": "Campaign submitted for moderation."})
 

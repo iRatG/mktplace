@@ -91,6 +91,7 @@
   <section class="mb-8">
     <h2 class="text-xl font-semibold text-gray-900 mb-3">7. Хранение данных</h2>
     <p class="text-gray-700">В соответствии со статьёй 15 Закона РУз «О рекламе», данные о завершённых сделках и рекламных материалах хранятся не менее <strong class="text-gray-900">3 (трёх) лет</strong> с даты последнего распространения рекламы. Материалы сделок, по которым открывался или рассматривается спор, замораживаются и не подлежат удалению до окончания установленного срока хранения.</p>
+    {% if pd_officer %}<p class="text-gray-700 mt-3" data-pd-officer>Ответственный за обработку и защиту персональных данных — {{ pd_officer }}{% if operator_name %}, {{ operator_name }}{% endif %}.{% if pd_contact_email %} Обращения по персональным данным: <a href="mailto:{{ pd_contact_email }}" class="text-orange-600 hover:text-orange-700">{{ pd_contact_email }}</a>.{% endif %}</p>{% endif %}
   </section>
 
   <!-- 8 -->

@@ -237,6 +237,7 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
 
         percent = commission_percent_for(advertiser)
         commission = commission_amount(amount, percent)
+        from apps.billing.formatting import format_percent
         from apps.billing.tariffs import contractor_fee_percent_for
 
         fee_percent = contractor_fee_percent_for(blogger)
@@ -245,7 +246,7 @@ def send_offer(*, campaign_pk, advertiser, blogger, platform, publication_date, 
         if available < amount + commission:
             raise AcceptError(
                 f"Недостаточно средств на балансе: для оферты нужно {_money(amount + commission)} "
-                f"(вознаграждение {_money(amount)} + комиссия платформы {percent.normalize()}% {_money(commission)}). "
+                f"(вознаграждение {_money(amount)} + комиссия платформы {format_percent(percent)}% {_money(commission)}). "
                 f"Деньги резервируются, когда исполнитель примет оферту."
             )
         now = timezone.now()

@@ -159,6 +159,7 @@ urlpatterns = [
     # Admin: user management (Module 13)
     path("panel/users/<int:pk>/block/", views.admin_user_block, name="admin_user_block"),
     path("panel/users/<int:pk>/unblock/", views.admin_user_unblock, name="admin_user_unblock"),
+    path("panel/users/<int:pk>/tariff/", views.admin_user_tariff, name="admin_user_tariff"),
 
     # Admin: categories CRUD (Module 13)
     path("panel/categories/", views.admin_categories, name="admin_categories"),
